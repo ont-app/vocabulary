@@ -200,7 +200,7 @@ Where
               :foaf:homepage))
    }
   [uri]
-  {:pre [(string? (let [_uri uri] (def __uri _uri) uri))]
+  {:pre [(string? uri)]
    }
   (let [[_ namespace value] (re-matches (namespace-re) uri)
         ]

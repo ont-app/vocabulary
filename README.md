@@ -6,9 +6,7 @@ This is an experiment exploring the notion that some synergy can emerge from int
 
 ## Installation
 
-Watch this space
-
-## Usage
+[![Clojars Project](https://img.shields.io/clojars/v/ont-app/vocabulary.svg)](https://clojars.org/ont-app/vocabulary)
 
 Include this in your project.clj...
 ```
@@ -19,7 +17,12 @@ Include this in your project.clj...
    ...
    ])
 ```   
-Then in code you want to use...
+
+
+## Usage
+
+Require ....
+
 ```
 (ns ...
  (:require
@@ -48,12 +51,12 @@ Note that the metadata for this module includes some keywords in this format:
 :<prefix>:<name>
 ```
 
-With these statements:
+With these statements...
 ```
 :vann:preferredNamespaceUri "http://rdf.naturallexicon.org/ont-app/vocabulary/"
 :vann:preferredNamespacePrefix "voc"
 ```
-declaring that this namespace is addressable with that IRI, with the prefix 'voc'.
+...declaring that this namespace is publicly addressable with that IRI, with the prefix 'voc'.
 
 The namespace for `vann` is also declared as an `ns` further down in the `vocab.core.clj` file:
 
