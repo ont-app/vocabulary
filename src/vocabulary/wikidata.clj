@@ -3,54 +3,54 @@
    })
 
 
-(ns iri.org.wikidata.www.entity
+(ns org.naturallexicon.lod.wikidata.wd
   {
    :dc:title "Wikibase/EntityData"
    :foaf:homepage "https://www.mediawiki.org/wiki/Wikibase/EntityData"
-   :sh:namespace "http://www.wikidata.org/entity/"
-   :sh:prefix "wd"
+   :vann:preferredNamespaceUri "http://www.wikidata.org/entity/"
+   :vann:preferredNamespacePrefix "wd"
    }
   )
 
-(ns iri.org.wikidata.www.prop.direct
+(ns org.naturallexicon.lod.wikidata.wdt
   {
    :dc:description "Direct properties in wikibase"
-   :sh:namespace "http://www.wikidata.org/prop/direct/"
-   :sh:prefix "wdt"
-   :rdfs:seeAlso :wikibase/directClaim
+   :vann:preferredNamespaceUri "http://www.wikidata.org/prop/direct/"
+   :vann:preferredNamespacePrefix "wdt"
+   :rdfs:seeAlso :wikibase:directClaim
    }
   )
 
-(ns iri.se.wikiba.ontology
+(ns org.naturallexicon.lod.wikidata.wikibase
   {
    :rdfs:label "Wikibase system ontology"
-   :sh:namespace "http://wikiba.se/ontology#"
-   :sh:prefix "wikibase"
+   :vann:preferredNamespaceUri "http://wikiba.se/ontology#"
+   :vann:preferredNamespacePrefix "wikibase"
    :rdfs:isDefinedBy "http://wikiba.se/ontology-1.0.owl"
    }
   )
 
-(ns iri.org.wikidata.www.prop
+(ns org.naturallexicon.lod.wikidata.p
   {
    :rdfs:comment "Reifies wikibase properties"
-   :sh:namespace "http://www.wikidata.org/prop/"
-   :sh:prefix "p"
+   :vann:preferredNamespaceUri "http://www.wikidata.org/prop/"
+   :vann:preferredNamespacePrefix "p"
    :foaf:homepage "https://www.wikidata.org/wiki/Help:Properties"
    }
   )
 
-(ns iri.org.wikidata.www.statement
+(ns org.naturallexicon.lod.wikidata.ps
   {
-   :sh:namespace "http://www.wikidata.org/prop/statement/"
-   :sh:prefix #{"v" "ps"}
+   :vann:preferredNamespaceUri "http://www.wikidata.org/prop/statement/"
+   :vann:preferredNamespacePrefix #{"v" "ps"}
    :foaf:homepage "https://www.wikidata.org/wiki/Help:Statements"
    }
   )
 
-(ns iri.org.wikidata.www.qualifier
+(ns org.naturallexicon.lod.wikidata.q
   {
-   :sh:namespace "http://www.wikidata.org/prop/qualifier"
-   :sh:prefix "q"
+   :vann:preferredNamespaceUri "http://www.wikidata.org/prop/qualifier"
+   :vann:preferredNamespacePrefix "q"
    :foaf:homepage "https://www.wikidata.org/wiki/Help:Qualifiers"
    }
   )
@@ -59,104 +59,104 @@
 ;; BUT SHOW UP IN https://www.mediawiki.org/wiki/Wikibase/Indexing/RDF_Dump_Format#Full_list_of_prefixes
 
 ;; PREFIX wdtn: <http://www.wikidata.org/prop/direct-normalized/>
-(ns iri.org.wikidata.www.prop.direct-normalized
+(ns org.naturallexicon.lod.wikidata.wdtn
   {
-   :sh:namespace "http://www.wikidata.org/prop/direct-normalized/"
-   :sh:prefix "wdtn"
+   :vann:preferredNamespaceUri "http://www.wikidata.org/prop/direct-normalized/"
+   :vann:preferredNamespacePrefix "wdtn"
    }
   )
 ;;  PREFIX wds: <http://www.wikidata.org/entity/statement/>
-(ns iri.org.wikidata.www.entity.statement
+(ns org.naturallexicon.lod.wikidata.wds
   {
-   :sh:namespace "http://www.wikidata.org/entity/statement/"
-   :sh:prefix "wds"
+   :vann:preferredNamespaceUri "http://www.wikidata.org/entity/statement/"
+   :vann:preferredNamespacePrefix "wds"
    }
   )
 
 ;;  PREFIX wdref: <http://www.wikidata.org/reference/>
-(ns iri.org.wikidata.www.reference
+(ns org.naturallexicon.lod.wikidata.wdref
   {
-   :sh:namespace "http://www.wikidata.org/reference/"
-   :sh:prefix "wdref"
+   :vann:preferredNamespaceUri "http://www.wikidata.org/reference/"
+   :vann:preferredNamespacePrefix "wdref"
    }
    )
   
 ;; PREFIX wdv: <http://www.wikidata.org/value/>
-(ns iri.org.wikidata.www.value
+(ns org.naturallexicon.lod.wikidata.wdv
   {
-   :sh:namespace "http://www.wikidata.org/value/"
-   :sh:prefix "wdv"
+   :vann:preferredNamespaceUri "http://www.wikidata.org/value/"
+   :vann:preferredNamespacePrefix "wdv"
    }
   )
 
 ;; PREFIX psv: <http://www.wikidata.org/prop/statement/value/>
-(ns iri.org.wikidata.www.prop.statement.value
+(ns org.naturallexicon.lod.wikidata.psv
   {
-   :sh:namespace "http://www.wikidata.org/prop/statement/value/"
-   :sh:prefix "psv"
+   :vann:preferredNamespaceUri "http://www.wikidata.org/prop/statement/value/"
+   :vann:preferredNamespacePrefix "psv"
    }
   )
 
 ;; PREFIX psn: <http://www.wikidata.org/prop/statement/value-normalized/>
 (ns iri.org.wikidata.www.prop.statement.value-normalized
   {
-   :sh:namespace "http://www.wikidata.org/prop/statement/value-normalized/"
-   :sh:prefix "psn"
+   :vann:preferredNamespaceUri "http://www.wikidata.org/prop/statement/value-normalized/"
+   :vann:preferredNamespacePrefix "psn"
    }
   )
 
 ;; PREFIX pq: <http://www.wikidata.org/prop/qualifier/>
-(ns iri.org.wikidata.www.prop.qualifier
+(ns org.naturallexicon.lod.wikidata.pq
   {
-   :sh:namespace "http://www.wikidata.org/prop/qualifier/"
-   :sh:prefix "pq"
+   :vann:preferredNamespaceUri "http://www.wikidata.org/prop/qualifier/"
+   :vann:preferredNamespacePrefix "pq"
    }
   )
 
 ;; PREFIX pqv: <http://www.wikidata.org/prop/qualifier/value/>
-(ns iri.org.wikidata.www.prop.qualifier.value
+(ns org.naturallexicon.lod.wikidata.pqv
   {
-   :sh:namespace "http://www.wikidata.org/prop/qualifier/value/"
-   :sh:prefix "pqv"
+   :vann:preferredNamespaceUri "http://www.wikidata.org/prop/qualifier/value/"
+   :vann:preferredNamespacePrefix "pqv"
    }
   )
 
 ;; PREFIX pqn: <http://www.wikidata.org/prop/qualifier/value-normalized/>
-(ns iri.org.wikidata.www.prop.qualifier.value-normalized
+(ns org.naturallexicon.lod.wikidata.pqn
   {
-   :sh:namespace "http://www.wikidata.org/prop/qualifier/value-normalized/"
-   :sh:prefix "pqn"
+   :vann:preferredNamespaceUri "http://www.wikidata.org/prop/qualifier/value-normalized/"
+   :vann:preferredNamespacePrefix "pqn"
    }
   )
 
 ;; PREFIX pr: <http://www.wikidata.org/prop/reference/>
-(ns iri.org.wikidata.www.prop.reference
+(ns org.naturallexicon.lod.wikidata.pr
   {
-   :sh:namespace "http://www.wikidata.org/prop/reference/"
-   :sh:prefix "pr"
+   :vann:preferredNamespaceUri "http://www.wikidata.org/prop/reference/"
+   :vann:preferredNamespacePrefix "pr"
    }
   )
 
 ;; PREFIX prv: <http://www.wikidata.org/prop/reference/value/>
-(ns iri.org.wikidata.www.prop.reference.value
+(ns org.naturallexicon.lod.wikidata.prv
   {
-   :sh:namespace "http://www.wikidata.org/prop/reference/value/"
-   :sh:prefix "prv"
+   :vann:preferredNamespaceUri "http://www.wikidata.org/prop/reference/value/"
+   :vann:preferredNamespacePrefix "prv"
    }
   )
 
 ;; PREFIX prn: <http://www.wikidata.org/prop/reference/value-normalized/>
-(ns iri.org.wikidata.www.prop.reference.value-normalized
+(ns org.naturallexicon.lod.wikidata.prn
   {
-   :sh:namespace "http://www.wikidata.org/prop/reference/value-normalized/"
-   :sh:prefix "prn"
+   :vann:preferredNamespaceUri "http://www.wikidata.org/prop/reference/value-normalized/"
+   :vann:preferredNamespacePrefix "prn"
    }
   )
 
  ;; PREFIX wdno: <http://www.wikidata.org/prop/novalue/>
-(ns iri.org.wikidata.www.prop.novalue
+(ns org.naturallexicon.lod.wikidata.wdno
   {
-   :sh:namespace "http://www.wikidata.org/prop/novalue/"
-   :sh:prefix "wdno"
+   :vann:preferredNamespaceUri "http://www.wikidata.org/prop/novalue/"
+   :vann:preferredNamespacePrefix "wdno"
    }
   )

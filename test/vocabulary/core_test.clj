@@ -2,6 +2,21 @@
   (:require [clojure.test :refer :all]
             [vocabulary.core :refer :all]))
 
-(deftest a-test
-  (testing "FIXME, I fail."
-    (is (= 0 1))))
+
+(deftest attr-map-test
+  (testing "Tests public attr-map tests"
+    (is (= (test #'ns-to-namespace)
+           :ok))
+    (is (= (test #'iri-for)
+           :ok))
+    (is (= (test #'ns-to-prefix)
+           :ok))
+    (is (= (test #'qname-for)
+           :ok))
+    (is (= (test #'keyword-for)
+           :ok))
+    (is (= (test #'sparql-prefixes-for)
+           :ok))
+    (is (= (test #'prepend-prefix-declarations )
+           :ok))))
+
