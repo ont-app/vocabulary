@@ -83,6 +83,7 @@ declaration
                   (map maybe-mapping
                        (all-ns))))))
 
+
 (def voc-re
   "recognizes keyword names with properly formatted prefixes"
   #"^([a-zA-Z]+)[:](.*)")
@@ -97,32 +98,38 @@ Where
 <namespace> is typically of the form http://...., declared with 
   :vann:preferredNamespaceUri in metadata of <ns>
 "
-  {:test #(assert
-           (= (iri-for :foaf:homepage)
-              "http://xmlns.com/foaf/0.1/homepage"))
+  {:test #(do (assert
+               (= (iri-for :foaf:homepage)
+                  "http://xmlns.com/foaf/0.1/homepage"))
+              (assert
+               (= (iri-for :http://blah)
+                  "http://blah")))
    }
   [kw]
   {:pre (keyword? kw)
    }
-  (if-let [[_ prefix value] (re-matches voc-re (name kw))
-           ]
-    (let [iri (-> prefix
-                  ((prefix-to-ns))
-                  ns-to-namespace)
-          ]
-      (if-not iri
-        (throw (Exception. (str "No URI declared for prefix '" prefix "'")))
-        (str iri
-             value)))
-    ;; else we did not match voc-re, check the aliases
-    (if-let [_ns (namespace kw)
+  (if (#{"http:" "https:" "file:"} (namespace kw)) ;; uri scheme http://...
+    (str (namespace kw) "/" (name kw))
+    ;; else we can treat first slash as a namepace marker...
+    (if-let [[_ prefix value] (re-matches voc-re (name kw))
              ]
-      (let [iri (->> _ns
-                     (symbol)
-                     (get (ns-aliases *ns*))
-                     (ns-to-namespace))
+      (let [iri (-> prefix
+                    ((prefix-to-ns))
+                    ns-to-namespace)
             ]
-        (str iri (name kw))))))
+        (if-not iri
+          (throw (Exception. (str "No URI declared for prefix '" prefix "'")))
+          (str iri
+               value)))
+      ;; else we did not match voc-re, check the aliases
+      (if-let [_ns (namespace kw)
+               ]
+        (let [iri (->> _ns
+                       (symbol)
+                       (get (ns-aliases *ns*))
+                       (ns-to-namespace))
+              ]
+          (str iri (name kw)))))))
 
 (defn ns-to-prefix 
   "Returns the prefix associated with <_ns>
@@ -167,15 +174,16 @@ Where
     ;; else we did not match voc-re, check the aliases
     (if-let [_ns (namespace kw)
              ]
-      (str (->> (or (->> _ns
-                         (symbol)
-                         (get (ns-aliases *ns*)))
-                    ;; else there's an _ns, but no alias assume ::keyword
-                    *ns*)
-           
-                (ns-to-prefix))
-           ":"
-           (name kw)))))
+      (if (#{"http:" "https:" "file:"} _ns) ;; this is a scheme, not a namespace
+        (str "<" _ns "/" (name kw) ">")
+        (str (->> (or (->> _ns
+                           (symbol)
+                           (get (ns-aliases *ns*)))
+                      ;; else there's an _ns, but no alias assume ::keyword
+                      *ns*)
+                  (ns-to-prefix))
+             ":"
+             (name kw))))))
   
 
 (defn namespace-re []
@@ -202,17 +210,20 @@ Where
   [uri]
   {:pre [(string? uri)]
    }
+ 
   (let [[_ namespace value] (re-matches (namespace-re) uri)
         ]
-    (if (not namespace)
-      (keyword value)
-      (keyword (str (-> namespace
-                        ((namespace-to-ns))
-                        meta
-                        :vann:preferredNamespacePrefix)
-                    ":"
-                    value
-                    )))))
+    (if (not value)
+      (keyword uri)
+      (if (not namespace)
+        (keyword value)
+        (keyword (str (-> namespace
+                          ((namespace-to-ns))
+                          meta
+                          :vann:preferredNamespacePrefix)
+                      ":"
+                      value
+                      ))))))
 
 (defn- prefix-re []
   "Returns a regex that recognizes prefixes declared in ns metadata with 
