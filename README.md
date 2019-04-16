@@ -91,10 +91,10 @@ The vocabulary.core module declares a number of commonly used namespaces, e.g.
 )
 ```
 
-Note that these are all simple key/value declarations except the `:voc:appendix` declaration which is in the form 
+Note that these are all simple key/value declarations except the `:voc/appendix` declaration which is in the form 
 
 ```
-:voc:appendix [[<subject> <predicate> <object>]....], 
+:voc/appendix [[<subject> <predicate> <object>]....], 
 ```
 
 This includes triples which elaborate on constructs mentioned in the key-value paris in the rest of the metadata, in this case describing the media types of files describing the vocabulary which are available for download at the URLs given.
@@ -170,7 +170,7 @@ We can get the prefix associated with an `ns`:
 
 We can get the [qname](https://en.wikipedia.org/wiki/QName) for a keyword:
 ```
-(qname-for :foaf:homepage)
+(qname-for :foaf/homepage)
 ;; -> "foaf:homepage"
 
 ;; (with the 'v' declaration above)...
