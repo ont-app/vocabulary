@@ -153,7 +153,7 @@ We can get the IRI associated with a keyword:
 "http://xmlns.com/foaf/0.1/homepage"
 ```
 
-The function `iri-for` works as well for aliases interned in the local lexical environment are handled appropriately:
+The function `iri-for` works as well for aliases interned in the local lexical environment:
 ```
 (require '[vocabulary.core :as v])
 
