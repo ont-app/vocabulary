@@ -14,9 +14,9 @@
    :vann/preferredNamespacePrefix "ontolex"
    :vann/preferredNamespaceUri "http://www.w3.org/ns/lemon/ontolex#"
    :foaf/homepage "https://www.w3.org/2016/05/ontolex/"
-   :dcat:downloadURL "http://www.w3.org/ns/lemon/ontolex#"
-   :voc:appendix [["http://www.w3.org/ns/lemon/ontolex#"
-                   :dcat:mediaType "application/rdf+xml"]]
+   :dcat/downloadURL "http://www.w3.org/ns/lemon/ontolex#"
+   :voc/appendix [["http://www.w3.org/ns/lemon/ontolex#"
+                   :dcat/mediaType "application/rdf+xml"]]
    }
   )
 
@@ -28,19 +28,19 @@
    :vann/preferredNamespacePrefix "pmn"
    :vann/preferredNamespaceUri "http://premon.fbk.eu/ontology/core#"
    :foaf/homepage "http://premon.fbk.eu/ontology/core.html"
-   :owl:seeAlso "http://www.w3.org/ns/lemon/ontolex#"
-   :dcat:downloadURL #{"http://premon.fbk.eu/ontology/core.ttl"
+   :owl/seeAlso "http://www.w3.org/ns/lemon/ontolex#"
+   :dcat/downloadURL #{"http://premon.fbk.eu/ontology/core.ttl"
                        "http://premon.fbk.eu/ontology/core.owl"
                        "http://premon.fbk.eu/ontology/core.nt"
                        }
-   :voc:appendix [["http://premon.fbk.eu/ontology/core.ttl"
-                   :dcat:mediaType "text/tutle"
+   :voc/appendix [["http://premon.fbk.eu/ontology/core.ttl"
+                   :dcat/mediaType "text/tutle"
                    ]
                   ["http://premon.fbk.eu/ontology/core.owl"
-                   :dcat:mediaType "application/owl+xml"
+                   :dcat/mediaType "application/owl+xml"
                    ]
                   ["http://premon.fbk.eu/ontology/core.nt"
-                   :dcat:mediaType "application/n-triples"
+                   :dcat/mediaType "application/n-triples"
                    ]]
    }
   )

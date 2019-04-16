@@ -39,8 +39,8 @@ The `vocabulary.core` module starts with this `ns` declaration:
 ```
 (ns vocabulary.core
   {:doc "Defines utilities and a set of namespaces for commonly used linked data constructs, metadata of which specifies RDF namespaces, prefixes and other details."
-   :vann:preferredNamespacePrefix "voc"
-   :vann:preferredNamespaceUri
+   :vann/preferredNamespacePrefix "voc"
+   :vann/preferredNamespaceUri
    "http://rdf.naturallexicon.org/ont-app/vocabulary/"
    }
    (:require ...))
@@ -53,8 +53,8 @@ Note that the metadata for this module includes some keywords in this format:
 
 With these statements...
 ```
-:vann:preferredNamespaceUri "http://rdf.naturallexicon.org/ont-app/vocabulary/"
-:vann:preferredNamespacePrefix "voc"
+:vann/preferredNamespaceUri "http://rdf.naturallexicon.org/ont-app/vocabulary/"
+:vann/preferredNamespacePrefix "voc"
 ```
 ...declaring that this namespace is publicly addressable with that IRI, with the prefix 'voc'.
 
@@ -63,11 +63,11 @@ The namespace for `vann` is also declared as an `ns` further down in the `vocab.
 ```
 (ns org.naturallexicon.lod.vann
 {
-  :rdfs:label "VANN"
-  :dc:description "A vocabulary for annotating vocabulary descriptions"
-  :vann:preferredNamespaceUri "http://purl.org/vocab/vann"
-  :vann:peferredNamespacePrefix "vann"
-  :foaf:homepage "http://vocab.org/vann/"
+  :rdfs/label "VANN"
+  :dc/description "A vocabulary for annotating vocabulary descriptions"
+  :vann/preferredNamespaceUri "http://purl.org/vocab/vann"
+  :vann/peferredNamespacePrefix "vann"
+  :foaf/homepage "http://vocab.org/vann/"
 })
 ```
 
@@ -78,14 +78,14 @@ The vocabulary.core module declares a number of commonly used namespaces, e.g.
 
 (ns org.naturallexicon.lod.foaf
 {
- :dc:title "Friend of a Friend (FOAF) vocabulary"
- :dc:description "The Friend of a Friend (FOAF) RDF vocabulary,
+ :dc/title "Friend of a Friend (FOAF) vocabulary"
+ :dc/description "The Friend of a Friend (FOAF) RDF vocabulary,
  described using W3C RDF Schema and the Web Ontology Language."
- :vann:preferredNamespaceUri "http://xmlns.com/foaf/0.1/"
- :vann:preferredNamespacePrefix "foaf"
- :foaf:homepage "http://xmlns.com/foaf/spec/"
- :dcat:downloadURL "http://xmlns.com/foaf/spec/index.rdf"
- :voc:appendix [["http://xmlns.com/foaf/spec/index.rdf"
+ :vann/preferredNamespaceUri "http://xmlns.com/foaf/0.1/"
+ :vann/preferredNamespacePrefix "foaf"
+ :foaf/homepage "http://xmlns.com/foaf/spec/"
+ :dcat/downloadURL "http://xmlns.com/foaf/spec/index.rdf"
+ :voc/appendix [["http://xmlns.com/foaf/spec/index.rdf"
                  :dcat:mediaType "application/rdf+xml"]]
  }
 )
@@ -148,25 +148,18 @@ We can get the namespaces associated with IRIs:
 We can get the IRI associated with a keyword:
 
 ```
-(iri-for :foaf:homepage)
+(iri-for :foaf/homepage)
 ;; ->
 "http://xmlns.com/foaf/0.1/homepage"
 ```
 
-Keywords declared using this convention should match `voc-re`...
-```
-(re-matches voc-re (name :foo:bar))
-["foo:bar" "foo" "bar"]
-```
-The function `iri-for` works as well for aliases interned within native Clojure `ns` using the slash syntax:
+The function `iri-for` works as well for aliases interned in the local lexical environment are handled appropriately:
 ```
 (require '[vocabulary.core :as v])
 
 (iri-for :v/appendix)
 ;;-> "http://rdf.naturallexicon.org/ont-app/vocabulary/appendix"
 ```
-The difference here being that `:v/appendix` only holds within the immediate lexical environment of the code as executed, whereas the equivalent `:voc:appendix` is in keeping with a globally declared convention.
-
 
 We can get the prefix associated with an `ns`:
 ```
@@ -188,7 +181,7 @@ We can get the [qname](https://en.wikipedia.org/wiki/QName) for a keyword:
 We can get a keyword for a IRI...
 ```
 (keyword-for "http://xmlns.com/foaf/0.1/homepage")
-;; -> :foaf:homepage
+;; -> :foaf/homepage
 ```
 
 We can infer the PREFIX declarations appropriate to a [SPARQL](https://en.wikipedia.org/wiki/SPARQL) query:
@@ -206,11 +199,6 @@ Or we can just go ahead and prepend the prefixes...
 "PREFIX foaf: <http://xmlns.com/foaf/0.1/>
 Select * Where{?s foaf:homepage ?homepage}"
 ```
-
-
-### Bugs
-
-This is version 0.1.0-SNAPSHOT, and guaranteed to be bug-free.
 
 ## License
 

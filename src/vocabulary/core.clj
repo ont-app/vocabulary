@@ -13,10 +13,10 @@
 (def ontology
   "I'm still kinda spitballing here"
   {:voc/appendix
-   {:rdf/type :rdf:Property
-    :rdfs/comment "<ns> :voc:appendix <triples>
+   {:rdf/type #{:rdf:Property}
+    :rdfs/comment #{"<ns> :voc/appendix <triples>
  Asserts that <triples> describe a graph that elaborates on other attributes asserted in usual key-value metadata asserted for <ns>, e.g. asserting a dcat:mediaType relation for some dcat:downloadURL.
- "
+ "}
     }})
 
 (defn- collect-prefixes
@@ -84,11 +84,23 @@ declaration
                        (all-ns))))))
 
 (defn- aliased-ns [prefix]
+  "Returns nil or the ns whose aliase is `prefix`
+Where
+<prefix> is a string, typically parsed from a keyword.
+"
+  {:pre [(string? prefix)]
+   }
   (->> prefix
        (symbol)
        (get (ns-aliases *ns*))))
 
 (defn- prefixed-ns [prefix]
+  "Returns nil or the ns whose `prefix` was declared in metadata with :vann/preferredNamespacePrefix
+Where
+<prefix> is a string, typically parsed from a keyword.
+"
+  {:pre [(string? prefix)]
+   }
   (get (prefix-to-ns) prefix))
 
 
@@ -130,13 +142,11 @@ Where
       (throw (Exception. (str "Could not find IRI for " kw))))))
 
 
-
-
-
 (defn ns-to-prefix 
-  "Returns the prefix associated with <_ns>
+  "Returns the prefix associated with `_ns`
 Where
-<_ns> is a clojure namespace.
+<_ns> is a clojure namespace, which may have :vann/preferredNamespacePrefix
+  declaration in its metadata.   
 "
   {:test #(assert
            (= (ns-to-prefix (find-ns 'org.naturallexicon.lod.foaf))
@@ -229,7 +239,7 @@ Where
         "):")))
 
 (defn- find-prefixes 
-  "Returns #{<prefix>...} for <s>
+  "Returns #{<prefix>...} for `s`
 Where
 <prefix> is a prefix found in <s>, for which some (meta ns) has a 
   :vann/preferredNamespacePrefix declaration
