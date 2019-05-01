@@ -464,3 +464,12 @@ Where
                   ["http://schema.org/version/latest/schema.jsonld"
                    :dcat/mediaType "application/ld+json"]]
    })
+
+(ns org.naturallexicon.lod.xsd
+  {
+   :dc/description "Offers facilities for describing the structure and
+   constraining the contents of XML and RDF documents"
+   :vann/preferredNamespaceUri "http://www.w3.org/2001/XMLSchema#"
+   :vann/preferredNamespacePrefix "xsd"
+   :foaf/homepage "https://www.w3.org/2001/XMLSchema"
+   })
