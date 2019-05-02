@@ -7,12 +7,19 @@
   (:require
    [clojure.string :as s]
    [clojure.set :as set]
+   #?(:cljs [cljs.analyzer.api :as ann-api])
    ))       
 
-(defn Exception [msg]
+;; CLJ(S) STUFF
+(defn cljc-error [msg]
   #?(:clj (Exception. msg)
      :cljs (js/Error msg)))
 
+(defn cljc-all-ns []
+  #?(:clj (all-ns)
+     :cljs (map ann-api/find-ns (ann-api/all-ns))))
+
+;; SCHEMA
 (def ontology
   "I'm still kinda spitballing here"
   {:voc/appendix
@@ -22,6 +29,7 @@
  "}
     }})
 
+;; FUNCTIONS
 (defn- collect-prefixes
   "Returns {<prefix> <namespace> ...} s.t. <next-ns> is included
 Where
@@ -31,8 +39,8 @@ Where
 "
   {:test #(assert
            (= (collect-prefixes {}
-                                (find-ns 'org.naturallexicon.lod.foaf))
-              {"foaf" (find-ns 'org.naturallexicon.lod.foaf)}))
+                                (find-ns 'vocabulary.foaf))
+              {"foaf" (find-ns 'vocabulary.foaf)}))
    }
   [acc next-ns]
   {:pre (map? acc)
@@ -65,7 +73,7 @@ Where
 <ns> is an instance of clojure.lang.Namespace
 "
   {:test #(assert
-           (= (ns-to-namespace (find-ns 'org.naturallexicon.lod.foaf))
+           (= (ns-to-namespace (find-ns 'vocabulary.foaf))
               "http://xmlns.com/foaf/0.1/"))
    }
   [ns]
@@ -124,7 +132,7 @@ Where
                (= (iri-for ::blah)
                   "http://rdf.naturallexicon.org/ont-app/vocabulary/blah"))
               (assert
-               (= (iri-for :http://blah)
+               (= (iri-for (keyword "http://blah"))
                   "http://blah")))
    }
   [kw]
@@ -138,11 +146,11 @@ Where
                     (aliased-ns prefix)
                     (prefixed-ns prefix))]
         (if-not _ns
-          (throw (Exception (str "No URI declared for prefix '" prefix "'")))
+          (throw (cljc-error (str "No URI declared for prefix '" prefix "'")))
           (str (-> _ns
                    (ns-to-namespace))
                (name kw))))
-      (throw (Exception. (str "Could not find IRI for " kw))))))
+      (throw (cljc-error (str "Could not find IRI for " kw))))))
 
 
 (defn ns-to-prefix 
@@ -152,7 +160,7 @@ Where
   declaration in its metadata.   
 "
   {:test #(assert
-           (= (ns-to-prefix (find-ns 'org.naturallexicon.lod.foaf))
+           (= (ns-to-prefix (find-ns 'vocabulary.foaf))
               "foaf"))
    }
   [_ns]
@@ -185,7 +193,7 @@ Where
                     (prefixed-ns prefix))
             ]
         (if-not _ns
-          (throw (Exception. (str "Could not resolve prefix " prefix))))
+          (throw (cljc-error (str "Could not resolve prefix " prefix))))
         
         (str (ns-to-prefix _ns)
              ":"
@@ -308,6 +316,7 @@ Where
 
 ;;; NAMESPACE DECLARATIONS
 ;;; These are commonly used RDF namespaces.
+
 ;;; We don't want the compiler to create files for these ns's, so we'll declare
 ;;; them on load...
 
@@ -316,7 +325,7 @@ Where
 ;;; These decls will be eval'd at the end of the file
 
 (add-ns-decl
- '(ns org.naturallexicon.lod.rdf
+ '(ns vocabulary.rdf
     {
      :dc/title "The RDF Concepts Vocabulary (RDF)" 
      :dc/description "This is the RDF Schema for the RDF vocabulary terms
@@ -330,9 +339,8 @@ Where
      }
     ))
 
-
 (add-ns-decl
- '(ns org.naturallexicon.lod.rdf-schema
+ '(ns vocabulary.rdf-schema
     {
      :dc/title "The RDF Schema vocabulary (RDFS)"
      :vann/preferredNamespaceUri "http://www.w3.org/2000/01/rdf-schema#"
@@ -345,7 +353,7 @@ Where
     ))
 
 (add-ns-decl
- '(ns org.naturallexicon.lod.owl  
+ '(ns vocabulary.owl  
     {
      :dc/title "The OWL 2 Schema vocabulary (OWL 2)"
      :dc/description
@@ -375,7 +383,7 @@ Where
     ))
 
 (add-ns-decl
- '(ns org.naturallexicon.lod.vann
+ '(ns vocabulary.vann
     {
      :rdfs/label "VANN"
      :dc/description "A vocabulary for annotating vocabulary descriptions"
@@ -385,7 +393,7 @@ Where
      }))
 
 (add-ns-decl
- '(ns org.naturallexicion.lod.dc
+ '(ns vocabulary.dc
     {
      :dc/title "Dublin Core Metadata Element Set, Version 1.1"
      :vann/preferredNamespaceUri "http://purl.org/dc/elements/1.1/"
@@ -397,7 +405,7 @@ Where
     ))
 
 (add-ns-decl
- '(ns org.naturallexicon.lod.dct
+ '(ns vocabulary.dct
     {
      :dc/title "DCMI Metadata Terms - other"
      :vann/preferredNamespaceUri "http://purl.org/dc/elements/1.1/"
@@ -409,7 +417,7 @@ Where
     ))
 
 (add-ns-decl
- '(ns org.naturallexicon.lod.shacl
+ '(ns vocabulary.shacl
     {
      :rdfs/label "W3C Shapes Constraint Language (SHACL) Vocabulary"
      :rdfs/comment
@@ -423,7 +431,7 @@ Where
 
 
 (add-ns-decl
- '(ns org.naturallexicon.lod.dcat
+ '(ns vocabulary.dcat
     {
      :dc/title "Data Catalog vocabulary"
      :foaf/homepage "https://www.w3.org/TR/vocab-dcat/"
@@ -435,7 +443,7 @@ Where
 
 
 (add-ns-decl
- '(ns org.naturallexicon.lod.foaf
+ '(ns vocabulary.foaf
     {
      :dc/title "Friend of a Friend (FOAF) vocabulary"
      :dc/description "The Friend of a Friend (FOAF) RDF vocabulary,
@@ -450,7 +458,7 @@ Where
     ))
 
 (add-ns-decl
- '(ns org.naturallexicon.lod.skos
+ '(ns vocabulary.skos
     {
      :dc/title "SKOS Vocabulary"
      :dc/description "An RDF vocabulary for describing the basic
@@ -469,7 +477,7 @@ Where
 
 
 (add-ns-decl
- '(ns org.naturallexicon.lod.schema
+ '(ns vocabulary.schema
     {
      :vann/preferredNamespaceUri "http://schema.org/"
      :vann/preferredNamespacePrefix "schema"
@@ -487,7 +495,7 @@ Where
      }))
 
 (add-ns-decl
- '(ns org.naturallexicon.lod.xsd
+ '(ns vocabulary.xsd
     {
      :dc/description "Offers facilities for describing the structure and
    constraining the contents of XML and RDF documents"
@@ -496,5 +504,5 @@ Where
      :foaf/homepage "https://www.w3.org/2001/XMLSchema"
      }))
 
-(for [ns-decl @ns-decls]
-  (eval ns-decl))
+(doall (map eval @ns-decls))
+
