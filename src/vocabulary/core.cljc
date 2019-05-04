@@ -1,36 +1,191 @@
 (ns vocabulary.core
-  {:doc "Defines utilities and a set of namespaces for commonly used linked data constructs, metadata of which specifies RDF namespaces, prefixes and other details."
-   :vann/preferredNamespacePrefix "voc"
-   :vann/preferredNamespaceUri
-   "http://rdf.naturallexicon.org/ont-app/vocabulary/"
-   }
   (:require
    [clojure.string :as s]
    [clojure.set :as set]
-   #?(:cljs [cljs.analyzer.api :as ann-api])
+   #?(:cljs [cljs.env :as env])
+   #?(:cljs [cljs.reader :as r])
+   #?(:cljs [cljs.analyzer.api :as ana-api])
    ))       
 
-;; CLJ(S) STUFF
+;; #?(:cljs
+;; (defn get-snippet-analysis [cljs-code]
+;;   (let [empty-compiler-env (ana-api/empty-state)
+;;         empty-analyzer-env (ana-api/empty-env)]
+;;     (ana-api/in-cljs-user
+;;       empty-compiler-env
+;;       (ana-api/analyze empty-analyzer-env cljs-code)
+;;       empty-compiler-env))))
+
+;; #?(:cljs (def x (get-snippet-analysis ::dummy)))
+                        
+;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; FUN WITH READER MACROS
+;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 (defn cljc-error [msg]
   #?(:clj (Exception. msg)
      :cljs (js/Error msg)))
 
+
+;; namespace metadata isn't really available at runtime in cljs...
+#?(:cljs
+   (def cljs-ns-metadata
+     "Namespaces in cljs are not proper objects, and there is no metadata
+  available at runtime. This atom stores 'pseudo-metadata' declared with
+  cljc-put-ns-metadata and accessed with cljc-get-metadata. Clj just uses
+  the metadata regime for its ns's"
+     (atom {})))
+
+(defn cljc-put-ns-meta!
+  "Side-effect: ensures that subsequent calls to (cljc-get-ns-meta `_ns` return `m`
+  Where
+  <_ns> is an ns(clj only) or the name of a namespace, or 'dummy namespace' whose purpose is to hold
+     vocabulary metadata.
+  <m> := {<key> <value>, ...}, metadata (clj) or 'pseudo-metadata' (cljs)
+  <key> is a keyword containing vocabulary metadata, e.g. ::vann/preferredNamespacePrefix
+  NOTE: In cljs, ns's are not available at runtime, so the metadata is stored
+    in an atom called 'voc/cljs-ns-metadata'
+  Examples of a dummy namespace would be RDF namespaces like vocabulary.rdf,
+    vocabulary.foaf, etc.
+  "
+  ([_ns m]
+  #?(:cljs
+     (swap! cljs-ns-metadata
+            assoc _ns m)
+     :clj
+     (alter-meta!
+      (if (symbol? _ns)
+        (or (find-ns _ns)
+            (create-ns _ns))
+        ;;else not a symbol
+        _ns)
+      merge m)))
+  ([m]
+   #?(:cljs (cljc-put-ns-meta! (namespace ::dummy)) 
+      :clj (cljc-put-ns-meta! *ns* m))))
+
+(defn cljc-get-ns-meta
+  "Returns <metadata> assigned to ns named `_ns`
+  Where
+  <_ns> names a namespace or a 'dummy' namespace whose sole purpose is to hold metadata.
+  <metadata> := {<key> <value>, ...}
+  <key> is a keyword containing vocabulary metadata, e.g. :vann/preferredNamespacePrefix
+  "
+  ([_ns]
+   #?(:cljs
+      (do
+        (assert (symbol? _ns))
+        (get @cljs-ns-metadata _ns))
+      :clj
+      (if (symbol? _ns)
+        (if-let [it (find-ns _ns)]
+          (meta it))
+         ;; else not a symbol
+        (meta _ns))))
+
+  ([]
+   #?(:cljs (throw (cljc-error "Cannot infer namespace at runtime in cljs"))
+      :clj (cljc-get-ns-meta *ns*))))
+
+(defn cljc-find-ns [_ns]
+  "Returns <ns name or obj> for <_ns>, or nil.
+Where 
+<ns name or obj> may either be a namespace (in clj) 
+  or the name of a namespace (in cljs)
+<_ns> is a symbol which may name a namespace.
+NOTE: Implementations involving cljs must use cljs-put/get-ns-meta to declare
+  ns metadata.
+"
+  #?(:clj (find-ns _ns)
+     :cljs (@cljs-ns-metadata _ns)
+     ))
+
 (defn cljc-all-ns []
+  "Returns (<ns name or obj> ...)
+Where
+<ns name or obj> may either be a namespace (in clj) 
+  or the name of a namespace (in cljs)
+"
   #?(:clj (all-ns)
-     :cljs (map ann-api/find-ns (ann-api/all-ns))))
+     :cljs (keys @cljs-ns-metadata)))
 
-;; SCHEMA
-(def ontology
-  "I'm still kinda spitballing here"
-  {:voc/appendix
-   {:rdf/type #{:rdf:Property}
-    :rdfs/comment #{"<ns> :voc/appendix <triples>
+(declare prefix-re-str)
+(defn cljc-find-prefixes 
+  "Returns #{<prefix>...} for `s`
+Where
+<prefix> is a prefix found in <s>, for which some (meta ns) has a 
+  :vann/preferredNamespacePrefix declaration
+<s> is a string, typically a SPARQL query body for which we want to 
+  infer prefix declarations.
+"
+  {:test #(assert
+           (= (cljc-find-prefixes (prefix-re-str)
+                                  "Select * Where{?s foaf:homepage ?homepage}")
+              #{"foaf"}))
+   }
+  
+  [re-str s]
+  {:pre [(string? re-str)
+         (string? s)]
+   }
+  #?(:clj
+     (let [prefixes (re-matcher (re-pattern re-str) s) 
+           ]
+       (loop [acc #{}
+              next-match (re-find prefixes)]
+         (if (not next-match)
+           acc
+           (let [[_ prefix] next-match]
+             (recur (conj acc prefix)
+                    (re-find prefixes))))))
+     :cljs
+     (let [prefix-re (re-pattern (str "^(" re-str ")(.*)"))
+           ;; ^(<spaces>(<prefix1>|<prefix2>|...):)(<unparsed>) 
+           ]
+       (loop [acc #{}
+              input s]
+         (assert (string? input))
+         (if (or (not input) (empty? input))
+           acc
+           (let [next-match (re-matches prefix-re input)]
+             (if next-match
+               (let [[_ _ prefix unparsed] next-match]
+                 (recur (conj acc prefix)
+                        unparsed))
+               ;; else there's no match
+               ;; TODO: make this less ugly
+               ;; Should be OK for shortish strings like SPARQL queries
+               ;; for now
+               (recur acc (subs input 1)))))))
+     ))
+
+;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; ;;; NO READER MACROS BEYOND THIS POINT
+;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; ;; SCHEMA
+
+(cljc-put-ns-meta!
+ 'vocabulary.core
+ {:doc "Defines utilities and a set of namespaces for commonly used linked data constructs, metadata of which specifies RDF namespaces, prefixes and other details."
+  :vann/preferredNamespacePrefix "voc"
+  :vann/preferredNamespaceUri
+  "http://rdf.naturallexicon.org/ont-app/vocabulary/"
+  })
+
+(def terms
+  "Describes T-box for this namespace."
+  ^{:triples-format :vector-of-vectors}
+  [[:voc/appendix
+    :rdf/type :rdf:Property
+    :rdfs/comment "<ns> :voc/appendix <triples>
  Asserts that <triples> describe a graph that elaborates on other attributes asserted in usual key-value metadata asserted for <ns>, e.g. asserting a dcat:mediaType relation for some dcat:downloadURL.
- "}
-    }})
+ "
+    ]
+   ])
 
-;; FUNCTIONS
-(defn- collect-prefixes
+;; ;; FUNCTIONS
+(defn collect-prefixes 
   "Returns {<prefix> <namespace> ...} s.t. <next-ns> is included
 Where
 <prefix> is a prefix declared in the metadata of <next-ns>
@@ -39,13 +194,13 @@ Where
 "
   {:test #(assert
            (= (collect-prefixes {}
-                                (find-ns 'vocabulary.foaf))
-              {"foaf" (find-ns 'vocabulary.foaf)}))
+                                (cljc-get-ns-meta 'vocabulary.foaf))
+              {"foaf" (cljc-find-ns 'vocabulary.foaf)}))
    }
   [acc next-ns]
   {:pre (map? acc)
    }
-  (let [nsm (meta next-ns)
+  (let [nsm (cljc-get-ns-meta next-ns)
         ]
     (if-let [p (:vann/preferredNamespacePrefix nsm)]
       (if (set? p)
@@ -62,8 +217,7 @@ Where
 <ns> is an instance of clojure.lang.ns available within the lexical 
   context in which the  call was made.
 "
-  (reduce collect-prefixes {} (all-ns)))
-
+  (reduce collect-prefixes {} (cljc-all-ns)))
 
 (defn ns-to-namespace 
   "Returns <iri> for <ns>
@@ -73,11 +227,11 @@ Where
 <ns> is an instance of clojure.lang.Namespace
 "
   {:test #(assert
-           (= (ns-to-namespace (find-ns 'vocabulary.foaf))
+           (= (ns-to-namespace (cljc-find-ns 'vocabulary.foaf))
               "http://xmlns.com/foaf/0.1/"))
    }
   [ns]
-  (:vann/preferredNamespaceUri (meta ns)))
+  (:vann/preferredNamespaceUri (cljc-get-ns-meta ns)))
 
 (defn namespace-to-ns  []
   "returns {<namespace> <ns> ...} for each ns with :vann/preferredNamespaceUri
@@ -85,25 +239,14 @@ declaration
 "
   (let [maybe-mapping (fn [_ns]
                         (if-let [namespace (:vann/preferredNamespaceUri
-                                            (meta _ns))
+                                            (cljc-get-ns-meta _ns))
                                  ]
                           [namespace _ns]))
         ]
     (into {}
           (filter identity
                   (map maybe-mapping
-                       (all-ns))))))
-
-(defn- aliased-ns [prefix]
-  "Returns nil or the ns whose aliase is `prefix`
-Where
-<prefix> is a string, typically parsed from a keyword.
-"
-  {:pre [(string? prefix)]
-   }
-  (->> prefix
-       (symbol)
-       (get (ns-aliases *ns*))))
+                       (cljc-all-ns))))))
 
 (defn- prefixed-ns [prefix]
   "Returns nil or the ns whose `prefix` was declared in metadata with :vann/preferredNamespacePrefix
@@ -138,12 +281,13 @@ Where
   [kw]
    {:pre [(keyword? kw)]
    }
-  (if (#{"http:" "https:" "file:"} (namespace kw)) ;; uri scheme http://...
-    (str (namespace kw) "/" (name kw))
+  (if (re-matches #"^:(http|https|file):.*" (str kw))
+      ;;(#{"http:" "https:" "file:"} (namespace kw)) ;; uri scheme http://...
+    (subs (str kw) 1)
+    ;; else not http....
     (if-let [prefix (namespace kw)
              ]
-      (let [_ns (or (find-ns (symbol prefix)) ;; ::keyword
-                    (aliased-ns prefix)
+      (let [_ns (or (cljc-find-ns (symbol prefix))
                     (prefixed-ns prefix))]
         (if-not _ns
           (throw (cljc-error (str "No URI declared for prefix '" prefix "'")))
@@ -152,7 +296,6 @@ Where
                (name kw))))
       (throw (cljc-error (str "Could not find IRI for " kw))))))
 
-
 (defn ns-to-prefix 
   "Returns the prefix associated with `_ns`
 Where
@@ -160,20 +303,20 @@ Where
   declaration in its metadata.   
 "
   {:test #(assert
-           (= (ns-to-prefix (find-ns 'vocabulary.foaf))
+           (= (ns-to-prefix (cljc-find-ns 'vocabulary.foaf))
               "foaf"))
    }
   [_ns]
-  (:vann/preferredNamespacePrefix (meta _ns)))
+  (:vann/preferredNamespacePrefix (cljc-get-ns-meta _ns)))
 
 (defn qname-for 
-  "Returns the 'qname' URI for `kw`, or nil if ns metadata is missing. 
+  "Returns the 'qname' URI for `kw`, or <...>'d if there is no prefix. Throws an error if the prefix is specified, but can't be mapped to metadata.
 Where
   <kw> is a keyword, in a namespace with LOD declarations in its metadata.
 "
   {:test #(do
             (assert
-             (or (not= *ns* (find-ns 'vocabulary.core))
+             (or (not= *ns* (cljc-find-ns 'vocabulary.core))
                  (= (qname-for ::blah)
                     "voc:blah")))
             (assert
@@ -186,10 +329,12 @@ Where
    }
   (if-let [prefix (namespace kw)
            ]
-    (if (#{"http:" "https:" "file:"} prefix) ;; this is a scheme, not a namespace
-      (str "<" prefix "/" (name kw) ">")
-      (let [_ns (or (find-ns (symbol prefix))
-                    (aliased-ns prefix)
+    (if (re-matches #"^:(http|https|file):.*" (str kw))
+      ;; this is a scheme, not a namespace
+      (str "<" prefix "/" (subs (str kw) 1) ">")
+      ;;else not http://...
+      (let [_ns (or (cljc-find-ns (symbol prefix))
+                    #_(aliased-ns prefix)
                     (prefixed-ns prefix))
             ]
         (if-not _ns
@@ -200,8 +345,6 @@ Where
              (name kw))))
     ;; else no namespace
     (str "<" (name kw) ">")))
-
-  
 
 (defn namespace-re []
   "Returns a regex to recognize substrings matching a URI for an ns 
@@ -235,43 +378,19 @@ Where
         (keyword value)
         (keyword (-> namespace
                      ((namespace-to-ns))
-                     meta
+                     cljc-get-ns-meta
                      :vann/preferredNamespacePrefix)
                  value
                  )))))
 
-(defn- prefix-re []
-  "Returns a regex that recognizes prefixes declared in ns metadata with 
-  :vann/preferredNamespacePrefix keys
+(defn prefix-re-str []
+  "Returns a regex string that recognizes prefixes declared in ns metadata with 
+  :vann/preferredNamespacePrefix keys. 
+NOTE: this is a string because the actual re-pattern will differ per clj/cljs.
 "
-  (re-pattern
    (str "[^a-zA-Z]+("
         (s/join "|" (keys (prefix-to-ns)))
-        "):")))
-
-(defn- find-prefixes 
-  "Returns #{<prefix>...} for `s`
-Where
-<prefix> is a prefix found in <s>, for which some (meta ns) has a 
-  :vann/preferredNamespacePrefix declaration
-<s> is a string, typically a SPARQL query body for which we want to 
-  infer prefix declarations.
-"
-  {:test #(assert
-           (= (find-prefixes "Select * Where{?s foaf:homepage ?homepage}")
-              #{"foaf"}))
-   }
-  
-  [s]
-  (let [prefixes (re-matcher (prefix-re) s)
-        ]
-    (loop [acc #{}
-           next-match (re-find prefixes)]
-      (if (not next-match)
-        acc
-        (let [[_ prefix] next-match]
-          (recur (conj acc prefix)
-                 (re-find prefixes)))))))
+        "):"))
 
 (defn sparql-prefixes-for 
   "Returns [<prefix-string>...] for each prefix identified in <sparql-string>
@@ -297,7 +416,8 @@ Where
                                   ((prefix-to-ns) prefix))
                                  ">"))
         ]
-    (map sparql-prefix-for (find-prefixes sparql-string))))
+    (map sparql-prefix-for (cljc-find-prefixes (prefix-re-str)
+                                               sparql-string))))
 
 (defn prepend-prefix-declarations 
   "Returns <sparql-string>, prepended with appropriate PREFIX decls.
@@ -314,34 +434,12 @@ Where
                      sparql-string)))
 
 
-;;; NAMESPACE DECLARATIONS
-;;; These are commonly used RDF namespaces.
+;; ;;; NAMESPACE DECLARATIONS
+;; ;;; These are commonly used RDF namespaces.
 
-;;; We don't want the compiler to create files for these ns's, so we'll declare
-;;; them on load...
-
-(def ns-decls (atom []))
-(defn add-ns-decl [_ns] (swap! ns-decls conj _ns))
-;;; These decls will be eval'd at the end of the file
-
-(add-ns-decl
- '(ns vocabulary.rdf
-    {
-     :dc/title "The RDF Concepts Vocabulary (RDF)" 
-     :dc/description "This is the RDF Schema for the RDF vocabulary terms
-  in the RDF Namespace, defined in RDF 1.1 Concepts."
-     :vann/preferredNamespaceUri "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
-     :vann/preferredNamespacePrefix "rdf"
-     :foaf/homepage "https://www.w3.org/2001/sw/wiki/RDF"
-     :dcat/downloadURL "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
-     :voc/appendix [["http://www.w3.org/1999/02/22-rdf-syntax-ns#"
-                     :dcat/mediaType "text/turtle"]]
-     }
-    ))
-
-(add-ns-decl
- '(ns vocabulary.rdf-schema
-    {
+(cljc-put-ns-meta!
+ 'vocabulary.rdf-schema
+ {
      :dc/title "The RDF Schema vocabulary (RDFS)"
      :vann/preferredNamespaceUri "http://www.w3.org/2000/01/rdf-schema#"
      :vann/preferredNamespacePrefix "rdfs"
@@ -349,11 +447,10 @@ Where
      :dcat/downloadURL "http://www.w3.org/2000/01/rdf-schema#"
      :voc/appendix [["http://www.w3.org/2000/01/rdf-schema#"
                      :dcat/mediaType "text/turtle"]]
-     }
-    ))
+  })
 
-(add-ns-decl
- '(ns vocabulary.owl  
+(cljc-put-ns-meta!
+ 'vocabulary.owl  
     {
      :dc/title "The OWL 2 Schema vocabulary (OWL 2)"
      :dc/description
@@ -380,20 +477,20 @@ Where
      :voc/appendix [["http://www.w3.org/2002/07/owl"
                      :dcat/mediaType "text/turtle"]]
      }
-    ))
+    )
 
-(add-ns-decl
- '(ns vocabulary.vann
+(cljc-put-ns-meta!
+ 'vocabulary.vann
     {
      :rdfs/label "VANN"
      :dc/description "A vocabulary for annotating vocabulary descriptions"
      :vann/preferredNamespaceUri "http://purl.org/vocab/vann"
      :vann/peferredNamespacePrefix "vann"
      :foaf/homepage "http://vocab.org/vann/"
-     }))
+     })
 
-(add-ns-decl
- '(ns vocabulary.dc
+(cljc-put-ns-meta!
+ 'vocabulary.dc
     {
      :dc/title "Dublin Core Metadata Element Set, Version 1.1"
      :vann/preferredNamespaceUri "http://purl.org/dc/elements/1.1/"
@@ -402,10 +499,10 @@ Where
      :voc/appendix [["http://purl.org/dc/elements/1.1/"
                      :dcat/mediaType "text/turtle"]]
      }
-    ))
+    )
 
-(add-ns-decl
- '(ns vocabulary.dct
+(cljc-put-ns-meta!
+ 'vocabulary.dct
     {
      :dc/title "DCMI Metadata Terms - other"
      :vann/preferredNamespaceUri "http://purl.org/dc/elements/1.1/"
@@ -414,10 +511,10 @@ Where
      :voc/appendix [["http://purl.org/dc/elements/1.1/"
                      :dcat/mediaType "text/turtle"]]
      }
-    ))
+    )
 
-(add-ns-decl
- '(ns vocabulary.shacl
+(cljc-put-ns-meta!
+ 'vocabulary.shacl
     {
      :rdfs/label "W3C Shapes Constraint Language (SHACL) Vocabulary"
      :rdfs/comment
@@ -427,11 +524,11 @@ Where
      :vann/preferredNamespacePrefix "sh"
      :foaf/homepage "https://www.w3.org/TR/shacl/"
      :dcat/downloadURL "https://www.w3.org/ns/shacl.ttl"
-     }))
+     })
 
 
-(add-ns-decl
- '(ns vocabulary.dcat
+(cljc-put-ns-meta!
+ 'vocabulary.dcat
     {
      :dc/title "Data Catalog vocabulary"
      :foaf/homepage "https://www.w3.org/TR/vocab-dcat/"
@@ -439,26 +536,25 @@ Where
      :vann/preferredNamespacePrefix "dcat"
      :vann/preferredNamespaceUri "http://www.w3.org/ns/dcat#"
      }
-    ))
-
-
-(add-ns-decl
- '(ns vocabulary.foaf
-    {
-     :dc/title "Friend of a Friend (FOAF) vocabulary"
-     :dc/description "The Friend of a Friend (FOAF) RDF vocabulary,
+    )
+   
+(cljc-put-ns-meta!
+ 'vocabulary.foaf
+ {
+  :dc/title "Friend of a Friend (FOAF) vocabulary"
+  :dc/description "The Friend of a Friend (FOAF) RDF vocabulary,
  described using W3C RDF Schema and the Web Ontology Language."
-     :vann/preferredNamespaceUri "http://xmlns.com/foaf/0.1/"
-     :vann/preferredNamespacePrefix "foaf"
-     :foaf/homepage "http://xmlns.com/foaf/spec/"
-     :dcat/downloadURL "http://xmlns.com/foaf/spec/index.rdf"
-     :voc/appendix [["http://xmlns.com/foaf/spec/index.rdf"
-                     :dcat/mediaType "application/rdf+xml"]]
-     }
-    ))
+  :vann/preferredNamespaceUri "http://xmlns.com/foaf/0.1/"
+  :vann/preferredNamespacePrefix "foaf"
+  :foaf/homepage "http://xmlns.com/foaf/spec/"
+  :dcat/downloadURL "http://xmlns.com/foaf/spec/index.rdf"
+  :voc/appendix [["http://xmlns.com/foaf/spec/index.rdf"
+                  :dcat/mediaType "application/rdf+xml"]]
+  }
+ )
 
-(add-ns-decl
- '(ns vocabulary.skos
+(cljc-put-ns-meta!
+ 'vocabulary.skos
     {
      :dc/title "SKOS Vocabulary"
      :dc/description "An RDF vocabulary for describing the basic
@@ -473,11 +569,11 @@ Where
      :voc/appendix [["https://www.w3.org/2009/08/skos-reference/skos.rdf"
                      :dcat/mediaType "application/rdf+xml"]]   
      }
-    ))
+    )
 
 
-(add-ns-decl
- '(ns vocabulary.schema
+(cljc-put-ns-meta!
+ 'vocabulary.schema
     {
      :vann/preferredNamespaceUri "http://schema.org/"
      :vann/preferredNamespacePrefix "schema"
@@ -492,17 +588,17 @@ Where
                      :dcat/mediaType "text/turtle"]
                     ["http://schema.org/version/latest/schema.jsonld"
                      :dcat/mediaType "application/ld+json"]]
-     }))
+     })
 
-(add-ns-decl
- '(ns vocabulary.xsd
+(cljc-put-ns-meta!
+ 'vocabulary.xsd
     {
      :dc/description "Offers facilities for describing the structure and
    constraining the contents of XML and RDF documents"
      :vann/preferredNamespaceUri "http://www.w3.org/2001/XMLSchema#"
      :vann/preferredNamespacePrefix "xsd"
      :foaf/homepage "https://www.w3.org/2001/XMLSchema"
-     }))
+     })
 
-(doall (map eval @ns-decls))
+
 
