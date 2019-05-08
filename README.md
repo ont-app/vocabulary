@@ -40,6 +40,7 @@ There are also modules for `vocabulary.wikidata` and `vocabulary.linguistics`, d
 ### In standard Clojure (*.clj)
 Within standard (JVM-based) clojure, the minimal specification to support ont-app/vocabulary functionality for a given namespace requires metadata specification as follows:
 
+
 ```
 (ns org.example
   {
@@ -80,18 +81,20 @@ Because Clojurescript does not implement namespaces as first-class objects there
     :vann/preferredNamespacePrefix "eg"
     :vann/preferredNamespaceUri "http://example.org/"
   })
+
 ```
 This updates a dedicated map from ns-names to 'pseudo-metadata' in a global atom.
 
-The `vocabulary.core` module is defined in cljc format, and contains this `ns` declaration:
+The `vocabulary.core` module is defined in cljc format, and contains these  declarations:
 
+```
 (cljc-put-ns-meta!
  'vocabulary.core
  {:doc "Defines utilities and a set of namespaces for commonly used linked data constructs, metadata of which specifies RDF namespaces, prefixes and other details."
   :vann/preferredNamespacePrefix "voc"
   :vann/preferredNamespaceUri "http://rdf.naturallexicon.org/ont-app/vocabulary/"
   }
-
+```
 
 ### Metadata keys
 
