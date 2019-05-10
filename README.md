@@ -40,6 +40,7 @@ There are also modules for `vocabulary.wikidata` and `vocabulary.linguistics`, d
 ### In standard Clojure (*.clj)
 Within standard (JVM-based) clojure, the minimal specification to support ont-app/vocabulary functionality for a given namespace requires metadata specification as follows:
 
+```
 (ns org.example
   {
     :vann/preferredNamespacePrefix "eg"
@@ -48,7 +49,7 @@ Within standard (JVM-based) clojure, the minimal specification to support ont-ap
   (:require 
   [vocabulary.core :as voc]
   ...))
-
+```
 This expresses an equivalence between the clojure keyword...
 
 ```
