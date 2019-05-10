@@ -59,12 +59,6 @@ This expresses an equivalence between the clojure keyword...
 ```
  <http://example.org/example-var>
 ```
-  :eg/example-var
-```
-... and the IRI ...
-```
- <http://example.org/example-var>
-```
 
 The `vann` prefix refers to [an existing public vocabulary](http://vocab.org/vann/) which will be explained in the Metadata Keys section below. 
 
