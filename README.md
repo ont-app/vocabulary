@@ -95,39 +95,6 @@ The `vocabulary.core` module is defined in cljc format, and contains these  decl
 
 ### Metadata keys
 
-The `vann` prefix refers to an existing public vocabulary which will be explained in the Metadata Keys section below. 
-
-### In Clojurescript (*.cljs, *.cljc)
-
-Because Clojurescript does not implement namespaces as first-class objects there is no `ns` object to which we can attach metadata, so in `cljs` and `cljc` files, we must use this idiom to achieve the same effect:
-
-(ns org.example
-  (:require 
-   [vocabulary.core :as voc]
-   ...))
-  
-(voc/cljc-put-ns-meta!
- 'org.example
-  {
-    :vann/preferredNamespacePrefix "eg"
-    :vann/preferredNamespaceUri "http://example.org/"
-  })
-
-This updates a dedicated map from ns-names to 'pseudo-metadata' in a global atom.
-
-The `vocabulary.core` module is defined in cljc format, and contains this `ns` declaration:
-
-(cljc-put-ns-meta!
- 'vocabulary.core
- {:doc "Defines utilities and a set of namespaces for commonly used linked data constructs, metadata of which specifies RDF namespaces, prefixes and other details."
-  :vann/preferredNamespacePrefix "voc"
-  :vann/preferredNamespaceUri
-  "http://rdf.naturallexicon.org/ont-app/vocabulary/"
-  })
-
-
-### Metadata keys
-
 Note that the metadata for this module includes some keywords in this format:
 ```
 :<prefix>:<name>
