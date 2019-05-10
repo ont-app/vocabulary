@@ -64,7 +64,7 @@ The `vann` prefix refers to [an existing public vocabulary](http://vocab.org/van
 
 ### In Clojurescript (*.cljs, *.cljc)
 
-Because Clojurescript does not implement namespaces as first-class objects there is no `ns` object to which we can attach metadata, so in `cljs` and `cljc` files, we must use this idiom to achieve the same effect:
+Because Clojurescript does not implement namespaces as first-class objects, there is no `ns` object to which we can attach metadata. So in `cljs` and `cljc` files, we must use this idiom to achieve the same effect:
 
 ```
 (ns org.example
@@ -97,7 +97,7 @@ The `vocabulary.core` module is defined in cljc format, and contains these  decl
 
 Note that the metadata for this module includes some keywords in this format:
 ```
-:<prefix>:<name>
+:<prefix>/<name>
 ```
 
 With these statements...
