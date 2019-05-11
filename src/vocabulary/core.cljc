@@ -309,6 +309,18 @@ Where
   [_ns]
   (:vann/preferredNamespacePrefix (cljc-get-ns-meta _ns)))
 
+(defn prefix-to-namespace-uri
+  "returns `namespace` URI associated with `prefix`
+  Where:
+  <namespace> is a string declared for some <ns> with vann/preferredNamespaceUri
+  <prefix> is a string declared for <ns> with vann/preferredNamespacePrefix
+  "
+  [prefix]
+  (->> prefix
+       (get (prefix-to-ns))
+       (ns-to-namespace)))
+
+  
 (defn qname-for 
   "Returns the 'qname' URI for `kw`, or <...>'d if there is no prefix. Throws an error if the prefix is specified, but can't be mapped to metadata.
 Where
@@ -321,7 +333,10 @@ Where
                     "voc:blah")))
             (assert
              (= (qname-for :foaf/homepage)
-                "foaf:homepage")))
+                "foaf:homepage"))
+            (assert
+             (= (qname-for :foaf/bad/qname)
+                "<http://xmlns.com/foaf/0.1/bad/qname>")))
    }
   [kw]
   {:pre [(keyword? kw)
@@ -334,15 +349,17 @@ Where
       (str "<" prefix "/" (subs (str kw) 1) ">")
       ;;else not http://...
       (let [_ns (or (cljc-find-ns (symbol prefix))
-                    #_(aliased-ns prefix)
                     (prefixed-ns prefix))
+            invalid-kw-name-re #"/" ;; make for bad qnames
             ]
         (if-not _ns
           (throw (cljc-error (str "Could not resolve prefix " prefix))))
-        
-        (str (ns-to-prefix _ns)
-             ":"
-             (name kw))))
+        (if (re-find invalid-kw-name-re (name kw)) ;; invalid as qname
+          (str "<" (prefix-to-namespace-uri prefix) (name kw) ">")
+          ;;else valid as qname
+          (str (ns-to-prefix _ns)
+               ":"
+               (name kw)))))
     ;; else no namespace
     (str "<" (name kw) ">")))
 
@@ -412,8 +429,7 @@ Where
                             (str "PREFIX "
                                  prefix
                                  ": <"
-                                 (ns-to-namespace
-                                  ((prefix-to-ns) prefix))
+                                 (prefix-to-namespace-uri prefix)
                                  ">"))
         ]
     (map sparql-prefix-for (cljc-find-prefixes (prefix-re-str)
