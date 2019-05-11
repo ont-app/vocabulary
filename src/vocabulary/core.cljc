@@ -320,7 +320,21 @@ Where
        (get (prefix-to-ns))
        (ns-to-namespace)))
 
-  
+(defn namespace-re []
+  "Returns a regex to recognize substrings matching a URI for an ns 
+  declared with LOD metadata. Groups for namespace and value.
+"
+  (let [namespace< (fn [a b] ;; match longer first
+                     (> (count a)
+                        (count b)))
+        ]
+    (re-pattern (str "^("
+                     (s/join "|" (sort namespace<
+                                       (keys (namespace-to-ns))))
+                     ")(.*)"))))
+
+(def invalid-qname-name (partial re-find #"/" ))
+
 (defn qname-for 
   "Returns the 'qname' URI for `kw`, or <...>'d if there is no prefix. Throws an error if the prefix is specified, but can't be mapped to metadata.
 Where
@@ -335,6 +349,12 @@ Where
              (= (qname-for :foaf/homepage)
                 "foaf:homepage"))
             (assert
+             (= (qname-for :http://xmlns.com/foaf/0.1/homepage)
+                "foaf:homepage"))
+            (assert
+             (= (qname-for :http://no/ns/registered)
+                "<http://no/ns/registered>"))
+            (assert
              (= (qname-for :foaf/bad/qname)
                 "<http://xmlns.com/foaf/0.1/bad/qname>")))
    }
@@ -346,15 +366,26 @@ Where
            ]
     (if (re-matches #"^:(http|https|file):.*" (str kw))
       ;; this is a scheme, not a namespace
-      (str "<" prefix "/" (subs (str kw) 1) ">")
+      (let [uri-str (subs (str kw) 1)]
+        (if-let [rem (re-matches (namespace-re) uri-str)]
+          (let [[_ namespace-uri name] rem]
+            (if (not (invalid-qname-name name))
+              (str
+               (->> namespace-uri
+                    (get (namespace-to-ns))
+                    (ns-to-prefix))
+               ":"
+               name)))
+          ;;else no prefix match
+          (str "<" uri-str ">")))
       ;;else not http://...
       (let [_ns (or (cljc-find-ns (symbol prefix))
                     (prefixed-ns prefix))
-            invalid-kw-name-re #"/" ;; make for bad qnames
+            
             ]
         (if-not _ns
           (throw (cljc-error (str "Could not resolve prefix " prefix))))
-        (if (re-find invalid-kw-name-re (name kw)) ;; invalid as qname
+        (if (invalid-qname-name (name kw)) ;; invalid as qname
           (str "<" (prefix-to-namespace-uri prefix) (name kw) ">")
           ;;else valid as qname
           (str (ns-to-prefix _ns)
@@ -363,18 +394,6 @@ Where
     ;; else no namespace
     (str "<" (name kw) ">")))
 
-(defn namespace-re []
-  "Returns a regex to recognize substrings matching a URI for an ns 
-  declared with LOD metadata. Groups for namespace and value.
-"
-  (let [namespace< (fn [a b] ;; match longer first
-                     (> (count a)
-                        (count b)))
-        ]
-    (re-pattern (str "^("
-                     (s/join "|" (sort namespace<
-                                       (keys (namespace-to-ns))))
-                     ")(.*)"))))
 
 (defn keyword-for 
   "Returns a keyword equivalent of <uri>, properly prefixed if LOD declarations
@@ -618,3 +637,6 @@ Where
 
 
 
+(comment
+  (def qname-test (qname-for :http://rdf.naturallexicon.org/prototypes/ont#elaborates))
+  )
