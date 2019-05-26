@@ -17,7 +17,7 @@
 ;;       empty-compiler-env))))
 
 ;; #?(:cljs (def x (get-snippet-analysis ::dummy)))
-                        
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; FUN WITH READER MACROS
 ;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -26,6 +26,8 @@
   #?(:clj (Exception. msg)
      :cljs (js/Error msg)))
 
+
+(def x #?(:cljs "blah" :clj "blih"))
 
 ;; namespace metadata isn't really available at runtime in cljs...
 #?(:cljs
@@ -336,7 +338,7 @@ Where
 (def invalid-qname-name (partial re-find #"/" ))
 
 (defn qname-for 
-  "Returns the 'qname' URI for `kw`, or <...>'d if there is no prefix. Throws an error if the prefix is specified, but can't be mapped to metadata.
+  "Returns the 'qname' URI for `kw`, or <...>'d full URI if no valid qname could be found. Throws an error if the prefix is specified, but can't be mapped to metadata.
 Where
   <kw> is a keyword, in a namespace with LOD declarations in its metadata.
 "
@@ -349,13 +351,13 @@ Where
              (= (qname-for :foaf/homepage)
                 "foaf:homepage"))
             (assert
-             (= (qname-for :http://xmlns.com/foaf/0.1/homepage)
+             (= (qname-for (keyword "http://xmlns.com/foaf/0.1/homepage"))
                 "foaf:homepage"))
             (assert
-             (= (qname-for :http://no/ns/registered)
+             (= (qname-for (keyword "http://no/ns/registered"))
                 "<http://no/ns/registered>"))
             (assert
-             (= (qname-for :foaf/bad/qname)
+             (= (qname-for (keyword "foaf/bad/qname"))
                 "<http://xmlns.com/foaf/0.1/bad/qname>")))
    }
   [kw]
@@ -376,7 +378,7 @@ Where
                     (ns-to-prefix))
                ":"
                name)))
-          ;;else no prefix match
+          ;;else no namespace match
           (str "<" uri-str ">")))
       ;;else not http://...
       (let [_ns (or (cljc-find-ns (symbol prefix))
@@ -395,38 +397,51 @@ Where
     (str "<" (name kw) ">")))
 
 
-(defn keyword-for 
-  "Returns a keyword equivalent of <uri>, properly prefixed if LOD declarations
-  exist in some ns in the current lexical environment.
-"
-  {:test #(assert
-           (= (keyword-for "http://xmlns.com/foaf/0.1/homepage")
-              :foaf/homepage))
-   }
-  [uri]
-  {:pre [(string? uri)]
-   }
-  (let [[_ namespace value] (re-matches (namespace-re) uri)
-        ]
-    (if (not value)
-      (keyword uri)
-      (if (not namespace)
-        (keyword value)
-        (keyword (-> namespace
-                     ((namespace-to-ns))
-                     cljc-get-ns-meta
-                     :vann/preferredNamespacePrefix)
-                 value
-                 )))))
-
 (defn prefix-re-str []
   "Returns a regex string that recognizes prefixes declared in ns metadata with 
   :vann/preferredNamespacePrefix keys. 
 NOTE: this is a string because the actual re-pattern will differ per clj/cljs.
 "
-   (str "[^a-zA-Z]+("
+   (str "\\b(" ;; word boundary
         (s/join "|" (keys (prefix-to-ns)))
         "):"))
+
+
+(defn keyword-for 
+  "Returns a keyword equivalent of <uri>, properly prefixed if LOD declarations
+  exist in some ns in the current lexical environment.
+"
+  {:test #(do
+            (assert
+             (= (keyword-for "http://xmlns.com/foaf/0.1/homepage")
+                :foaf/homepage))
+            (assert
+             (= (keyword-for "foaf:homepage")
+                :foaf/homepage)))
+   }
+  [uri]
+  {:pre [(string? uri)]
+   }
+  (if-let [[_ prefix _name] (re-matches
+                             (re-pattern
+                              (str (prefix-re-str) "(.*)"))
+                             uri)]
+    ;; ... this is a qname...
+    (keyword prefix _name)
+    ;;else this isn't a qname. Maybe it's a full URI we have a prefix for...
+    (let [[_ namespace value] (re-matches (namespace-re) uri)
+          ]
+      (if (not value)
+        (keyword uri)
+        (if (not namespace)
+          (keyword value)
+          ;; we found a namespace for which we have a prefix...
+          (keyword (-> namespace
+                       ((namespace-to-ns))
+                       cljc-get-ns-meta
+                       :vann/preferredNamespacePrefix)
+                   value
+                   ))))))
 
 (defn sparql-prefixes-for 
   "Returns [<prefix-string>...] for each prefix identified in <sparql-string>
@@ -454,6 +469,7 @@ Where
     (map sparql-prefix-for (cljc-find-prefixes (prefix-re-str)
                                                sparql-string))))
 
+
 (defn prepend-prefix-declarations 
   "Returns <sparql-string>, prepended with appropriate PREFIX decls.
 "
@@ -473,7 +489,15 @@ Where
 ;; ;;; These are commonly used RDF namespaces.
 
 (cljc-put-ns-meta!
- 'vocabulary.rdf-schema
+ 'vocabulary.rdf
+ {
+  :rdfs/comment "The core rdf vocabulary"
+  :vann/preferredNamespacePrefix "rdf"
+  :vann/preferredNamespaceUri "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+  })
+
+(cljc-put-ns-meta!
+ 'vocabulary.rdfs
  {
      :dc/title "The RDF Schema vocabulary (RDFS)"
      :vann/preferredNamespaceUri "http://www.w3.org/2000/01/rdf-schema#"
@@ -637,6 +661,3 @@ Where
 
 
 
-(comment
-  (def qname-test (qname-for :http://rdf.naturallexicon.org/prototypes/ont#elaborates))
-  )

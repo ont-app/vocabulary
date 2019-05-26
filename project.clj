@@ -9,7 +9,9 @@
                  ]
   :plugins [[lein-cljsbuild "1.1.7"
              :exclusions [[org.clojure/clojure]]]
-            [lein-doo "0.1.10"]]
+            [lein-figwheel "0.5.16"]
+            [lein-doo "0.1.10"]
+            ]
   :cljsbuild
   {:builds
    ;; for testing the cljs incarnation
@@ -19,10 +21,11 @@
                       ;; entry point for doo-runner:
                       :main vocabulary.browser ;; at test/cljs/vocabulary/browser.cljs
                       :optimizations :none
-                      :warnings {:bad-method-signature false}
+                      ;; :warnings {:bad-method-signature false}
                       }}}
    }
   :target-path "target/%s"
   :test-paths ["test/clj"]
   ;; :profiles {:uberjar {:aot :all}}
+  :profiles {:dev {:dependencies [[figwheel-sidecar "0.5.4-6"]]}}
   )

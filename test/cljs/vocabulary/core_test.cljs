@@ -1,8 +1,8 @@
 (ns vocabulary.core-test
-  (:require [cljs.test :refer [testing is deftest]]
-            [vocabulary.core :as v]
-            ]
-            ))
+  (:require
+   [cljs.test :refer [testing is deftest]]
+   [vocabulary.core :as v]
+   ))
 
 
 (deftest ns-test
