@@ -26,7 +26,6 @@
   #?(:clj (Exception. msg)
      :cljs (js/Error msg)))
 
-
 (def x #?(:cljs "blah" :clj "blih"))
 
 ;; namespace metadata isn't really available at runtime in cljs...
