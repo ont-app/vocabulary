@@ -50,14 +50,15 @@
                        ;; :warnings {:bad-method-signature false}
                        }}
     ;; DEPLOYMENT PROFILE
-    ;; :min
-    ;; {
-    ;;  :source-paths ["src"]
-    ;;  :compiler {:output-to "resources/public/js/compiled/vocabulary.js"
-    ;;             :main vocabulary.core
-    ;;             :optimizations :advanced
-    ;;             :pretty-print false}
-    ;;  }
+    :min
+    {
+     :source-paths ["src"]
+     :compiler {:output-to "resources/public/js/compiled/vocabulary.js"
+                :output-dir "resources/public/js/out"
+                :main vocabulary.core
+                :optimizations :advanced
+                :pretty-print false}
+     }
    }}
    :target-path "target/%s"
    :test-paths ["test/clj"]
