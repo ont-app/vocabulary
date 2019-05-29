@@ -1,21 +1,21 @@
-(ns vocabulary.core-test
+(ns ont-app.vocabulary.core-test
   (:require
    [cljs.test :refer [testing is deftest]]
-   [vocabulary.core :as v]
+   [ont-app.vocabulary.core :as v]
    ))
 
 
 (deftest ns-test
   (testing "namespace access"
-    (is (= (v/cljc-find-ns 'vocabulary.core)
-           'vocabulary.core))))
+    (is (= (v/cljc-find-ns 'ont-app.vocabulary.core)
+           'ont-app.vocabulary.core))))
 
 
 (deftest attr-map-test
   (testing "Tests the conditions found in attr-map tests"
-     (is (= (v/ns-to-namespace (v/cljc-find-ns 'vocabulary.foaf))
+     (is (= (v/ns-to-namespace (v/cljc-find-ns 'ont-app.vocabulary.foaf))
             "http://xmlns.com/foaf/0.1/"))
-     (is (= (v/ns-to-prefix 'vocabulary.foaf)
+     (is (= (v/ns-to-prefix 'ont-app.vocabulary.foaf)
             "foaf"))
      (is (= (v/iri-for :foaf/homepage)
            "http://xmlns.com/foaf/0.1/homepage"))
@@ -25,7 +25,7 @@
            "http://blah"))
     (is (= (v/iri-for ::v/blah)
            "http://rdf.naturallexicon.org/ont-app/vocabulary/blah"))
-    (is (= (v/ns-to-prefix (v/cljc-find-ns 'vocabulary.foaf))
+    (is (= (v/ns-to-prefix (v/cljc-find-ns 'ont-app.vocabulary.foaf))
               "foaf"))
     (is (= (v/qname-for ::v/blah)
            "voc:blah"))

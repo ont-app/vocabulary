@@ -1,16 +1,16 @@
-(ns vocabulary.linguistics
+(ns ont-app.vocabulary.linguistics
   {:doc "Defines a set of namespaces relating to linguistics"
    }
   (:require
    [clojure.string :as s]
    [clojure.set :as set]
-   [vocabulary.core :as voc]
+   [ont-app.vocabulary.core :as voc]
    ))       
 
 
 ;; LEMON/ONTOLEX
 (voc/cljc-put-ns-meta!
- 'vocabulary.linguistics.ontolex
+ 'ont-app.vocabulary.linguistics.ontolex
   {:dc/title "ontolex"
    :dc/description "A model for the representation of lexical information relative to ontologies. Core module."
    :vann/preferredNamespacePrefix "ontolex"
@@ -24,7 +24,7 @@
 
 
 (voc/cljc-put-ns-meta!
- 'vocabulary.linguistics.pmn
+ 'ont-app.vocabulary.linguistics.pmn
   {
    :dc/title "Predicate Model for Ontologies (PreMOn)"
    :dc/description "The PreMOn Ontology is an extension of lemon (W3C Ontology Lexicon Community Group, 2015) for representing predicate models and their mappings. The Core Module of the PreMOn Ontology defines the main abstractions for modelling semantic classes with their semantic roles, mappings between different predicate models, and annotations."
@@ -51,7 +51,7 @@
 ;; NATURAL LANGUAGE INTERCHANGE FORMAT (NIF)
 
 (voc/cljc-put-ns-meta!
- 'vocabulary.linguistics.nif
+ 'ont-app.vocabulary.linguistics.nif
   {
    :dc/title "Natural Language Interchange Format (NIF)"
    :dc/description "The NLP Interchange Format (NIF) is an RDF/OWL-based format that aims to achieve interoperability between Natural Language Processing (NLP) tools, language resources and annotations. NIF consists of specifications, ontologies and software, which are combined under the version identifier "2.0", but are versioned individually. This ontology is developed by the NLP2RDF project (http://nlp2rdf.org) and provided as part of NIF 2.0 under CC-BY license as well as Apache 2.0. The ontology contains seven core URIs (String, RFC5147String, Context, isString, referenceContext, beginIndex, endIndex) that provide the foundation to express NLP annotations effectively in RDF."
@@ -69,7 +69,7 @@
 ;; Namespaces native to naturallexicon.org and the ont-app project
 
 (voc/cljc-put-ns-meta!
- 'vocabulary.linguistics.natlex.ont
+ 'ont-app.vocabulary.linguistics.natlex.ont
   {
    :dc/description "The home of ontological constructs that apply to no particular language."
    :vann/preferredNamespacePrefix "natlex"
@@ -81,7 +81,7 @@
 ;; ENGLISH
 
 (voc/cljc-put-ns-meta!
- 'vocabulary.linguistics.natlex.en.ont
+ 'ont-app.vocabulary.linguistics.natlex.en.ont
   {
    :dc/description "The home of ontological constructs relating to English"
    :vann/preferredNamespacePrefix "en"
@@ -91,7 +91,7 @@
   )
 
 (voc/cljc-put-ns-meta!
- 'vocabulary.linguistics.natlex.en.form
+ 'ont-app.vocabulary.linguistics.natlex.en.form
   {
    :dc/description "A container for English word forms"
    :vann/preferredNamespacePrefix "enForm"
@@ -103,7 +103,7 @@
 ;; CHINESE
 
 (voc/cljc-put-ns-meta!
- 'vocabulary.linguistics.natlex.zh.ont
+ 'ont-app.vocabulary.linguistics.natlex.zh.ont
   {
    :dc/description "The home of ontological constructs relating to Chinese"
    :vann/preferredNamespacePrefix "zh"
@@ -113,7 +113,7 @@
   )
 
 (voc/cljc-put-ns-meta!
- 'vocabulary.linguistics.natlex.zh.written
+ 'ont-app.vocabulary.linguistics.natlex.zh.written
   {
    :dc/description "A container for Chinese written forms"
    :vann/preferredNamespacePrefix "hanzi"
@@ -124,7 +124,7 @@
     
 
 (voc/cljc-put-ns-meta!
- 'vocabulary.linguistics.natlex.zh.cmn
+ 'ont-app.vocabulary.linguistics.natlex.zh.cmn
   {
    :dc/description "A container for Mandarin forms"
    :vann/preferredNamespacePrefix "cmn"

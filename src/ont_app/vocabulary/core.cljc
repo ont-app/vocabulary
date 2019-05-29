@@ -1,4 +1,4 @@
-(ns vocabulary.core
+(ns ont-app.vocabulary.core
   (:require
    [clojure.string :as s]
    [clojure.set :as set]
@@ -7,16 +7,6 @@
    #?(:cljs [cljs.analyzer.api :as ana-api])
    ))       
 
-;; #?(:cljs
-;; (defn get-snippet-analysis [cljs-code]
-;;   (let [empty-compiler-env (ana-api/empty-state)
-;;         empty-analyzer-env (ana-api/empty-env)]
-;;     (ana-api/in-cljs-user
-;;       empty-compiler-env
-;;       (ana-api/analyze empty-analyzer-env cljs-code)
-;;       empty-compiler-env))))
-
-;; #?(:cljs (def x (get-snippet-analysis ::dummy)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; FUN WITH READER MACROS
@@ -26,9 +16,8 @@
   #?(:clj (Exception. msg)
      :cljs (js/Error msg)))
 
-(def x #?(:cljs "blah" :clj "blih"))
 
-;; namespace metadata isn't really available at runtime in cljs...
+;; namespace metadata isn't available at runtime in cljs...
 #?(:cljs
    (def cljs-ns-metadata
      "Namespaces in cljs are not proper objects, and there is no metadata
@@ -46,8 +35,8 @@
   <key> is a keyword containing vocabulary metadata, e.g. ::vann/preferredNamespacePrefix
   NOTE: In cljs, ns's are not available at runtime, so the metadata is stored
     in an atom called 'voc/cljs-ns-metadata'
-  Examples of a dummy namespace would be RDF namespaces like vocabulary.rdf,
-    vocabulary.foaf, etc.
+  Examples of a dummy namespace would be RDF namespaces like ont-app.vocabulary.rdf,
+    ont-app.vocabulary.foaf, etc.
   "
   ([_ns m]
   #?(:cljs
@@ -98,7 +87,8 @@ NOTE: Implementations involving cljs must use cljs-put/get-ns-meta to declare
   ns metadata.
 "
   #?(:clj (find-ns _ns)
-     :cljs (@cljs-ns-metadata _ns)
+     :cljs (if (contains? @cljs-ns-metadata _ns)
+             _ns)
      ))
 
 (defn cljc-all-ns []
@@ -167,7 +157,7 @@ Where
 ;; ;; SCHEMA
 
 (cljc-put-ns-meta!
- 'vocabulary.core
+ 'ont-app.vocabulary.core
  {:doc "Defines utilities and a set of namespaces for commonly used linked data constructs, metadata of which specifies RDF namespaces, prefixes and other details."
   :vann/preferredNamespacePrefix "voc"
   :vann/preferredNamespaceUri
@@ -195,8 +185,8 @@ Where
 "
   {:test #(assert
            (= (collect-prefixes {}
-                                (cljc-get-ns-meta 'vocabulary.foaf))
-              {"foaf" (cljc-find-ns 'vocabulary.foaf)}))
+                                (cljc-get-ns-meta 'ont-app.vocabulary.foaf))
+              {"foaf" (cljc-find-ns 'ont-app.vocabulary.foaf)}))
    }
   [acc next-ns]
   {:pre (map? acc)
@@ -228,7 +218,7 @@ Where
 <ns> is an instance of clojure.lang.Namespace
 "
   {:test #(assert
-           (= (ns-to-namespace (cljc-find-ns 'vocabulary.foaf))
+           (= (ns-to-namespace (cljc-find-ns 'ont-app.vocabulary.foaf))
               "http://xmlns.com/foaf/0.1/"))
    }
   [ns]
@@ -304,7 +294,7 @@ Where
   declaration in its metadata.   
 "
   {:test #(assert
-           (= (ns-to-prefix (cljc-find-ns 'vocabulary.foaf))
+           (= (ns-to-prefix (cljc-find-ns 'ont-app.vocabulary.foaf))
               "foaf"))
    }
   [_ns]
@@ -343,7 +333,7 @@ Where
 "
   {:test #(do
             (assert
-             (or (not= *ns* (cljc-find-ns 'vocabulary.core))
+             (or (not= *ns* (cljc-find-ns 'ont-app.vocabulary.core))
                  (= (qname-for ::blah)
                     "voc:blah")))
             (assert
@@ -488,7 +478,7 @@ Where
 ;; ;;; These are commonly used RDF namespaces.
 
 (cljc-put-ns-meta!
- 'vocabulary.rdf
+ 'ont-app.vocabulary.rdf
  {
   :rdfs/comment "The core rdf vocabulary"
   :vann/preferredNamespacePrefix "rdf"
@@ -496,7 +486,7 @@ Where
   })
 
 (cljc-put-ns-meta!
- 'vocabulary.rdfs
+ 'ont-app.vocabulary.rdfs
  {
      :dc/title "The RDF Schema vocabulary (RDFS)"
      :vann/preferredNamespaceUri "http://www.w3.org/2000/01/rdf-schema#"
@@ -508,7 +498,7 @@ Where
   })
 
 (cljc-put-ns-meta!
- 'vocabulary.owl  
+ 'ont-app.vocabulary.owl  
     {
      :dc/title "The OWL 2 Schema vocabulary (OWL 2)"
      :dc/description
@@ -538,7 +528,7 @@ Where
     )
 
 (cljc-put-ns-meta!
- 'vocabulary.vann
+ 'ont-app.vocabulary.vann
     {
      :rdfs/label "VANN"
      :dc/description "A vocabulary for annotating vocabulary descriptions"
@@ -548,7 +538,7 @@ Where
      })
 
 (cljc-put-ns-meta!
- 'vocabulary.dc
+ 'ont-app.vocabulary.dc
     {
      :dc/title "Dublin Core Metadata Element Set, Version 1.1"
      :vann/preferredNamespaceUri "http://purl.org/dc/elements/1.1/"
@@ -560,7 +550,7 @@ Where
     )
 
 (cljc-put-ns-meta!
- 'vocabulary.dct
+ 'ont-app.vocabulary.dct
     {
      :dc/title "DCMI Metadata Terms - other"
      :vann/preferredNamespaceUri "http://purl.org/dc/elements/1.1/"
@@ -572,7 +562,7 @@ Where
     )
 
 (cljc-put-ns-meta!
- 'vocabulary.shacl
+ 'ont-app.vocabulary.shacl
     {
      :rdfs/label "W3C Shapes Constraint Language (SHACL) Vocabulary"
      :rdfs/comment
@@ -586,7 +576,7 @@ Where
 
 
 (cljc-put-ns-meta!
- 'vocabulary.dcat
+ 'ont-app.vocabulary.dcat
     {
      :dc/title "Data Catalog vocabulary"
      :foaf/homepage "https://www.w3.org/TR/vocab-dcat/"
@@ -597,7 +587,7 @@ Where
     )
    
 (cljc-put-ns-meta!
- 'vocabulary.foaf
+ 'ont-app.vocabulary.foaf
  {
   :dc/title "Friend of a Friend (FOAF) vocabulary"
   :dc/description "The Friend of a Friend (FOAF) RDF vocabulary,
@@ -612,7 +602,7 @@ Where
  )
 
 (cljc-put-ns-meta!
- 'vocabulary.skos
+ 'ont-app.vocabulary.skos
     {
      :dc/title "SKOS Vocabulary"
      :dc/description "An RDF vocabulary for describing the basic
@@ -631,7 +621,7 @@ Where
 
 
 (cljc-put-ns-meta!
- 'vocabulary.schema
+ 'ont-app.vocabulary.schema
     {
      :vann/preferredNamespaceUri "http://schema.org/"
      :vann/preferredNamespacePrefix "schema"
@@ -649,7 +639,7 @@ Where
      })
 
 (cljc-put-ns-meta!
- 'vocabulary.xsd
+ 'ont-app.vocabulary.xsd
     {
      :dc/description "Offers facilities for describing the structure and
    constraining the contents of XML and RDF documents"

@@ -16,6 +16,12 @@
             [lein-figwheel "0.5.16"]
             [lein-doo "0.1.10"]
             ]
+  ;; CLJC
+  :source-paths ["src"]
+  ;; CLJ
+  :target-path "target/%s"
+  :test-paths ["test/clj"]
+  ;; CLJS
   :cljsbuild
   {:builds
    {
@@ -30,9 +36,9 @@
                       ;; started and compiled your application.
                       ;; Comment this out once it no longer serves you.
                       :open-urls ["http://localhost:3449/index.html"]}
-           :compiler {:main vocabulary.core
+           :compiler {:main ont-app.vocabulary.core
                       :asset-path "js/compiled/out"
-                      :output-to "resources/public/js/compiled/vocabulary.js"
+                      :output-to "resources/public/js/compiled/ont-app/vocabulary.js"
                       :output-dir "resources/public/js/compiled/out"
                       :source-map-timestamp true
                       ;; To console.log CLJS data-structures make sure you enable devtools in Chrome
@@ -45,7 +51,7 @@
     :test {:source-paths ["src" "test/cljs"]
             :compiler {:output-to "resources/test/compiled.js"
                        ;; entry point for doo-runner:
-                       :main vocabulary.browser ;; at test/cljs/vocabulary/browser.cljs
+                       :main ont-app.vocabulary.browser ;; at test/cljs/vocabulary/browser.cljs
                        :optimizations :none
                        ;; :warnings {:bad-method-signature false}
                        }}
@@ -53,35 +59,19 @@
     :min
     {
      :source-paths ["src"]
-     :compiler {:output-to "resources/public/js/compiled/vocabulary.js"
+     :compiler {:output-to "resources/public/js/compiled/ont-app/vocabulary.js"
                 :output-dir "resources/public/js/out"
-                :main vocabulary.core
+                :main ont-app.vocabulary.core
                 :optimizations :advanced
                 :pretty-print false}
      }
    }}
-   :target-path "target/%s"
-   :test-paths ["test/clj"]
    :figwheel {;; :http-server-root "public" ;; default and assumes "resources"
               ;; :server-port 3449 ;; default
               ;; :server-ip "127.0.0.1"
               :css-dirs ["resources/public/css"] ;; watch and update CSS
               ;; Start an nREPL server into the running figwheel process
               ;; :nrepl-port 7888
-              ;; To be able to open files in your editor from the heads up display
-              ;; you will need to put a script on your path.
-              ;; that script will have to take a file path and a line number
-              ;; ie. in  ~/bin/myfile-opener
-              ;; #! /bin/sh
-              ;; emacsclient -n +$2 $1
-              ;;
-              ;; :open-file-command "myfile-opener"
-              ;; if you are using emacsclient you can just use
-              ;; :open-file-command "emacsclient"
-              ;; if you want to disable the REPL
-              ;; :repl false
-              ;; to configure a different figwheel logfile path
-              ;; :server-logfile "tmp/logs/figwheel-logfile.log"
               ;; to pipe all the output to the repl
               :server-logfile false
               }
@@ -93,9 +83,6 @@
                                    [cider/piggieback "0.3.1"]]
                     ;; need to add dev source path here to get user.clj loaded
                     :source-paths ["src" "dev"]
-                    ;; for CIDER
-                    ;; :plugins [[cider/cider-nrepl "0.12.0"]]
-                    :repl-options {:nrepl-middleware [cider.piggieback/wrap-cljs-repl]}
                     ;; need to add the compliled assets to the :clean-targets
                     :clean-targets ^{:protect false} ["resources/public/js/compiled"
                                                       :target-path]}}

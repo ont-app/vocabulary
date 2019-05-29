@@ -1,6 +1,6 @@
-(ns vocabulary.core-test
+(ns ont-app.vocabulary.core-test
   (:require [clojure.test :refer :all]
-            [vocabulary.core :refer :all]))
+            [ont-app.vocabulary.core :refer :all]))
 
 
 (deftest attr-map-test
