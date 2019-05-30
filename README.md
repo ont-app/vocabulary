@@ -47,7 +47,7 @@ Within standard (JVM-based) clojure, the minimal specification to support ont-ap
     :vann/preferredNamespaceUri "http://example.org/"
   }
   (:require 
-  [vocabulary.core :as voc]
+  [ont-app.vocabulary.core :as voc]
   ...))
 ```
 This expresses an equivalence between the clojure keyword...
@@ -69,7 +69,7 @@ Because Clojurescript does not implement namespaces as first-class objects, ther
 ```
 (ns org.example
   (:require 
-   [vocabulary.core :as voc]
+   [ont-app.vocabulary.core :as voc]
    ...))
   
 (voc/cljc-put-ns-meta!
@@ -82,11 +82,11 @@ Because Clojurescript does not implement namespaces as first-class objects, ther
 ```
 This updates a dedicated map from ns-names to 'pseudo-metadata' in a global atom.
 
-The `vocabulary.core` module is defined in cljc format, and contains these  declarations:
+The `ont-app.vocabulary.core` module is defined in cljc format, and contains these  declarations:
 
 ```
 (cljc-put-ns-meta!
- 'vocabulary.core
+ 'ont-app.vocabulary.core
  {:doc "Defines utilities and a set of namespaces for commonly used linked data constructs, metadata of which specifies RDF namespaces, prefixes and other details."
   :vann/preferredNamespacePrefix "voc"
   :vann/preferredNamespaceUri "http://rdf.naturallexicon.org/ont-app/vocabulary/"
@@ -107,7 +107,7 @@ With these statements...
 ```
 ...declaring that this namespace is publicly addressable with that IRI, with the prefix 'voc'.
 
-The namespace for `vann` is also declared as vocabulary.vann in `vocab.core.cljc` file, with this metadata:
+The namespace for `vann` is also declared as vocabulary.vann in the `vocabulary/core.cljc` file, with this metadata:
 
 ```
 {
@@ -122,9 +122,9 @@ The namespace for `vann` is also declared as vocabulary.vann in `vocab.core.cljc
 The relations [preferredNamespaceUri](http://vocab.org/vann/#preferredNamespacePrefix) and [preferredNamespacePrefix](http://vocab.org/vann/#preferredNamespaceUri) are part of the public VANN vocabulary, with well-defined usage and semantics.
 
 ```
-The vocabulary.core module declares a number of commonly used namespaces, e.g.
+The ont-app.vocabulary.core module declares a number of commonly used namespaces, e.g.
 
-(ns vocabulary.foaf
+(ns ont-app.vocabulary.foaf
 {
  :dc/title "Friend of a Friend (FOAF) vocabulary"
  :dc/description "The Friend of a Friend (FOAF) RDF vocabulary,
@@ -148,15 +148,17 @@ Note that these are all simple key/value declarations except the `:voc/appendix`
 This includes triples which elaborate on constructs mentioned in the key-value paris in the rest of the metadata, in this case describing the media types of files describing the vocabulary which are available for download at the URLs given.
 
 
-Requiring the  `vocabulary.core` module also loads `ns` declarations dedicated to some of the most commonly used RDF/Linked Open Data prefixes: [rdf](https://www.w3.org/2001/sw/wiki/RDF), [rdfs](https://www.w3.org/TR/rdf-schema/) (both integral to basic RDF constructs), [owl](https://www.w3.org/OWL/) (for more elaborate ontologies) [vann](http://vocab.org/vann/) (for annotating vocabulary descriptons), [dc](http://purl.org/dc/elements/1.1/), [dct](http://purl.org/dc/elements/1.1/) (both components of the [Dublin Core](http://dublincore.org/)), [sh](https://www.w3.org/TR/shacl/) (SHACL -- for defining well-formedness constraints), [dcat](https://www.w3.org/TR/vocab-dcat/) (Data Catalog vocabulary), [foaf](http://xmlns.com/foaf/spec/) (the 'Friend of a Friend' vocabulary), [skos](https://www.w3.org/2009/08/skos-reference/skos.html) (for loose taxonomies), and [schema](https://schema.org/), (the [schema.org](https://schema.org/) vocabulary, mostly dedicated to commercial topics, with web-page metadata and search-engine indexes in mind).
+Requiring the  `ont-app.vocabulary.core` module also loads `ns` declarations dedicated to some of the most commonly used RDF/Linked Open Data prefixes: [rdf](https://www.w3.org/2001/sw/wiki/RDF), [rdfs](https://www.w3.org/TR/rdf-schema/) (both integral to basic RDF constructs), [owl](https://www.w3.org/OWL/) (for more elaborate ontologies) [vann](http://vocab.org/vann/) (for annotating vocabulary descriptons), [dc](http://purl.org/dc/elements/1.1/), [dct](http://purl.org/dc/elements/1.1/) (both components of the [Dublin Core](http://dublincore.org/)), [sh](https://www.w3.org/TR/shacl/) (SHACL -- for defining well-formedness constraints), [dcat](https://www.w3.org/TR/vocab-dcat/) (Data Catalog vocabulary), [foaf](http://xmlns.com/foaf/spec/) (the 'Friend of a Friend' vocabulary), [skos](https://www.w3.org/2009/08/skos-reference/skos.html) (for loose taxonomies), and [schema](https://schema.org/), (the [schema.org](https://schema.org/) vocabulary, mostly dedicated to commercial topics, with web-page metadata and search-engine indexes in mind).
 
-The `vocabulary.wikidata` module has declarations for the [several namespaces](https://www.mediawiki.org/wiki/Wikibase/Indexing/RDF_Dump_Format#Full_list_of_prefixes) pertinent to the [Wikidata](https://www.wikidata.org/wiki/Wikidata:Main_Page) database.
+The `ont-app.vocabulary.wikidata` module has declarations for the [several namespaces](https://www.mediawiki.org/wiki/Wikibase/Indexing/RDF_Dump_Format#Full_list_of_prefixes) pertinent to the [Wikidata](https://www.wikidata.org/wiki/Wikidata:Main_Page) database.
 
-The `vocabulary.linguistics` module declares namespaces for  [ontolex](https://www.w3.org/2016/05/ontolex/) (for encoding lexical data), [pmn](http://premon.fbk.eu/ontology/core.html) (PreMOn - dedicated to describing English verbs), [nif](http://persistence.uni-leipzig.org/nlp2rdf/ontologies/nif-core/nif-core.html) (Natural Language Interchange Format - for annotating corpora), and a set of namespaces particular to my Natural Lexicon project, which are still under development.
+The `ont-app.vocabulary.linguistics` module declares namespaces for  [ontolex](https://www.w3.org/2016/05/ontolex/) (for encoding lexical data), [pmn](http://premon.fbk.eu/ontology/core.html) (PreMOn - dedicated to describing English verbs), [nif](http://persistence.uni-leipzig.org/nlp2rdf/ontologies/nif-core/nif-core.html) (Natural Language Interchange Format - for annotating corpora), and a set of namespaces particular to my Natural Lexicon project, which are still under development.
     
 ## Functionaity 
 
-There are a number of functions defined within `vocabulary.core` which provide some utility.
+### Within the core module
+
+There are a number of functions defined within `ont-app.vocabulary.core` which provide some utility.
 
 
 We can get all the prefixes of namespaces declared within the current lexical environment:
@@ -175,7 +177,7 @@ We can get all the prefixes of namespaces declared within the current lexical en
  
 We can get the IRI namespace associated with an `ns`
 ```
-(ns-to-namespace (find-ns 'org.naturallexicon.lod.foaf))
+(ns-to-namespace (find-ns 'ont-app.vocabulary.foaf))
 ;; --> "http://xmlns.com/foaf/0.1/"
 ```
 
@@ -205,7 +207,7 @@ We can get the IRI associated with a keyword:
 
 The function `iri-for` works as well for aliases interned in the local lexical environment (note the double-colon):
 ```
-(require '[vocabulary.core :as v])
+(require '[ont-app.vocabulary.core :as v])
 
 (iri-for ::v/appendix)
 ;;-> "http://rdf.naturallexicon.org/ont-app/vocabulary/appendix"
@@ -249,6 +251,12 @@ Or we can just go ahead and prepend the prefixes...
 "PREFIX foaf: <http://xmlns.com/foaf/0.1/>
 Select * Where{?s foaf:homepage ?homepage}"
 ```
+
+### Within the wikidata module
+
+The value for [Wikidata's public SPARQL endpoint](https://query.wikidata.org/bigdata/namespace/wdq/sparql) is def'd as:
+
+`ont-app.vocabulary.wikidata/sparql-endpoint`
 
 ## License
 

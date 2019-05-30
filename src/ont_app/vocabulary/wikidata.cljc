@@ -4,7 +4,12 @@
   (:require
    [ont-app.vocabulary.core :as voc]
    ))
-  
+
+
+(def sparql-endpoint
+  "The public SPARQL endpoint provided by WMF."
+  "https://query.wikidata.org/bigdata/namespace/wdq/sparql")
+
 (voc/cljc-put-ns-meta!
  'ont-app.vocabulary.wikidata.wd
     {
