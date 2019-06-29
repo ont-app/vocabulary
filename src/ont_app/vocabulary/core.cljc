@@ -353,11 +353,9 @@ Where
   {:pre [(keyword? kw)
          ]
    }
-  (if-let [prefix (namespace kw)
-           ]
-    (if (re-matches #"^:(http|https|file):.*" (str kw))
-      ;; this is a scheme, not a namespace
-      (let [uri-str (subs (str kw) 1)]
+  (if (re-matches #"^:(http|https|file):.*" (str kw))
+    ;; this is a scheme, not a namespace
+    (let [uri-str (subs (str kw) 1)]
         (if-let [rem (re-matches (namespace-re) uri-str)]
           (let [[_ namespace-uri name] rem]
             (if (not (invalid-qname-name name))
@@ -369,7 +367,9 @@ Where
                name)))
           ;;else no namespace match
           (str "<" uri-str ">")))
-      ;;else not http://...
+    ;; else this is not scheme-based URI
+    (if-let [prefix (namespace kw)
+             ]
       (let [_ns (or (cljc-find-ns (symbol prefix))
                     (prefixed-ns prefix))
             
@@ -381,9 +381,9 @@ Where
           ;;else valid as qname
           (str (ns-to-prefix _ns)
                ":"
-               (name kw)))))
-    ;; else no namespace
-    (str "<" (name kw) ">")))
+               (name kw))))
+      ;; else no namespace
+      (str "<" (name kw) ">"))))
 
 
 (defn prefix-re-str []
@@ -532,8 +532,8 @@ Where
     {
      :rdfs/label "VANN"
      :dc/description "A vocabulary for annotating vocabulary descriptions"
-     :vann/preferredNamespaceUri "http://purl.org/vocab/vann"
-     :vann/peferredNamespacePrefix "vann"
+     :vann/preferredNamespaceUri "http://purl.org/vocab/vann/"
+     :vann/preferredNamespacePrefix "vann"
      :foaf/homepage "http://vocab.org/vann/"
      })
 
