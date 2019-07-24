@@ -8,6 +8,18 @@
    ))       
 
 
+(def prefix-to-ns-cache (atom nil))
+(def namespace-to-ns-cache (atom nil))
+(def prefix-re-str-cache (atom nil))
+
+(defn clear-caches! []
+  "Side-effects: resets all caches in voc/ to nil
+NOTE: call this when you may have imported new namespace metadata
+"
+  (reset! prefix-re-str-cache nil)
+  (reset! namespace-to-ns-cache nil)
+  (reset! prefix-to-ns-cache nil))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; FUN WITH READER MACROS
 ;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -25,6 +37,7 @@
   cljc-put-ns-metadata and accessed with cljc-get-metadata. Clj just uses
   the metadata regime for its ns's"
      (atom {})))
+
 
 (defn cljc-put-ns-meta!
   "Side-effect: ensures that subsequent calls to (cljc-get-ns-meta `_ns` return `m`
@@ -49,10 +62,13 @@
             (create-ns _ns))
         ;;else not a symbol
         _ns)
-      merge m)))
+      merge m))
+   (clear-caches!))
   ([m]
    #?(:cljs (cljc-put-ns-meta! (namespace ::dummy)) 
-      :clj (cljc-put-ns-meta! *ns* m))))
+      :clj (cljc-put-ns-meta! *ns* m))
+   
+   ))
 
 (defn cljc-get-ns-meta
   "Returns <metadata> assigned to ns named `_ns`
@@ -208,7 +224,10 @@ Where
 <ns> is an instance of clojure.lang.ns available within the lexical 
   context in which the  call was made.
 "
-  (reduce collect-prefixes {} (cljc-all-ns)))
+  (when-not @prefix-to-ns-cache
+    (reset! prefix-to-ns-cache
+            (reduce collect-prefixes {} (cljc-all-ns))))
+  @prefix-to-ns-cache)
 
 (defn ns-to-namespace 
   "Returns <iri> for <ns>
@@ -224,20 +243,23 @@ Where
   [ns]
   (:vann/preferredNamespaceUri (cljc-get-ns-meta ns)))
 
-(defn namespace-to-ns  []
+(defn namespace-to-ns []
   "returns {<namespace> <ns> ...} for each ns with :vann/preferredNamespaceUri
 declaration
 "
-  (let [maybe-mapping (fn [_ns]
-                        (if-let [namespace (:vann/preferredNamespaceUri
-                                            (cljc-get-ns-meta _ns))
-                                 ]
-                          [namespace _ns]))
-        ]
-    (into {}
-          (filter identity
-                  (map maybe-mapping
-                       (cljc-all-ns))))))
+  (when-not @namespace-to-ns-cache
+    (let [maybe-mapping (fn [_ns]
+                          (if-let [namespace (:vann/preferredNamespaceUri
+                                              (cljc-get-ns-meta _ns))
+                                   ]
+                            [namespace _ns]))
+          ]
+      (reset! namespace-to-ns-cache
+              (into {}
+                    (filter identity
+                            (map maybe-mapping
+                                 (cljc-all-ns)))))))
+  @namespace-to-ns-cache)
 
 (defn- prefixed-ns [prefix]
   "Returns nil or the ns whose `prefix` was declared in metadata with :vann/preferredNamespacePrefix
@@ -391,9 +413,12 @@ Where
   :vann/preferredNamespacePrefix keys. 
 NOTE: this is a string because the actual re-pattern will differ per clj/cljs.
 "
-   (str "\\b(" ;; word boundary
-        (s/join "|" (keys (prefix-to-ns)))
-        "):"))
+  (when-not @prefix-re-str-cache
+    (reset! prefix-re-str-cache
+            (str "\\b(" ;; word boundary
+                 (s/join "|" (keys (prefix-to-ns)))
+                 "):")))
+  @prefix-re-str-cache)
 
 
 (defn keyword-for 
@@ -431,6 +456,7 @@ NOTE: this is a string because the actual re-pattern will differ per clj/cljs.
                        :vann/preferredNamespacePrefix)
                    value
                    ))))))
+
 
 (defn sparql-prefixes-for 
   "Returns [<prefix-string>...] for each prefix identified in <sparql-string>
@@ -647,6 +673,7 @@ Where
      :vann/preferredNamespacePrefix "xsd"
      :foaf/homepage "https://www.w3.org/2001/XMLSchema"
      })
+
 
 
 
