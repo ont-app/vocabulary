@@ -38,7 +38,6 @@ NOTE: call this when you may have imported new namespace metadata
   the metadata regime for its ns's"
      (atom {})))
 
-
 (defn cljc-put-ns-meta!
   "Side-effect: ensures that subsequent calls to (cljc-get-ns-meta `_ns` return `m`
   Where
@@ -92,6 +91,30 @@ NOTE: call this when you may have imported new namespace metadata
   ([]
    #?(:cljs (throw (cljc-error "Cannot infer namespace at runtime in cljs"))
       :clj (cljc-get-ns-meta *ns*))))
+
+
+#?(:cljs
+   (def ^:dynamic *alias-map*
+     "{<alias> <ns-name>, ...}
+  Where
+  <alias> is a symbol
+  <ns-name> is a symbol naming an ns in the current lexical env
+  Informs cljc-ns-aliases in cljs space.
+  "
+     {}))
+
+(defn cljc-ns-aliases []
+  "Returns {<alias> <ns>, ...}
+Where
+<alias> is a symbol
+<ns> is its associated ns in the current lexical environment.
+NOTE: cljs will require explicit maintenance of *alias-map*
+This is really only necessary if you're importing a package
+as some symbol other than the preferred prefix.
+"
+  #?(:clj (ns-aliases *ns*)
+     :cljs *alias-map*))
+
 
 (defn cljc-find-ns [_ns]
   "Returns <ns name or obj> for <_ns>, or nil.
@@ -240,8 +263,14 @@ Where
            (= (ns-to-namespace (cljc-find-ns 'ont-app.vocabulary.foaf))
               "http://xmlns.com/foaf/0.1/"))
    }
-  [ns]
-  (:vann/preferredNamespaceUri (cljc-get-ns-meta ns)))
+  [_ns]
+  (or
+   (:vann/preferredNamespaceUri (cljc-get-ns-meta _ns))
+   (-> _ns
+       (cljc-get-ns-meta)
+       :voc/mapsTo
+       (cljc-get-ns-meta)
+       :vann/preferredNamespaceUri)))
 
 (defn namespace-to-ns []
   "returns {<namespace> <ns> ...} for each ns with :vann/preferredNamespaceUri
@@ -268,7 +297,9 @@ Where
 "
   {:pre [(string? prefix)]
    }
-  (get (prefix-to-ns) prefix))
+  (or (get (cljc-ns-aliases) (symbol prefix))
+      (get (prefix-to-ns) prefix)))
+      
 
 
 (defn encode-uri-string [s]
@@ -341,7 +372,13 @@ Where
               "foaf"))
    }
   [_ns]
-  (:vann/preferredNamespacePrefix (cljc-get-ns-meta _ns)))
+  (or 
+   (:vann/preferredNamespacePrefix (cljc-get-ns-meta _ns))
+   (-> _ns
+       (cljc-get-ns-meta)
+       :voc/mapsTo
+       (cljc-get-ns-meta)
+       :vann/preferredNamespacePrefix)))
 
 (defn prefix-to-namespace-uri
   "returns `namespace` URI associated with `prefix`

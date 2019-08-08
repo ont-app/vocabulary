@@ -1,14 +1,34 @@
 (ns ont-app.vocabulary.core-test
   (:require
-   [cljs.test :refer [testing is deftest]]
+   #?(:clj [clojure.test :refer :all]
+      :cljs [cljs.test :refer [testing is deftest]]
+      )
    [ont-app.vocabulary.core :as v]
    ))
 
+(v/cljc-put-ns-meta!
+ 'ont-app.vocabulary.core-test
+ {
+  :voc/mapsTo 'ont-app.vocabulary.core ;; <- part of the test
+  })
 
-(deftest ns-test
+;; FUN WITH READER MACROS
+
+#_(def ErrObject
+  #?(:clj Exception
+     :cljs js/Object
+     ))
+
+(deftest platform-specific-tests
   (testing "namespace access"
-    (is (= (v/cljc-find-ns 'ont-app.vocabulary.core)
-           'ont-app.vocabulary.core))))
+    (let [get-sym #?(:cljs identity
+                     :clj ns-name)
+          ]
+      (is (= (get-sym (v/cljc-find-ns 'ont-app.vocabulary.core))
+             'ont-app.vocabulary.core)))))
+              
+  
+;; NO READER MACROS BELOW THIS POINT
 
 
 (deftest attr-map-test
@@ -19,9 +39,7 @@
             "foaf"))
      (is (= (v/iri-for :foaf/homepage)
            "http://xmlns.com/foaf/0.1/homepage"))
-    (is (thrown? js/Object 
-                 (v/iri-for ::blah))) ;; no metadata in this file
-    (is (= (v/iri-for (keyword "http://blah"))
+    (is (= (v/iri-for (v/keyword-for "http://blah"))
            "http://blah"))
     (is (= (v/iri-for ::v/blah)
            "http://rdf.naturallexicon.org/ont-app/vocabulary/blah"))
@@ -46,3 +64,12 @@
     
 
      ))
+
+(deftest maps-to-test
+  (testing ":voc/mapsTo ns metadata should resolve prefixes properly"
+    ;; note that the local ns  maps to vocabulary.core
+    (is (= (v/iri-for ::blah)
+           "http://rdf.naturallexicon.org/ont-app/vocabulary/blah"))
+    (is (= (v/qname-for ::blah)
+           "voc:blah"))
+    ))

@@ -20,13 +20,13 @@
   :source-paths ["src"]
   ;; CLJ
   :target-path "target/%s"
-  :test-paths ["test/clj"]
+  :test-paths ["test/cljc"]
   ;; CLJS
   :cljsbuild
   {:builds
    {
     ;; DEVELOPMENT PROFILE
-    :dev {:source-paths ["src"]
+    :dev {:source-paths ["src" "test/cljc"]
            ;; The presence of a :figwheel configuration here
            ;; will cause figwheel to inject the figwheel client
            ;; into your build
