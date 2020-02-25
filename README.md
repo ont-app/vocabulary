@@ -8,6 +8,8 @@ There is also support for a similar arrangement within Clojurescript, though the
 
 ## Installation
 
+Available at [clojars](https://clojars.org/ont-app/vocabulary).
+
 [![Clojars Project](https://img.shields.io/clojars/v/ont-app/vocabulary.svg)](https://clojars.org/ont-app/vocabulary)
 
 Include this in your project.clj...
