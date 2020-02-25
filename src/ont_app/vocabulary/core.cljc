@@ -41,14 +41,13 @@ NOTE: call this when you may have imported new namespace metadata
 (defn cljc-put-ns-meta!
   "Side-effect: ensures that subsequent calls to (cljc-get-ns-meta `_ns` return `m`
   Where
-  <_ns> is an ns(clj only) or the name of a namespace, or 'dummy namespace' whose purpose is to hold
-     vocabulary metadata.
+  <_ns> is an ns(clj only) or the name of a namespace, possibly declared for the sole purpose of holding vocabulary metadata (e.g. rdf, foaf, etc)
   <m> := {<key> <value>, ...}, metadata (clj) or 'pseudo-metadata' (cljs)
   <key> is a keyword containing vocabulary metadata, e.g. ::vann/preferredNamespacePrefix
   NOTE: In cljs, ns's are not available at runtime, so the metadata is stored
     in an atom called 'voc/cljs-ns-metadata'
-  Examples of a dummy namespace would be RDF namespaces like ont-app.vocabulary.rdf,
-    ont-app.vocabulary.foaf, etc.
+  See also declarations for ont-app.vocabulary.rdf, ont-app.vocabulary.foaf, etc.
+  for examples of namespaces declared solely to hold vocabulary metadata.
   "
   ([_ns m]
   #?(:cljs

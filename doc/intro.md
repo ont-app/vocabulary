@@ -1,3 +1,3 @@
 # Introduction to vocabulary
 
-TODO: write [great documentation](http://jacobian.org/writing/what-to-write/)
+See the [README](https://github.com/ont-app/vocabulary/blob/master/README.md)
