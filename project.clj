@@ -1,13 +1,12 @@
-(defproject ont-app/vocabulary "0.1.0-SNAPSHOT"
+(defproject ont-app/vocabulary "0.1.0"
   :description "Utilities to map between namespaced keywords and URIs"
   :url "https://github.com/ont-app/vocabulary"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :min-lein-version "2.7.1"
   :dependencies [
-                 [org.clojure/clojure "1.10.0"]
-                 [org.clojure/clojurescript "1.10.238"]
-                 [org.clojure/core.async  "0.4.474"]
+                 [org.clojure/clojure "1.10.1"]
+                 [org.clojure/clojurescript "1.10.597"]
                  [lein-doo "0.1.11"]
                  ]
   :plugins [[lein-codox "0.10.6"]
@@ -17,9 +16,8 @@
             ]
   ;; CLJC
   :source-paths ["src"]
-  ;; CLJ
   :target-path "target/%s"
-  :test-paths ["test/cljc"]
+  :test-paths ["test"]
   ;; CLJS
   :cljsbuild
   {:test-commands {"test" ["lein" "doo" "node" "test" "once"]}
@@ -34,7 +32,7 @@
                       :optimizations :advanced ;; none
                       :warnings {:bad-method-signature false}
                       }}
-   }}
+   }} ;; cljsbuild
   :codox {:output-path "doc"}
   :profiles {:uberjar {:aot :all}}
   :clean-targets
