@@ -9,9 +9,10 @@
                  [org.clojure/clojurescript "1.10.597"]
                  [lein-doo "0.1.11"]
                  ]
-  :plugins [[lein-codox "0.10.6"]
+  :plugins [
             [lein-cljsbuild "1.1.7"
              :exclusions [[org.clojure/clojure]]]
+            [lein-codox "0.10.6"]
             [lein-doo "0.1.11"]
             ]
   ;; CLJC

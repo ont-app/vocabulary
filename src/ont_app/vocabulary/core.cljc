@@ -2,9 +2,9 @@
   (:require
    [clojure.string :as s]
    [clojure.set :as set]
-   #?(:cljs [cljs.env :as env])
-   #?(:cljs [cljs.reader :as r])
-   #?(:cljs [cljs.analyzer.api :as ana-api])
+   ;; #?(:cljs [cljs.env :as env])
+   ;; #?(:cljs [cljs.reader :as r])
+   ;; #?(:cljs [cljs.analyzer.api :as ana-api])
    ))       
 
 
