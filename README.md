@@ -6,6 +6,17 @@ This is an experiment exploring the notion that some synergy can emerge from int
 
 There is also support for a similar arrangement within Clojurescript, though there are a few extra hoops to jump through given the fact that Clojurescript does not implement namespaces as first-class objects.
 
+## Contents
+- [Installation](#h2-installation)
+- [Usage](#h2-usage)
+  - [In standard Clojure (`*.clj`)](#h3-in-standard-clojure)
+  - [In ClojureScript (`*.cljs`, `*.cljc`)](#h3-in-clojurescript)
+  - [Metadata keys](#h3-metadata-keys)
+- [Functionality](#h2-functionality)
+  - [Within the core module](#h3-within-the-core-module)
+  - [Within the Wikidata module](#h3-within-the-wikidata-module)
+  
+<a name="h2-installation"></a>
 ## Installation
 
 Available at [clojars](https://clojars.org/ont-app/vocabulary).
@@ -23,7 +34,7 @@ Include this in your project.clj...
    ])
 ```   
 
-
+<a name="h2-usage"></a>
 ## Usage
 
 Require ....
@@ -39,6 +50,7 @@ This will load function definitions interned in the vocabulary.core namespace, a
 
 There are also modules for `vocabulary.wikidata` and `vocabulary.linguistics`, described below.
 
+<a name="h3-in-standard-clojure"></a>
 ### In standard Clojure (*.clj)
 Within standard (JVM-based) clojure, the minimal specification to support ont-app/vocabulary functionality for a given namespace requires metadata specification as follows:
 
@@ -64,6 +76,7 @@ This expresses an equivalence between the clojure keyword...
 
 The `vann` prefix refers to [an existing public vocabulary](http://vocab.org/vann/) which will be explained in the Metadata Keys section below. 
 
+<a name="h3-in-clojurescript"></a>
 ### In Clojurescript (*.cljs, *.cljc)
 
 Because Clojurescript does not implement namespaces as first-class objects, there is no `ns` object to which we can attach metadata. So in `cljs` and `cljc` files, we must use this idiom to achieve the same effect:
@@ -95,6 +108,7 @@ The `ont-app.vocabulary.core` module is defined in cljc format, and contains the
   }
 ```
 
+<a name="h3-metadata-keys"></a>
 ### Metadata keys
 
 Note that the metadata for this module includes some keywords in this format:
@@ -156,8 +170,10 @@ The `ont-app.vocabulary.wikidata` module has declarations for the [several names
 
 The `ont-app.vocabulary.linguistics` module declares namespaces for  [ontolex](https://www.w3.org/2016/05/ontolex/) (for encoding lexical data), [pmn](http://premon.fbk.eu/ontology/core.html) (PreMOn - dedicated to describing English verbs), [nif](http://persistence.uni-leipzig.org/nlp2rdf/ontologies/nif-core/nif-core.html) (Natural Language Interchange Format - for annotating corpora), and a set of namespaces particular to my Natural Lexicon project, which are still under development.
     
+<a name="h2-functionality"></a>
 ## Functionaity 
 
+<a name="h3-within-the-core-module"></a>
 ### Within the core module
 
 There are a number of functions defined within `ont-app.vocabulary.core` which provide some utility.
@@ -253,8 +269,8 @@ Or we can just go ahead and prepend the prefixes...
 "PREFIX foaf: <http://xmlns.com/foaf/0.1/>
 Select * Where{?s foaf:homepage ?homepage}"
 ```
-
-### Within the wikidata module
+<a name="h3-within-the-wikidata-module"></a>
+### Within the Wikidata module
 
 The value for [Wikidata's public SPARQL endpoint](https://query.wikidata.org/bigdata/namespace/wdq/sparql) is def'd as:
 
