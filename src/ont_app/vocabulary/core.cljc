@@ -477,12 +477,21 @@ NOTE: this is a string because the actual re-pattern will differ per clj/cljs.
 
 
 (defn keyword-for 
+<<<<<<< Updated upstream
   "Returns a keyword equivalent of <uri>, properly prefixed if LOD declarations exist in some ns in the current lexical environment.
   Side effects per `on-no-ns` Where <uri> is a string representing
   a URI <on-no-ns> (optional) := fn [uri kw] -> kwi', possibly with
   side-effects in response to the fact that no qname was found for
   <uri> (default returns <kw>)
   NOTE: typically <on-no-ns> would log a warning or make an assertion.
+=======
+  "Returns a keyword equivalent of <uri>, properly prefixed if LOD
+  declarations exist in some ns in the current lexical environment.
+  Side effects per `on-no-qname` Where <uri> is a string representing
+  a URI <on-no-qname> (optional) := fn [uri] -> uri, possibly with
+  side-effects in response to the fact that no qname was found for
+  <uri> (default is the identity function)
+>>>>>>> Stashed changes
 "
   {:test #(do
             (assert
@@ -496,8 +505,13 @@ NOTE: this is a string because the actual re-pattern will differ per clj/cljs.
                 :http+58++47++47+example.com+47+my+47+stuff)))
    }
   ([uri]
+<<<<<<< Updated upstream
    (keyword-for (fn [u k] k)  uri))
   ([on-no-ns uri]
+=======
+   (keyword-for identity))
+  ([uri on-no-qname]
+>>>>>>> Stashed changes
   {:pre [(string? uri)]
    }
   (if-let [[_ prefix _name] (re-matches
@@ -507,21 +521,36 @@ NOTE: this is a string because the actual re-pattern will differ per clj/cljs.
     ;; ... this is a qname...
     (keyword prefix _name)
     ;;else this isn't a qname. Maybe it's a full URI we have a prefix for...
+<<<<<<< Updated upstream
+=======
+    (on-no-qname
+>>>>>>> Stashed changes
      (let [[_ namespace value] (re-matches (namespace-re) uri)
            ]
        (if (not value)
          ;; there's nothing but prefix
+<<<<<<< Updated upstream
          (on-no-ns uri (keyword (encode-uri-string uri)))
          ;; else there's a match to the namespace regex
          (if (not namespace)
            (on-no-ns uri (keyword value))
+=======
+         (keyword (encode-uri-string uri))
+         ;; else there's a match to the namespace regex
+         (if (not namespace)
+           (keyword value)
+>>>>>>> Stashed changes
            ;; we found a namespace for which we have a prefix...
            (keyword (-> namespace
                         ((namespace-to-ns))
                         cljc-get-ns-meta
                         :vann/preferredNamespacePrefix)
                     value
+<<<<<<< Updated upstream
                     )))))))
+=======
+                    ))))))))
+>>>>>>> Stashed changes
 
 
 (defn sparql-prefixes-for 
