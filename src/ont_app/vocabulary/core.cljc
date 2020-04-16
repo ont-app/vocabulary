@@ -477,8 +477,12 @@ NOTE: this is a string because the actual re-pattern will differ per clj/cljs.
 
 
 (defn keyword-for 
-  "Returns a keyword equivalent of <uri>, properly prefixed if LOD declarations
-  exist in some ns in the current lexical environment.
+  "Returns a keyword equivalent of <uri>, properly prefixed if LOD declarations exist in some ns in the current lexical environment.
+  Side effects per `on-no-ns` Where <uri> is a string representing
+  a URI <on-no-ns> (optional) := fn [uri kw] -> kwi', possibly with
+  side-effects in response to the fact that no qname was found for
+  <uri> (default returns <kw>)
+  NOTE: typically <on-no-ns> would log a warning or make an assertion.
 "
   {:test #(do
             (assert
@@ -491,7 +495,9 @@ NOTE: this is a string because the actual re-pattern will differ per clj/cljs.
              (= (keyword-for "http://example.com/my/stuff")
                 :http+58++47++47+example.com+47+my+47+stuff)))
    }
-  [uri]
+  ([uri]
+   (keyword-for (fn [u k] k)  uri))
+  ([on-no-ns uri]
   {:pre [(string? uri)]
    }
   (if-let [[_ prefix _name] (re-matches
@@ -501,21 +507,21 @@ NOTE: this is a string because the actual re-pattern will differ per clj/cljs.
     ;; ... this is a qname...
     (keyword prefix _name)
     ;;else this isn't a qname. Maybe it's a full URI we have a prefix for...
-    (let [[_ namespace value] (re-matches (namespace-re) uri)
-          ]
-      (if (not value)
-        ;; there's nothing but prefix
-        (keyword (encode-uri-string uri))
-        ;; else there's a match to the namespace regex
-        (if (not namespace)
-          (keyword value)
-          ;; we found a namespace for which we have a prefix...
-          (keyword (-> namespace
-                       ((namespace-to-ns))
-                       cljc-get-ns-meta
-                       :vann/preferredNamespacePrefix)
-                   value
-                   ))))))
+     (let [[_ namespace value] (re-matches (namespace-re) uri)
+           ]
+       (if (not value)
+         ;; there's nothing but prefix
+         (on-no-ns uri (keyword (encode-uri-string uri)))
+         ;; else there's a match to the namespace regex
+         (if (not namespace)
+           (on-no-ns uri (keyword value))
+           ;; we found a namespace for which we have a prefix...
+           (keyword (-> namespace
+                        ((namespace-to-ns))
+                        cljc-get-ns-meta
+                        :vann/preferredNamespacePrefix)
+                    value
+                    )))))))
 
 
 (defn sparql-prefixes-for 

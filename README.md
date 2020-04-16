@@ -305,6 +305,29 @@ We can get a keyword for a IRI...
 ;; -> :foaf/homepage
 ```
 
+If the namespace does not have sufficient metadata to create a
+namespaced keyword, the entire URI will be rendered, with
+reader-friendly characters substituted as needed:
+
+```
+> (v/keyword-for "http://example.com/my/stuff")
+:http+58++47++47+example.com+47+my+47+stuff))
+>
+```
+
+There is an optional arity-2 version whose first argument is called
+when no ns could be resolved:
+
+```
+> (v/keyword-for (fn [u k] (log/warn "No namespace metadata found for " u) k)
+                  "http://example.com/my/stuff")
+WARN: No namespace metadata found for "http://example.com/my/stuff"
+:http+58++47++47+example.com+47+my+47+stuff
+>
+                  
+```
+
+
 We can infer the PREFIX declarations appropriate to a [SPARQL](https://en.wikipedia.org/wiki/SPARQL) query:
 ```
 (sparql-prefixes-for
