@@ -6,6 +6,17 @@ This is an experiment exploring the notion that some synergy can emerge from int
 
 There is also support for a similar arrangement within Clojurescript, though there are a few extra hoops to jump through given the fact that Clojurescript does not implement namespaces as first-class objects.
 
+## Contents
+- [Installation](#h2-installation)
+- [Usage](#h2-usage)
+  - [In standard Clojure (`*.clj`)](#h3-in-standard-clojure)
+  - [In ClojureScript (`*.cljs`, `*.cljc`)](#h3-in-clojurescript)
+  - [Metadata keys](#h3-metadata-keys)
+- [Functionality](#h2-functionality)
+  - [Within the core module](#h3-within-the-core-module)
+  - [Within the Wikidata module](#h3-within-the-wikidata-module)
+  
+<a name="h2-installation"></a>
 ## Installation
 
 Available at [clojars](https://clojars.org/ont-app/vocabulary).
@@ -18,12 +29,13 @@ Include this in your project.clj...
  (defproject .....
   :dependencies 
   [...
+
    [ont-app/vocabulary "0.1.1-SNAPSHOT"]
    ...
    ])
 ```   
 
-
+<a name="h2-usage"></a>
 ## Usage
 
 Require ....
@@ -35,10 +47,15 @@ Require ....
    [vocabulary.core :as voc]
    ...))
 ```
-This will load function definitions interned in the vocabulary.core namespace, and also a number of other `ns` declarations, each dedicated to an LOD namespace.
 
-There are also modules for `vocabulary.wikidata` and `vocabulary.linguistics`, described below.
+This will load function definitions interned in the vocabulary.core
+namespace, and also a number of other `ns` declarations, each
+dedicated to a commonly occurring namespace in the world of LOD.
 
+There are also modules for `ont-app.vocabulary.wikidata` and
+`ont-app.vocabulary.linguistics`, described below.
+
+<a name="h3-in-standard-clojure"></a>
 ### In standard Clojure (*.clj)
 Within standard (JVM-based) clojure, the minimal specification to support ont-app/vocabulary functionality for a given namespace requires metadata specification as follows:
 
@@ -62,11 +79,17 @@ This expresses an equivalence between the clojure keyword...
  <http://example.org/example-var>
 ```
 
-The `vann` prefix refers to [an existing public vocabulary](http://vocab.org/vann/) which will be explained in the Metadata Keys section below. 
+The `vann` prefix refers to [an existing public
+vocabulary](http://vocab.org/vann/) which will be explained in the
+Metadata Keys section below.
 
+<a name="h3-in-clojurescript"></a>
 ### In Clojurescript (*.cljs, *.cljc)
 
-Because Clojurescript does not implement namespaces as first-class objects, there is no `ns` object to which we can attach metadata. So in `cljs` and `cljc` files, we must use this idiom to achieve the same effect:
+Because Clojurescript does not implement namespaces as first-class
+objects, there is no `ns` object to which we can attach metadata. So
+in `cljs` and `cljc` files, we must use this idiom to achieve the same
+effect:
 
 ```
 (ns org.example
@@ -82,19 +105,25 @@ Because Clojurescript does not implement namespaces as first-class objects, ther
   })
 
 ```
-This updates a dedicated map from ns-names to 'pseudo-metadata' in a global atom.
 
-The `ont-app.vocabulary.core` module is defined in cljc format, and contains these  declarations:
+This updates a dedicated map from ns-names to 'pseudo-metadata' in a
+global atom.
+
+The `ont-app.vocabulary.core` module is defined in cljc format, and
+contains these declarations:
 
 ```
 (cljc-put-ns-meta!
  'ont-app.vocabulary.core
- {:doc "Defines utilities and a set of namespaces for commonly used linked data constructs, metadata of which specifies RDF namespaces, prefixes and other details."
+ {:doc "Defines utilities and a set of namespaces for commonly used linked data 
+  constructs, metadata of which specifies RDF namespaces, prefixes and other 
+  details."
   :vann/preferredNamespacePrefix "voc"
   :vann/preferredNamespaceUri "http://rdf.naturallexicon.org/ont-app/vocabulary/"
   }
 ```
 
+<a name="h3-metadata-keys"></a>
 ### Metadata keys
 
 Note that the metadata for this module includes some keywords in this format:
@@ -107,9 +136,12 @@ With these statements...
 :vann/preferredNamespaceUri "http://rdf.naturallexicon.org/ont-app/vocabulary/"
 :vann/preferredNamespacePrefix "voc"
 ```
-...declaring that this namespace is publicly addressable with that IRI, with the prefix 'voc'.
 
-The namespace for `vann` is also declared as vocabulary.vann in the `vocabulary/core.cljc` file, with this metadata:
+...declaring that this namespace is publicly addressable with that
+IRI, with the prefix 'voc'.
+
+The namespace for `vann` is also declared as ont-app.vocabulary.vann in the
+`ont_app/vocabulary/core.cljc` file, with this metadata:
 
 ```
 {
@@ -121,11 +153,17 @@ The namespace for `vann` is also declared as vocabulary.vann in the `vocabulary/
 })
 ```
 
-The relations [preferredNamespaceUri](http://vocab.org/vann/#preferredNamespacePrefix) and [preferredNamespacePrefix](http://vocab.org/vann/#preferredNamespaceUri) are part of the public VANN vocabulary, with well-defined usage and semantics.
+The relations
+[preferredNamespaceUri](http://vocab.org/vann/#preferredNamespacePrefix)
+and
+[preferredNamespacePrefix](http://vocab.org/vann/#preferredNamespaceUri)
+are part of the public VANN vocabulary, with well-defined usage and
+semantics.
+
+The ont-app.vocabulary.core module declares a number of commonly used
+namespaces, e.g.
 
 ```
-The ont-app.vocabulary.core module declares a number of commonly used namespaces, e.g.
-
 (ns ont-app.vocabulary.foaf
 {
  :dc/title "Friend of a Friend (FOAF) vocabulary"
@@ -141,23 +179,53 @@ The ont-app.vocabulary.core module declares a number of commonly used namespaces
 )
 ```
 
-Note that these are all simple key/value declarations except the `:voc/appendix` declaration which is in the form 
+Note that these are all simple key/value declarations except the
+`:voc/appendix` declaration which is in the form
 
 ```
 :voc/appendix [[<subject> <predicate> <object>]....], 
 ```
 
-This includes triples which elaborate on constructs mentioned in the key-value paris in the rest of the metadata, in this case describing the media types of files describing the vocabulary which are available for download at the URLs given.
+This includes triples which elaborate on constructs mentioned in the
+key-value paris in the rest of the metadata, in this case describing
+the media types of files describing the vocabulary which are available
+for download at the URLs given.
 
 
-Requiring the  `ont-app.vocabulary.core` module also loads `ns` declarations dedicated to some of the most commonly used RDF/Linked Open Data prefixes: [rdf](https://www.w3.org/2001/sw/wiki/RDF), [rdfs](https://www.w3.org/TR/rdf-schema/) (both integral to basic RDF constructs), [owl](https://www.w3.org/OWL/) (for more elaborate ontologies) [vann](http://vocab.org/vann/) (for annotating vocabulary descriptons), [dc](http://purl.org/dc/elements/1.1/), [dct](http://purl.org/dc/elements/1.1/) (both components of the [Dublin Core](http://dublincore.org/)), [sh](https://www.w3.org/TR/shacl/) (SHACL -- for defining well-formedness constraints), [dcat](https://www.w3.org/TR/vocab-dcat/) (Data Catalog vocabulary), [foaf](http://xmlns.com/foaf/spec/) (the 'Friend of a Friend' vocabulary), [skos](https://www.w3.org/2009/08/skos-reference/skos.html) (for loose taxonomies), and [schema](https://schema.org/), (the [schema.org](https://schema.org/) vocabulary, mostly dedicated to commercial topics, with web-page metadata and search-engine indexes in mind).
+Requiring the `ont-app.vocabulary.core` module also loads `ns`
+declarations dedicated to some of the most commonly used RDF/Linked
+Open Data prefixes: 
+
+
+    | PREFIX | URI | Comments |
+    | --- | --- | --- |
+    | [rdf](https://www.w3.org/2001/sw/wiki/RDF) https://www.w3.org/2001/sw/wiki/RDF | The basic RDF constructs |
+    
+    [rdfs](https://www.w3.org/TR/rdf-schema/) (both integral to basic RDF
+constructs), [owl](https://www.w3.org/OWL/) (for more elaborate
+ontologies) [vann](http://vocab.org/vann/) (for annotating vocabulary
+descriptons), [dc](http://purl.org/dc/elements/1.1/),
+[dct](http://purl.org/dc/elements/1.1/) (both components of the
+[Dublin Core](http://dublincore.org/)),
+[sh](https://www.w3.org/TR/shacl/) (SHACL -- for defining
+well-formedness constraints),
+[dcat](https://www.w3.org/TR/vocab-dcat/) (Data Catalog vocabulary),
+[foaf](http://xmlns.com/foaf/spec/) (the 'Friend of a Friend'
+vocabulary),
+[skos](https://www.w3.org/2009/08/skos-reference/skos.html) (for loose
+taxonomies), and [schema](https://schema.org/), (the
+[schema.org](https://schema.org/) vocabulary, mostly dedicated to
+commercial topics, with web-page metadata and search-engine indexes in
+mind).
 
 The `ont-app.vocabulary.wikidata` module has declarations for the [several namespaces](https://www.mediawiki.org/wiki/Wikibase/Indexing/RDF_Dump_Format#Full_list_of_prefixes) pertinent to the [Wikidata](https://www.wikidata.org/wiki/Wikidata:Main_Page) database.
 
 The `ont-app.vocabulary.linguistics` module declares namespaces for  [ontolex](https://www.w3.org/2016/05/ontolex/) (for encoding lexical data), [pmn](http://premon.fbk.eu/ontology/core.html) (PreMOn - dedicated to describing English verbs), [nif](http://persistence.uni-leipzig.org/nlp2rdf/ontologies/nif-core/nif-core.html) (Natural Language Interchange Format - for annotating corpora), and a set of namespaces particular to my Natural Lexicon project, which are still under development.
     
+<a name="h2-functionality"></a>
 ## Functionaity 
 
+<a name="h3-within-the-core-module"></a>
 ### Within the core module
 
 There are a number of functions defined within `ont-app.vocabulary.core` which provide some utility.
@@ -238,6 +306,29 @@ We can get a keyword for a IRI...
 ;; -> :foaf/homepage
 ```
 
+If the namespace does not have sufficient metadata to create a
+namespaced keyword, the entire URI will be rendered, with
+reader-friendly characters substituted as needed:
+
+```
+> (v/keyword-for "http://example.com/my/stuff")
+:http+58++47++47+example.com+47+my+47+stuff))
+>
+```
+
+There is an optional arity-2 version whose first argument is called
+when no ns could be resolved:
+
+```
+> (v/keyword-for (fn [u k] (log/warn "No namespace metadata found for " u) k)
+                  "http://example.com/my/stuff")
+WARN: No namespace metadata found for "http://example.com/my/stuff"
+:http+58++47++47+example.com+47+my+47+stuff
+>
+                  
+```
+
+
 We can infer the PREFIX declarations appropriate to a [SPARQL](https://en.wikipedia.org/wiki/SPARQL) query:
 ```
 (sparql-prefixes-for
@@ -253,8 +344,8 @@ Or we can just go ahead and prepend the prefixes...
 "PREFIX foaf: <http://xmlns.com/foaf/0.1/>
 Select * Where{?s foaf:homepage ?homepage}"
 ```
-
-### Within the wikidata module
+<a name="h3-within-the-wikidata-module"></a>
+### Within the Wikidata module
 
 The value for [Wikidata's public SPARQL endpoint](https://query.wikidata.org/bigdata/namespace/wdq/sparql) is def'd as:
 
