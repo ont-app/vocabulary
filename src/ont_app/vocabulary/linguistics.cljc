@@ -22,6 +22,14 @@
    }
   )
 
+(voc/cljc-put-ns-meta!
+ 'ont-app.vocabulary.linguistices.iso639
+  {:dc/title "iso 639"
+   :dc/description "Identifies the various language tags"
+   :vann/preferredNamespacePrefix "iso639"
+   :vann/preferredNamespaceUri "http://www.lexvo.org/page/iso639-3/"
+   :foaf/homepage "http://www.lexvo.org/"
+   })
 
 (voc/cljc-put-ns-meta!
  'ont-app.vocabulary.linguistics.pmn
