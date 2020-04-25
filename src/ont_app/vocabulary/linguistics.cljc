@@ -9,7 +9,7 @@
 
 
 ;; LEMON/ONTOLEX
-(voc/cljc-put-ns-meta!
+(voc/put-ns-meta!
  'ont-app.vocabulary.linguistics.ontolex
   {:dc/title "ontolex"
    :dc/description "A model for the representation of lexical information relative to ontologies. Core module."
@@ -22,7 +22,7 @@
    }
   )
 
-(voc/cljc-put-ns-meta!
+(voc/put-ns-meta!
  'ont-app.vocabulary.linguistices.iso639
   {:dc/title "iso 639"
    :dc/description "Identifies the various language tags"
@@ -31,7 +31,7 @@
    :foaf/homepage "http://www.lexvo.org/"
    })
 
-(voc/cljc-put-ns-meta!
+(voc/put-ns-meta!
  'ont-app.vocabulary.linguistics.pmn
   {
    :dc/title "Predicate Model for Ontologies (PreMOn)"
@@ -58,7 +58,7 @@
 
 ;; NATURAL LANGUAGE INTERCHANGE FORMAT (NIF)
 
-(voc/cljc-put-ns-meta!
+(voc/put-ns-meta!
  'ont-app.vocabulary.linguistics.nif
   {
    :dc/title "Natural Language Interchange Format (NIF)"
@@ -76,7 +76,7 @@
 ;; NATURAL LEXICON
 ;; Namespaces native to naturallexicon.org and the ont-app project
 
-(voc/cljc-put-ns-meta!
+(voc/put-ns-meta!
  'ont-app.vocabulary.linguistics.natlex.ont
   {
    :dc/description "The home of ontological constructs that apply to no particular language."
@@ -88,7 +88,7 @@
 
 ;; ENGLISH
 
-(voc/cljc-put-ns-meta!
+(voc/put-ns-meta!
  'ont-app.vocabulary.linguistics.natlex.en.ont
   {
    :dc/description "The home of ontological constructs relating to English"
@@ -98,7 +98,7 @@
    }
   )
 
-(voc/cljc-put-ns-meta!
+(voc/put-ns-meta!
  'ont-app.vocabulary.linguistics.natlex.en.form
   {
    :dc/description "A container for English word forms"
@@ -110,7 +110,7 @@
 
 ;; CHINESE
 
-(voc/cljc-put-ns-meta!
+(voc/put-ns-meta!
  'ont-app.vocabulary.linguistics.natlex.zh.ont
   {
    :dc/description "The home of ontological constructs relating to Chinese"
@@ -120,7 +120,7 @@
    }
   )
 
-(voc/cljc-put-ns-meta!
+(voc/put-ns-meta!
  'ont-app.vocabulary.linguistics.natlex.zh.written
   {
    :dc/description "A container for Chinese written forms"
@@ -131,7 +131,7 @@
   )
     
 
-(voc/cljc-put-ns-meta!
+(voc/put-ns-meta!
  'ont-app.vocabulary.linguistics.natlex.zh.cmn
   {
    :dc/description "A container for Mandarin forms"

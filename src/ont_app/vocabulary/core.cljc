@@ -68,6 +68,8 @@ NOTE: call this when you may have imported new namespace metadata
    
    ))
 
+(def put-ns-meta! "Alias for `cljc-put-ns-meta!`" cljc-put-ns-meta!)
+
 (defn cljc-get-ns-meta
   "Returns <metadata> assigned to ns named `_ns`
   Where
@@ -91,6 +93,7 @@ NOTE: call this when you may have imported new namespace metadata
    #?(:cljs (throw (cljc-error "Cannot infer namespace at runtime in cljs"))
       :clj (cljc-get-ns-meta *ns*))))
 
+(def get-ns-meta "Alias for `cljc-get-ns-meta`" cljc-get-ns-meta)
 
 #?(:cljs
    (def ^:dynamic *alias-map*
@@ -194,9 +197,11 @@ Where
 
 ;; ;; SCHEMA
 
-(cljc-put-ns-meta!
+(put-ns-meta!
  'ont-app.vocabulary.core
- {:doc "Defines utilities and a set of namespaces for commonly used linked data constructs, metadata of which specifies RDF namespaces, prefixes and other details."
+ {:doc "Defines utilities and a set of namespaces for commonly used linked data 
+constructs, metadata of which specifies RDF namespaces, prefixes and other 
+details."
   :vann/preferredNamespacePrefix "voc"
   :vann/preferredNamespaceUri
   "http://rdf.naturallexicon.org/ont-app/vocabulary/"
@@ -208,7 +213,9 @@ Where
   [[:voc/appendix
     :rdf/type :rdf:Property
     :rdfs/comment "<ns> :voc/appendix <triples>
- Asserts that <triples> describe a graph that elaborates on other attributes asserted in usual key-value metadata asserted for <ns>, e.g. asserting a dcat:mediaType relation for some dcat:downloadURL.
+ Asserts that <triples> describe a graph that elaborates on other attributes 
+asserted in usual key-value metadata asserted for <ns>, e.g. asserting a 
+dcat:mediaType relation for some dcat:downloadURL.
  "
     ]
    ])
@@ -223,13 +230,13 @@ Where
 "
   {:test #(assert
            (= (collect-prefixes {}
-                                (cljc-get-ns-meta 'ont-app.vocabulary.foaf))
+                                (get-ns-meta 'ont-app.vocabulary.foaf))
               {"foaf" (cljc-find-ns 'ont-app.vocabulary.foaf)}))
    }
   [acc next-ns]
   {:pre (map? acc)
    }
-  (let [nsm (cljc-get-ns-meta next-ns)
+  (let [nsm (get-ns-meta next-ns)
         ]
     (if-let [p (:vann/preferredNamespacePrefix nsm)]
       (if (set? p)
@@ -264,11 +271,11 @@ Where
    }
   [_ns]
   (or
-   (:vann/preferredNamespaceUri (cljc-get-ns-meta _ns))
+   (:vann/preferredNamespaceUri (get-ns-meta _ns))
    (-> _ns
-       (cljc-get-ns-meta)
+       (get-ns-meta)
        :voc/mapsTo
-       (cljc-get-ns-meta)
+       (get-ns-meta)
        :vann/preferredNamespaceUri)))
 
 (defn namespace-to-ns []
@@ -278,7 +285,7 @@ declaration
   (when-not @namespace-to-ns-cache
     (let [maybe-mapping (fn [_ns]
                           (if-let [namespace (:vann/preferredNamespaceUri
-                                              (cljc-get-ns-meta _ns))
+                                              (get-ns-meta _ns))
                                    ]
                             [namespace _ns]))
           ]
@@ -290,7 +297,8 @@ declaration
   @namespace-to-ns-cache)
 
 (defn- prefixed-ns 
-  "Returns nil or the ns whose `prefix` was declared in metadata with :vann/preferredNamespacePrefix
+  "Returns nil or the ns whose `prefix` was declared in metadata with
+  :vann/preferredNamespacePrefix
 Where
 <prefix> is a string, typically parsed from a keyword.
 "
@@ -363,6 +371,8 @@ Where
       ;; else no prefix
       (throw (cljc-error (str "Could not find IRI for " kw))))))
 
+(def uri-for "Alias of iri-for" iri-for)
+
 (defn ns-to-prefix 
   "Returns the prefix associated with `_ns`
 Where
@@ -375,11 +385,11 @@ Where
    }
   [_ns]
   (or 
-   (:vann/preferredNamespacePrefix (cljc-get-ns-meta _ns))
+   (:vann/preferredNamespacePrefix (get-ns-meta _ns))
    (-> _ns
-       (cljc-get-ns-meta)
+       (get-ns-meta)
        :voc/mapsTo
-       (cljc-get-ns-meta)
+       (get-ns-meta)
        :vann/preferredNamespacePrefix)))
 
 (defn prefix-to-namespace-uri
@@ -409,7 +419,9 @@ Where
 (def invalid-qname-name (partial re-find #"/" ))
 
 (defn qname-for 
-  "Returns the 'qname' URI for `kw`, or <...>'d full URI if no valid qname could be found. Throws an error if the prefix is specified, but can't be mapped to metadata.
+  "Returns the 'qname' URI for `kw`, or <...>'d full URI if no valid qname
+  could be found. Throws an error if the prefix is specified, but can't be
+  mapped to metadata.
 Where
   <kw> is a keyword, in a namespace with LOD declarations in its metadata.
 "
@@ -480,21 +492,13 @@ NOTE: this is a string because the actual re-pattern will differ per clj/cljs.
 
 
 (defn keyword-for 
-<<<<<<< Updated upstream
-  "Returns a keyword equivalent of <uri>, properly prefixed if LOD declarations exist in some ns in the current lexical environment.
+  "Returns a keyword equivalent of <uri>, properly prefixed if LOD declarations
+  exist in some ns in the current lexical environment.
   Side effects per `on-no-ns` Where <uri> is a string representing
   a URI <on-no-ns> (optional) := fn [uri kw] -> kwi', possibly with
   side-effects in response to the fact that no qname was found for
   <uri> (default returns <kw>)
   NOTE: typically <on-no-ns> would log a warning or make an assertion.
-=======
-  "Returns a keyword equivalent of <uri>, properly prefixed if LOD
-  declarations exist in some ns in the current lexical environment.
-  Side effects per `on-no-qname` Where <uri> is a string representing
-  a URI <on-no-qname> (optional) := fn [uri] -> uri, possibly with
-  side-effects in response to the fact that no qname was found for
-  <uri> (default is the identity function)
->>>>>>> Stashed changes
 "
   {:test #(do
             (assert
@@ -508,13 +512,8 @@ NOTE: this is a string because the actual re-pattern will differ per clj/cljs.
                 :http+58++47++47+example.com+47+my+47+stuff)))
    }
   ([uri]
-<<<<<<< Updated upstream
    (keyword-for (fn [u k] k)  uri))
   ([on-no-ns uri]
-=======
-   (keyword-for identity))
-  ([uri on-no-qname]
->>>>>>> Stashed changes
   {:pre [(string? uri)]
    }
   (if-let [[_ prefix _name] (re-matches
@@ -524,36 +523,21 @@ NOTE: this is a string because the actual re-pattern will differ per clj/cljs.
     ;; ... this is a qname...
     (keyword prefix _name)
     ;;else this isn't a qname. Maybe it's a full URI we have a prefix for...
-<<<<<<< Updated upstream
-=======
-    (on-no-qname
->>>>>>> Stashed changes
      (let [[_ namespace value] (re-matches (namespace-re) uri)
            ]
        (if (not value)
          ;; there's nothing but prefix
-<<<<<<< Updated upstream
          (on-no-ns uri (keyword (encode-uri-string uri)))
          ;; else there's a match to the namespace regex
          (if (not namespace)
            (on-no-ns uri (keyword value))
-=======
-         (keyword (encode-uri-string uri))
-         ;; else there's a match to the namespace regex
-         (if (not namespace)
-           (keyword value)
->>>>>>> Stashed changes
            ;; we found a namespace for which we have a prefix...
            (keyword (-> namespace
                         ((namespace-to-ns))
-                        cljc-get-ns-meta
+                        get-ns-meta
                         :vann/preferredNamespacePrefix)
                     value
-<<<<<<< Updated upstream
                     )))))))
-=======
-                    ))))))))
->>>>>>> Stashed changes
 
 
 (defn sparql-prefixes-for 
@@ -601,7 +585,14 @@ Where
 ;; ;;; NAMESPACE DECLARATIONS
 ;; ;;; These are commonly used RDF namespaces.
 
-(cljc-put-ns-meta!
+(put-ns-meta!
+ 'clojure.core
+ {
+  :vann/preferredNamespacePrefix "clj"
+  :vann/preferredNamespaceUri "http://rdf.naturallexicon.org/clojure/ont#"
+  })
+
+(put-ns-meta!
  'ont-app.vocabulary.rdf
  {
   :rdfs/comment "The core rdf vocabulary"
@@ -609,7 +600,7 @@ Where
   :vann/preferredNamespaceUri "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
   })
 
-(cljc-put-ns-meta!
+(put-ns-meta!
  'ont-app.vocabulary.rdfs
  {
      :dc/title "The RDF Schema vocabulary (RDFS)"
@@ -621,7 +612,7 @@ Where
                      :dcat/mediaType "text/turtle"]]
   })
 
-(cljc-put-ns-meta!
+(put-ns-meta!
  'ont-app.vocabulary.owl  
     {
      :dc/title "The OWL 2 Schema vocabulary (OWL 2)"
@@ -651,7 +642,7 @@ Where
      }
     )
 
-(cljc-put-ns-meta!
+(put-ns-meta!
  'ont-app.vocabulary.vann
     {
      :rdfs/label "VANN"
@@ -661,7 +652,7 @@ Where
      :foaf/homepage "http://vocab.org/vann/"
      })
 
-(cljc-put-ns-meta!
+(put-ns-meta!
  'ont-app.vocabulary.dc
     {
      :dc/title "Dublin Core Metadata Element Set, Version 1.1"
@@ -673,7 +664,7 @@ Where
      }
     )
 
-(cljc-put-ns-meta!
+(put-ns-meta!
  'ont-app.vocabulary.dct
     {
      :dc/title "DCMI Metadata Terms - other"
@@ -685,7 +676,7 @@ Where
      }
     )
 
-(cljc-put-ns-meta!
+(put-ns-meta!
  'ont-app.vocabulary.shacl
     {
      :rdfs/label "W3C Shapes Constraint Language (SHACL) Vocabulary"
@@ -699,7 +690,7 @@ Where
      })
 
 
-(cljc-put-ns-meta!
+(put-ns-meta!
  'ont-app.vocabulary.dcat
     {
      :dc/title "Data Catalog vocabulary"
@@ -710,7 +701,7 @@ Where
      }
     )
    
-(cljc-put-ns-meta!
+(put-ns-meta!
  'ont-app.vocabulary.foaf
  {
   :dc/title "Friend of a Friend (FOAF) vocabulary"
@@ -725,7 +716,7 @@ Where
   }
  )
 
-(cljc-put-ns-meta!
+(put-ns-meta!
  'ont-app.vocabulary.skos
     {
      :dc/title "SKOS Vocabulary"
@@ -744,7 +735,7 @@ Where
     )
 
 
-(cljc-put-ns-meta!
+(put-ns-meta!
  'ont-app.vocabulary.schema
     {
      :vann/preferredNamespaceUri "http://schema.org/"
@@ -762,7 +753,7 @@ Where
                      :dcat/mediaType "application/ld+json"]]
      })
 
-(cljc-put-ns-meta!
+(put-ns-meta!
  'ont-app.vocabulary.xsd
     {
      :dc/description "Offers facilities for describing the structure and
