@@ -1,10 +1,24 @@
 # vocabulary
 
+Integration between Clojure keywords and URIs, plus support for
+RDF-style language-tagged literals.
+
 Clojure provides for the definition of [keywords](https://clojure.org/reference/data_structures#Keywords), which function as identifiers within Clojure code, and serve many useful purposes.  These keywords can be interned within specific namespaces to avoid collisions. The role played by these keywords is very similar to the role played by IRIs within the [Linked Open Data](http://linkeddata.org/) (LOD) community, which also has a regime for providing namespaces.
 
+Ont-app/vocabulary 
 This is an experiment exploring the notion that some synergy can emerge from integrating Linked Data IRIs with Clojure keywords interned within namepaces using Clojure's metadata facility.
 
 There is also support for a similar arrangement within Clojurescript, though there are a few extra hoops to jump through given the fact that Clojurescript does not implement namespaces as first-class objects.
+
+Another construct from RDF that may have application more generally in
+graph-based data is that of a language-tagged literal, which tags
+strings of natural language with their associated language. For
+example we could use such tags to express the differing orthographies
+of `"gaol"@en-GB` vs. `"jail"@en-US`. Doing this directly would
+require rather awkwardly that we escape the inner quotation marks, so
+this module provides a custom reader macro: e.g. `#lstr "gaol@en-GB"`.
+
+
 
 ## Contents
 - [Installation](#h2-installation)
@@ -15,32 +29,27 @@ There is also support for a similar arrangement within Clojurescript, though the
 - [Functionality](#h2-functionality)
   - [Within the core module](#h3-within-the-core-module)
   - [Within the Wikidata module](#h3-within-the-wikidata-module)
-  
+- [Language-tagged strings](#h2-language-tagged-strings)
+
 <a name="h2-installation"></a>
-## Installation
+## Dependencies
 
 Available at [clojars](https://clojars.org/ont-app/vocabulary).
 
 [![Clojars Project](https://img.shields.io/clojars/v/ont-app/vocabulary.svg)](https://clojars.org/ont-app/vocabulary)
 
-Include this in your project.clj...
 
 ```
  (defproject .....
   :dependencies 
   [...
-<<<<<<< Updated upstream
-
    [ont-app/vocabulary "0.1.1-SNAPSHOT"]
-=======
-   [ont-app/vocabulary "0.1.0"]
->>>>>>> Stashed changes
    ...
    ])
 ```   
 
 <a name="h2-usage"></a>
-## Usage
+## Mappings to RDF namespaces
 
 Require ....
 
@@ -48,7 +57,8 @@ Require ....
 (ns ...
  (:require
    ...
-   [vocabulary.core :as voc]
+   [vocabulary.core :as voc] ;; for KWI support
+   [vocabulary.lstr :as lstr] ;; for #lstr support
    ...))
 ```
 
@@ -354,6 +364,17 @@ Select * Where{?s foaf:homepage ?homepage}"
 The value for [Wikidata's public SPARQL endpoint](https://query.wikidata.org/bigdata/namespace/wdq/sparql) is def'd as:
 
 `ont-app.vocabulary.wikidata/sparql-endpoint`
+
+## Language-tagged strings
+
+RDF entails use of language-tagged strings (e.g. `"gaol"@en-GB`) when
+providing natural-language content. Typing this directly in Clojure code is a bit a bit awkward, since the inner quotes would need to be escaped. 
+
+This library defines a reader macro `#lstr` and accompanying record _LangStr_ to facilitate wriing language-tagged strings in clojure. The value above for example would be written: `#lstr "gaol@en-GB"`.
+
+Such values will be dispatched to _render-literal_ as _:rdf/LangStr_, but the
+_render-literal_ method for LangStr is expected to be
+platform-sepcific.
 
 ## License
 

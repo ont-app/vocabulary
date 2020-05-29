@@ -4,6 +4,7 @@
       :cljs [cljs.test :refer [testing is deftest]]
       )
    [ont-app.vocabulary.core :as v]
+   [ont-app.vocabulary.lstr :as lstr]
    ))
 
 (v/cljc-put-ns-meta!
@@ -78,3 +79,10 @@
     (is (= (v/qname-for ::blah)
            "voc:blah"))
     ))
+
+(deftest language-tagged-strings
+  (testing "langstr dispatch"
+    (let [x #lstr "asdf@en"]
+      (is (= (str x) "asdf"))
+      (is (= (lstr/lang x) "en"))
+      )))
