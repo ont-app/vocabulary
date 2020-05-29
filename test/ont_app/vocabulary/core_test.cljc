@@ -3,6 +3,8 @@
    #?(:clj [clojure.test :refer :all]
       :cljs [cljs.test :refer [testing is deftest]]
       )
+   #?(:clj [clojure.core :refer [read-string]]
+      :cljs [cljs.reader :refer [read-string]])
    [ont-app.vocabulary.core :as v]
    [ont-app.vocabulary.lstr :as lstr]
    ))
@@ -80,9 +82,15 @@
            "voc:blah"))
     ))
 
+
 (deftest language-tagged-strings
   (testing "langstr dispatch"
-    (let [x #lstr "asdf@en"]
+    (let [x (read-string "#lstr \"asdf@en\"")]
+      ;; ... defer invoking reader macro directly during compilation.
+      (is (= (type x) ont_app.vocabulary.lstr.LangStr))
+      (is (= (:s x) "asdf"))
+      (is (= (:lang x) "en"))
       (is (= (str x) "asdf"))
       (is (= (lstr/lang x) "en"))
+
       )))
