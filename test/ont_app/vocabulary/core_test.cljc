@@ -63,8 +63,12 @@
                                  "Select * Where{?s foaf:homepage ?homepage}")
            #{"foaf"}))
     (is (= (v/collect-prefixes {}
-                               (find-ns 'ont-app.vocabulary.foaf))
-           {"foaf" (v/cljc-find-ns 'ont-app.vocabulary.foaf)}))
+                               #?(:clj (find-ns 'ont-app.vocabulary.foaf)
+                                  :cljs 'ont-app.vocabulary.foaf
+                                  ))
+           {"foaf" #?(:clj (v/cljc-find-ns 'ont-app.vocabulary.foaf)
+                      :cljs 'ont-app.vocabulary.foaf)
+            }))
     (is (=
             (v/sparql-prefixes-for
              "Select * Where{?s foaf:homepage ?homepage}")
@@ -88,12 +92,11 @@
 
 (deftest language-tagged-strings
   (testing "langstr dispatch"
-    (let [x (read-string "#lstr \"asdf@en\"")]
+    (let [x #lstr "asdf@en"] 
       ;; ... defer invoking reader macro directly during compilation.
       (is (= (type x) ont_app.vocabulary.lstr.LangStr))
       (is (= (:s x) "asdf"))
       (is (= (:lang x) "en"))
       (is (= (str x) "asdf"))
       (is (= (lstr/lang x) "en"))
-
       )))
