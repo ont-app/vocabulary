@@ -62,6 +62,9 @@
     (is (= (v/cljc-find-prefixes (v/prefix-re-str)
                                  "Select * Where{?s foaf:homepage ?homepage}")
            #{"foaf"}))
+    (is (= (v/collect-prefixes {}
+                               (find-ns 'ont-app.vocabulary.foaf))
+           {"foaf" (v/cljc-find-ns 'ont-app.vocabulary.foaf)}))
     (is (=
             (v/sparql-prefixes-for
              "Select * Where{?s foaf:homepage ?homepage}")

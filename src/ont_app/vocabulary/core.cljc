@@ -12,10 +12,11 @@
 (def namespace-to-ns-cache (atom nil))
 (def prefix-re-str-cache (atom nil))
 
-(defn clear-caches! []
+(defn clear-caches! 
   "Side-effects: resets all caches in voc/ to nil
 NOTE: call this when you may have imported new namespace metadata
 "
+  []
   (reset! prefix-re-str-cache nil)
   (reset! namespace-to-ns-cache nil)
   (reset! prefix-to-ns-cache nil))
@@ -105,7 +106,7 @@ NOTE: call this when you may have imported new namespace metadata
   "
      {}))
 
-(defn cljc-ns-aliases []
+(defn cljc-ns-aliases 
   "Returns {<alias> <ns>, ...}
 Where
 <alias> is a symbol
@@ -114,11 +115,12 @@ NOTE: cljs will require explicit maintenance of *alias-map*
 This is really only necessary if you're importing a package
 as some symbol other than the preferred prefix.
 "
+  []
   #?(:clj (ns-aliases *ns*)
      :cljs *alias-map*))
 
 
-(defn cljc-find-ns [_ns]
+(defn cljc-find-ns 
   "Returns <ns name or obj> for <_ns>, or nil.
 Where 
 <ns name or obj> may either be a namespace (in clj) 
@@ -127,17 +129,19 @@ Where
 NOTE: Implementations involving cljs must use cljs-put/get-ns-meta to declare
   ns metadata.
 "
+  [_ns]
   #?(:clj (find-ns _ns)
      :cljs (if (contains? @cljs-ns-metadata _ns)
              _ns)
      ))
 
-(defn cljc-all-ns []
+(defn cljc-all-ns 
   "Returns (<ns name or obj> ...)
 Where
 <ns name or obj> may either be a namespace (in clj) 
   or the name of a namespace (in cljs)
 "
+  []
   #?(:clj (all-ns)
      :cljs (keys @cljs-ns-metadata)))
 
@@ -150,12 +154,6 @@ Where
 <s> is a string, typically a SPARQL query body for which we want to 
   infer prefix declarations.
 "
-  {:test #(assert
-           (= (cljc-find-prefixes (prefix-re-str)
-                                  "Select * Where{?s foaf:homepage ?homepage}")
-              #{"foaf"}))
-   }
-  
   [re-str s]
   {:pre [(string? re-str)
          (string? s)]
@@ -228,13 +226,8 @@ Where
 <namespace> is a URI namespace declared for <prefix> in metadata of <next-ns>
 <next-ns> is typically an element in a reduction sequence of ns's 
 "
-  {:test #(assert
-           (= (collect-prefixes {}
-                                (get-ns-meta 'ont-app.vocabulary.foaf))
-              {"foaf" (cljc-find-ns 'ont-app.vocabulary.foaf)}))
-   }
   [acc next-ns]
-  {:pre (map? acc)
+  {:pre [(map? acc)]
    }
   (let [nsm (get-ns-meta next-ns)
         ]
@@ -245,7 +238,7 @@ Where
       acc)))
 
 
-(defn prefix-to-ns []
+(defn prefix-to-ns 
   "Returns {<prefix> <ns> ...}
 Where 
 <prefix> is declared in metadata for some <ns> with 
@@ -253,6 +246,7 @@ Where
 <ns> is an instance of clojure.lang.ns available within the lexical 
   context in which the  call was made.
 "
+  []
   (when-not @prefix-to-ns-cache
     (reset! prefix-to-ns-cache
             (reduce collect-prefixes {} (cljc-all-ns))))
@@ -265,10 +259,6 @@ Where
   <ns>, or nil
 <ns> is an instance of clojure.lang.Namespace
 "
-  {:test #(assert
-           (= (ns-to-namespace (cljc-find-ns 'ont-app.vocabulary.foaf))
-              "http://xmlns.com/foaf/0.1/"))
-   }
   [_ns]
   (or
    (:vann/preferredNamespaceUri (get-ns-meta _ns))
@@ -278,10 +268,11 @@ Where
        (get-ns-meta)
        :vann/preferredNamespaceUri)))
 
-(defn namespace-to-ns []
+(defn namespace-to-ns 
   "returns {<namespace> <ns> ...} for each ns with :vann/preferredNamespaceUri
 declaration
 "
+  []
   (when-not @namespace-to-ns-cache
     (let [maybe-mapping (fn [_ns]
                           (if-let [namespace (:vann/preferredNamespaceUri
@@ -342,16 +333,6 @@ Where
 <namespace> is typically of the form http://...., declared with 
   :vann/preferredNamespaceUri in metadata of <ns>
 "
-  {:test #(do (assert
-               (= (iri-for :foaf/homepage)
-                  "http://xmlns.com/foaf/0.1/homepage"))
-              (assert
-               (= (iri-for ::blah)
-                  "http://rdf.naturallexicon.org/ont-app/vocabulary/blah"))
-              (assert
-               (= (iri-for (keyword-for "http://blah"))
-                  "http://blah")))
-   }
   [kw]
    {:pre [(keyword? kw)]
     }
@@ -379,10 +360,6 @@ Where
 <_ns> is a clojure namespace, which may have :vann/preferredNamespacePrefix
   declaration in its metadata.   
 "
-  {:test #(assert
-           (= (ns-to-prefix (cljc-find-ns 'ont-app.vocabulary.foaf))
-              "foaf"))
-   }
   [_ns]
   (or 
    (:vann/preferredNamespacePrefix (get-ns-meta _ns))
@@ -403,10 +380,11 @@ Where
        (get (prefix-to-ns))
        (ns-to-namespace)))
 
-(defn namespace-re []
+(defn namespace-re 
   "Returns a regex to recognize substrings matching a URI for an ns 
   declared with LOD metadata. Groups for namespace and value.
 "
+  []
   (let [namespace< (fn [a b] ;; match longer first
                      (> (count a)
                         (count b)))
@@ -425,22 +403,6 @@ Where
 Where
   <kw> is a keyword, in a namespace with LOD declarations in its metadata.
 "
-  {:test #(do
-            (assert
-             (or (not= *ns* (cljc-find-ns 'ont-app.vocabulary.core))
-                 (= (qname-for ::blah)
-                    "voc:blah")))
-            (assert
-             (= (qname-for :foaf/homepage)
-                "foaf:homepage"))
-            (assert
-             (= (qname-for (keyword-for "http://xmlns.com/foaf/0.1/homepage"))
-                "foaf:homepage"))
-            (assert
-             (= (qname-for (keyword-for "http://no/ns/registered"))
-                "<http://no/ns/registered>"))
-            )
-   }
   [kw]
   {:pre [(keyword? kw)
          ]
@@ -478,11 +440,12 @@ Where
       (str "<" (decode-uri-string (name kw)) ">"))))
 
 
-(defn prefix-re-str []
+(defn prefix-re-str 
   "Returns a regex string that recognizes prefixes declared in ns metadata with 
   :vann/preferredNamespacePrefix keys. 
 NOTE: this is a string because the actual re-pattern will differ per clj/cljs.
 "
+  []
   (when-not @prefix-re-str-cache
     (reset! prefix-re-str-cache
             (str "\\b(" ;; word boundary
@@ -500,17 +463,6 @@ NOTE: this is a string because the actual re-pattern will differ per clj/cljs.
   <uri> (default returns <kw>)
   NOTE: typically <on-no-ns> would log a warning or make an assertion.
 "
-  {:test #(do
-            (assert
-             (= (keyword-for "http://xmlns.com/foaf/0.1/homepage")
-                :foaf/homepage))
-            (assert
-             (= (keyword-for "foaf:homepage")
-                :foaf/homepage))
-            (assert
-             (= (keyword-for "http://example.com/my/stuff")
-                :http+58++47++47+example.com+47+my+47+stuff)))
-   }
   ([uri]
    (keyword-for (fn [u k] k)  uri))
   ([on-no-ns uri]
@@ -549,12 +501,6 @@ Where
 <namespace> is a namespace defined in the metadata for some ns with 
   :vann/preferredNamespaceUri
 "
-  {:test #(assert
-           (=
-            (sparql-prefixes-for
-             "Select * Where{?s foaf:homepage ?homepage}")
-            (list "PREFIX foaf: <http://xmlns.com/foaf/0.1/>")))
-   }
   [sparql-string]
   (let [sparql-prefix-for (fn [prefix]
                             (str "PREFIX "
@@ -570,14 +516,7 @@ Where
 (defn prepend-prefix-declarations 
   "Returns <sparql-string>, prepended with appropriate PREFIX decls.
 "
-  {:test #(assert
-           (= (prepend-prefix-declarations
-               "Select * Where{?s foaf:homepage ?homepage}")
-              "PREFIX foaf: <http://xmlns.com/foaf/0.1/>\nSelect * Where{?s foaf:homepage ?homepage}"))
-               
-   }
   [sparql-string]
-  
   (s/join "\n" (conj (vec (sparql-prefixes-for sparql-string))
                      sparql-string)))
 

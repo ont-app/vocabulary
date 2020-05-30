@@ -39,8 +39,9 @@
        (write-all writer "#lstr \"" (str this) "@" (:lang this) "\""))))
 
 
-(defn lang [langStr]
+(defn lang 
   "returns the language tag associated with `langStr`"
+  [^LangStr langStr]
   (:lang langStr))
 
 (def langstring-re #"^(.*)@([-a-zA-Z]+)")
