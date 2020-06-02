@@ -1,6 +1,6 @@
 <img src="http://ericdscott.com/NatlexLogoLarge.png" alt="NaturalLexicon logo" :width=100 height=100/>
 
-# vocabulary
+# `ont-app/vocabulary`
 
 Integration between Clojure keywords and URIs, plus support for
 RDF-style language-tagged literals.
@@ -32,7 +32,7 @@ RDF-style language-tagged literals.
 - [License](#h2-license)
 
 <a name="h2-installation"></a>
-## Dependencies
+## Installation
 
 Available at [clojars](https://clojars.org/ont-app/vocabulary).
 
@@ -64,7 +64,7 @@ IRI-based namespaces using declarations within Clojure namespace
 metadata.
 
 There is also support for a similar arrangement within Clojurescript,
-though there are a few extra hoops to jump through given the fact that
+though some things are done a little differently given the fact that
 Clojurescript does not implement namespaces as first-class objects.
 
 These mappings set the stage for using Keyword Identifiers (KWIs)
@@ -87,7 +87,7 @@ e.g. `#lstr "gaol@en-GB"` and `#lstr "jail@en-US"`.
 (ns ...
  (:require
    ...
-   [vocabulary.core :as voc] 
+   [ont-app.vocabulary.core] 
    ...))
 ```
 
@@ -106,7 +106,7 @@ Within standard (JVM-based) clojure, the minimal specification to support ont-ap
     :vann/preferredNamespaceUri "http://example.org/"
   }
   (:require 
-  [ont-app.vocabulary.core :as voc]
+  [ont-app.vocabulary.core :as v]
   ...))
 ```
 
@@ -139,8 +139,8 @@ achieve the same effect in both clj and cljs environments:
 ```
 
 In Clojure, it simply updates the metadata of the named namespace
-(which may need to be created with _create-ns_). In Clojurescript,
-this updates a dedicated map from _org.example__ to 'pseudo-metadata'
+(which may need to be created with [_create-ns_](https://clojuredocs.org/clojure.core/create-ns)). In Clojurescript,
+this updates a dedicated map from _org.example_ to 'pseudo-metadata'
 in a global atom called _cljs-ns-metadata_.
 
 <a name="h3-working-with-kwis"></a>
@@ -151,7 +151,7 @@ We can get the IRI string associated with a keyword:
 <a name="h4-iri-for"></a>
 #### `iri-for` and `uri-for`
 ```
-> (iri-for :eg/Example)
+> (v/iri-for :eg/Example)
 "http://example.org/Example"
 >
 ```
@@ -160,17 +160,17 @@ The function `iri-for` works as well for aliases interned in the local
 lexical environment (note the double-colon):
 
 ```
-> (iri-for ::v/appendix)
+> (v/iri-for ::v/appendix)
 "http://rdf.naturallexicon.org/ont-app/vocabulary/appendix"
 >
 ```
 
-However, it's important to note that while ::v/appendix and
-:voc/appendix resolve to the same IRI string, the keywords themselves
-are not equal.
+However, it's important to note that while _::v/appendix_ and
+_:voc/appendix_ resolve to the same IRI string, the keywords
+themselves are not equal in Clojure.
 
-This function is called iri-for because any UTF-8 characters can be
-used, making them technically a superset of URIs which use a more
+This function is called `iri-for` because any UTF-8 characters can be
+used, making them IRIs, a superset of URIs, which use a more
 limited set of characters. But people are in the habit of using the
 term URI, so the _iri-for_ function has an alias _uri-for_.
 
@@ -180,11 +180,11 @@ term URI, so the _iri-for_ function has an alias _uri-for_.
 We can get the [qname](https://en.wikipedia.org/wiki/QName) for a keyword:
 
 ```
-> (qname-for :foaf/homepage)
+> (v/qname-for :foaf/homepage)
 "foaf:homepage"
 >
 ;; (with the 'v' declaration above)...
-> (qname-for ::v/appendix)
+> (v/qname-for ::v/appendix)
 "voc:appendix"
 >
 ```
@@ -195,7 +195,7 @@ We can get the [qname](https://en.wikipedia.org/wiki/QName) for a keyword:
 We can get a keyword for an IRI...
 
 ```
-> (keyword-for "http://xmlns.com/foaf/0.1/homepage")
+> (v/keyword-for "http://xmlns.com/foaf/0.1/homepage")
 :foaf/homepage
 >
 ```
@@ -230,7 +230,7 @@ WARN: No namespace metadata found for "http://example.com/my/stuff"
 Let's take another look at the metadata we used above to declare mappings between clojure namespaces and RDF namespaces:
 
 ```
-(voc/put-ns-meta!
+(v/put-ns-meta!
  'org.example
   {
     :vann/preferredNamespacePrefix "eg"
@@ -257,7 +257,7 @@ The namespace for `vann` is also declared as _ont-app.vocabulary.vann_ in the
 `ont_app/vocabulary/core.cljc` file, with this declaration:
 
 ```
-(put-ns-meta!
+(v/put-ns-meta!
  'ont-app.vocabulary.vann
  {
    :rdfs/label "VANN"
@@ -271,7 +271,7 @@ The namespace for `vann` is also declared as _ont-app.vocabulary.vann_ in the
 There is an inverse of _put-ns-meta!_ called _get-ns-meta_:
 
 ```
-> (get-ns-metadata 'ont-app.vocabulary.foaf)
+> (v/get-ns-metadata 'ont-app.vocabulary.foaf)
 {
  :dc/title "Friend of a Friend (FOAF) vocabulary"
  :dc/description "The Friend of a Friend (FOAF) RDF vocabulary,
@@ -307,7 +307,7 @@ for download at the URLs given.
 We can get a map all the prefixes of namespaces declared within the current lexical environment:
 
 ```
-> (prefix-to-ns)
+> (v/prefix-to-ns)
 {"dc" #namespace[ont-app.vocabulary.dc],
  "owl" #namespace[ont-app.vocabulary..owl],
  "ontolex" #namespace[ont-app.vocabulary.ontolex],
@@ -320,7 +320,7 @@ We can get a map all the prefixes of namespaces declared within the current lexi
 In Clojurescript, since there's no _ns_ object, the results would look like this:
 
 ```
-> (prefix-to-ns)
+> (v/prefix-to-ns)
 {"dc" ont-app.vocabulary.dc,
  "owl" ont-app.vocabulary..owl,
  "ontolex" ont-app.vocabulary.ontolex,
@@ -337,7 +337,7 @@ We can get the IRI namespace associated with an `ns`
 In Clojure:
 
 ```
-> (ns-to-namespace (find-ns 'ont-app.vocabulary.foaf))
+> (v/ns-to-namespace (find-ns 'ont-app.vocabulary.foaf))
 "http://xmlns.com/foaf/0.1/"
 >
 ```
@@ -345,7 +345,7 @@ In Clojure:
 In both Clojure and ClojureScript:
 
 ```
-> (ns-to-namespace 'ont-app.vocabulary.foaf)
+> (v/ns-to-namespace 'ont-app.vocabulary.foaf)
 "http://xmlns.com/foaf/0.1/"
 >
 ```
@@ -355,7 +355,7 @@ In both Clojure and ClojureScript:
 We can get a map from namespace URIs to their associated clojure namespaces:
 
 ```
-> (namespace-to-ns)
+> (v/namespace-to-ns)
 {
  "http://www.w3.org/2002/07/owl#"
  #namespace[org.naturallexicon.lod.owl],
@@ -376,7 +376,7 @@ With the usual allowance for clojurescript described above.
 #### `ns-to-prefix`
 We can get the prefix associated with an `ns`:
 ```
-> (ns-to-prefix (cljc-find-ns 'org.naturallexicon.lod.foaf))
+> (v/ns-to-prefix (v/cljc-find-ns 'org.naturallexicon.lod.foaf))
 "foaf"
 >
 ```
@@ -388,24 +388,26 @@ you're making changes to the metadata and it's not 'taking', you may
 need to clear the caches:
 
 ```
-> (voc/clear-caches!)
+> (v/clear-caches!)
 ```
 
 <a name="h3-support-for-sparql"></a>
 ### Support for SPARQL queries
 
-IRIs and RDF are _muy simpatico_, and there is an intimate
-relationship between SPARQL queries and RDF
-namespaces. `ont-app/vocabulary` provides facilities for extracting
-SPARQL prefix declarations from queries containing qnames.
+RDF is explicitly constructed from IRIs, and there is an intimate
+relationship between [SPARQL](https://en.wikipedia.org/wiki/SPARQL)
+queries and RDF namespaces. `ont-app/vocabulary` provides facilities
+for extracting SPARQL prefix declarations from queries containing
+qnames.
 
 <a name="h4-sparql-prefixes-for"></a>
 #### `sparql-prefixes-for`
-We can infer the PREFIX declarations appropriate to a [SPARQL](https://en.wikipedia.org/wiki/SPARQL) query:
+We can infer the PREFIX declarations appropriate to a SPARQL query:
 ```
-(sparql-prefixes-for
+> (v/sparql-prefixes-for
              "Select * Where{?s foaf:homepage ?homepage}")
-;; -> ("PREFIX foaf: <http://xmlns.com/foaf/0.1/>")
+("PREFIX foaf: <http://xmlns.com/foaf/0.1/>")
+>
 ```
 
 <a name="h4-prepend-prefix-declarations"></a>
@@ -413,11 +415,11 @@ We can infer the PREFIX declarations appropriate to a [SPARQL](https://en.wikipe
 Or we can just go ahead and prepend the prefixes...
 
 ```
-(prepend-prefix-declarations
+> (v/prepend-prefix-declarations
                "Select * Where {?s foaf:homepage ?homepage}")
-;; -> 
 "PREFIX foaf: <http://xmlns.com/foaf/0.1/>
 Select * Where{?s foaf:homepage ?homepage}"
+>
 ```
 
 <a name="h3-linked-data"></a>
@@ -438,7 +440,7 @@ in the Linked Data community. Ont-app/vocabulary includes declarations
 of their associated namespaces, packaged within the core module, a
 module dedicated to wikidata, and another dedicated to linguistics. 
 
-<a name="h4-imported-with-voc">
+<a name="h4-imported-with-voc"></a>
 #### Imported with _ont-app.vocabulary.core_
 
 Requiring the `ont-app.vocabulary.core` module also loads `ns`
@@ -448,12 +450,12 @@ Open Data prefixes:
 
 | PREFIX | URI | Comments |
 | --- | --- | --- |
-| [rdf](https://www.w3.org/2001/sw/wiki/RDF) | https://www.w3.org/2001/sw/wiki/RDF | The basic RDF constructs |
-| [rdfs](https://www.w3.org/TR/rdf-schema/) | https://www.w3.org/TR/rdf-schema/ | Expresses class relations, domain, ranges, etc. |
+| [rdf](https://www.w3.org/2001/sw/wiki/RDF) | https://www.w3.org/2001/sw/wiki/RDF | the basic RDF constructs |
+| [rdfs](https://www.w3.org/TR/rdf-schema/) | https://www.w3.org/TR/rdf-schema/ | expresses class relations, domain, ranges, etc. |
 | [owl](https://www.w3.org/OWL/) | https://www.w3.org/OWL/ | for more elaborate ontologies |
 | [vann](http://vocab.org/vann/) | https://vocab.org/vann/ | for annotating vocabulary descriptons |
-| [dc](http://purl.org/dc/elements/1.1/) | http://purl.org/dc/elements/1.1/ | Elements of [Dublin Core](http://dublincore.org/) metadata initiative |
-| [dct](http://purl.org/dc/terms/) | http://purl.org/dc/terms/ | Terms for the [Dublin Core](http://dublincore.org/) metadata initiative |
+| [dc](http://purl.org/dc/elements/1.1/) | http://purl.org/dc/elements/1.1/ | elements of [Dublin Core](http://dublincore.org/) metadata initiative |
+| [dct](http://purl.org/dc/terms/) | http://purl.org/dc/terms/ | terms for the [Dublin Core](http://dublincore.org/) metadata initiative |
 | [sh](https://www.w3.org/TR/shacl/) | https://www.w3.org/TR/shacl/ | for defining well-formedness constraints |
 | [dcat](https://www.w3.org/TR/vocab-dcat/) | https://www.w3.org/TR/vocab-dcat/ | Data Catalog vocabulary |
 | [foaf](http://xmlns.com/foaf/spec/) | http://xmlns.com/foaf/spec/ | the 'Friend of a Friend' vocabulary |
@@ -461,7 +463,7 @@ Open Data prefixes:
 | [schema.org](https://schema.org/) | https://schema.org/ |  mostly commercial topics, with web-page metadata and search-engine indexes in mind |
 
 <a name="h4-imported-with-wd"></a>
-### Imported with_ont-app.vocabulary.wikidata_
+### Imported with _ont-app.vocabulary.wikidata_
 
 Requiring the `ont-app.vocabulary.wikidata` module imports
 declarations for the [several namespaces](https://www.mediawiki.org/wiki/Wikibase/Indexing/RDF_Dump_Format#Full_list_of_prefixes)
@@ -480,8 +482,7 @@ The `ont-app.vocabulary.linguistics` module declares namespaces for:
 
 | PREFIX | URI | Comments |
 | --- | --- | --- |
-| [ontolex](https://www.w3.org/2016/05/ontolex/) | http://www.w3.org/ns/lemon/ontolex# | for encoding lexical
-data | 
+| [ontolex](https://www.w3.org/2016/05/ontolex/) | http://www.w3.org/ns/lemon/ontolex# | for encoding lexical data | 
 | [pmn](http://premon.fbk.eu/ontology/core.html) | http://premon.fbk.eu/ontology/core# | PreMOn - dedicated to describing English verbs |
 | [nif](http://persistence.uni-leipzig.org/nlp2rdf/ontologies/nif-core/nif-core.html) | http://persistence.uni-leipzig.org/nlp2rdf/ontologies/nif-core#  | Natural Language Interchange Format - for annotating corpora |
 
@@ -547,7 +548,12 @@ Copyright © 2019-20 Eric D. Scott
 Distributed under the Eclipse Public License either version 1.0 or (at
 your option) any later version.
 
-<img src="http://ericdscott.com/NatlexLogoLarge.png" alt="NaturalLexicon logo" :width=50 height=50/>
+<table>
+<tr>
+<td>
+<img src="http://ericdscott.com/NatlexLogoLarge.png" alt="NaturalLexicon logo" :width=50 height=50/> </td><td>
 Natural Lexicon logo - Copyright © 2020 Eric D. Scott, under [Creative Commons Attribution-ShareAlike 4.0 International license](https://creativecommons.org/licenses/by-sa/4.0/).  Artwork by Athena M. Scott.
 
-Under the terms of this license, if you display this logo or derivates thereof, you must include an attribution to the original source, with a link to https://github.com/ont-app, or  http://ericdscott.com.
+Under the terms of this license, if you display this logo or derivates thereof, you must include an attribution to the original source, with a link to https://github.com/ont-app, or  http://ericdscott.com. </td>
+</tr>
+<table>
