@@ -2,9 +2,6 @@
   (:require
    [clojure.string :as s]
    [clojure.set :as set]
-   ;; #?(:cljs [cljs.env :as env])
-   ;; #?(:cljs [cljs.reader :as r])
-   ;; #?(:cljs [cljs.analyzer.api :as ana-api])
    ))       
 
 
@@ -219,6 +216,7 @@ dcat:mediaType relation for some dcat:downloadURL.
    ])
 
 ;; ;; FUNCTIONS
+;; A reduce-fn
 (defn collect-prefixes 
   "Returns {<prefix> <namespace> ...} s.t. <next-ns> is included
 Where
