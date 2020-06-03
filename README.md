@@ -1,6 +1,4 @@
-<img src="http://ericdscott.com/NaturalLexiconLogo.png" alt="NaturalLexicon logo" :width=100 height=100/>
-
-# `ont-app/vocabulary`
+# <img src="http://ericdscott.com/NaturalLexiconLogo.png" alt="NaturalLexicon logo" :width=100 height=100/> ont-app/vocabulary
 
 Integration between Clojure keywords and URIs, plus support for
 RDF-style language-tagged literals.
