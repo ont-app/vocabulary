@@ -91,12 +91,16 @@
 
 
 (deftest language-tagged-strings
+  ;; the actual reader macro won't compile with actual #lstr tag
+  ;; due to some odd race condition in compilation which seems to be
+  ;; resolved in dependent modules.
+  ;; see test in ont-app/igraph-vocabulary to test the actual tag
   (testing "langstr dispatch"
-    (let [x #lstr "asdf@en"] 
-      ;; ... defer invoking reader macro directly during compilation.
+    (let [x (lstr/read-LangStr "asdf@en")]
       (is (= (type x) ont_app.vocabulary.lstr.LangStr))
       (is (= (:s x) "asdf"))
       (is (= (:lang x) "en"))
       (is (= (str x) "asdf"))
       (is (= (lstr/lang x) "en"))
       )))
+

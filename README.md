@@ -1,4 +1,4 @@
-<img src="http://ericdscott.com/NatlexLogoLarge.png" alt="NaturalLexicon logo" :width=100 height=100/>
+<img src="http://ericdscott.com/NaturalLexiconLogo.png" alt="NaturalLexicon logo" :width=100 height=100/>
 
 # `ont-app/vocabulary`
 
@@ -548,12 +548,14 @@ Copyright © 2019-20 Eric D. Scott
 Distributed under the Eclipse Public License either version 1.0 or (at
 your option) any later version.
 
+
 <table>
 <tr>
+<td width=75>
+<img src="http://ericdscott.com/NaturalLexiconLogo.png" alt="Natural Lexicon logo" :width=50 height=50/> </td>
 <td>
-<img src="http://ericdscott.com/NatlexLogoLarge.png" alt="NaturalLexicon logo" :width=50 height=50/> </td><td>
-Natural Lexicon logo - Copyright © 2020 Eric D. Scott, under [Creative Commons Attribution-ShareAlike 4.0 International license](https://creativecommons.org/licenses/by-sa/4.0/).  Artwork by Athena M. Scott.
-
-Under the terms of this license, if you display this logo or derivates thereof, you must include an attribution to the original source, with a link to https://github.com/ont-app, or  http://ericdscott.com. </td>
+<p>Natural Lexicon logo - Copyright © 2020 Eric D. Scott. Artwork by Athena M. Scott.</p>
+<p>Released under <a href="https://creativecommons.org/licenses/by-sa/4.0/">Creative Commons Attribution-ShareAlike 4.0 International license</a>. Under the terms of this license, if you display this logo or derivates thereof, you must include an attribution to the original source, with a link to https://github.com/ont-app, or  http://ericdscott.com. </p> 
+</td>
 </tr>
 <table>
