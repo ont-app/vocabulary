@@ -2,7 +2,7 @@
   {:doc "Defines LangStr type to inform #lstr custom reader tag"
    :author "Eric D. Scott"
    }
-  #_(:require [cljs.compiler])
+  (:require [cljs.compiler])
   )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -10,39 +10,53 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;; defrecord
-#?(:clj
-    (defrecord LangStr [s lang]
-          Object
-          (toString [_] s))
-   :cljs
-   (defrecord LangStr [s lang]))
+(deftype LangStr [s lang]
+  Object
+  (toString [_] s))
 
-;; printing methods
-;; .. for clj...
+  
+;; for clj...
 #?(:clj
    (defmethod print-method LangStr
      [literal ^java.io.Writer w]
-     (.write w (str "#lstr \"" literal "@" (:lang literal) "\""))))
+     (.write w (str "#lstr \"" literal "@" (.lang literal) "\""))))
 
 #?(:clj
    (defmethod print-dup LangStr [o ^java.io.Writer w]
      (print-method o w)))
-;; .. for cljs ...
+
+;; for cljs ...
 #?(:cljs
-   (extend-protocol Object
-     LangStr
-     (toString [this] (:s this))))
-#?(:cljs
-   (extend-protocol  IPrintWithWriter
+   (extend-protocol IPrintWithWriter
      LangStr
      (-pr-writer [this writer opts]
-       (write-all writer "#lstr \"" (str this) "@" (:lang this) "\""))))
+       (write-all writer "#lstr \"" (.toString this) "@" (.-lang this) "\""))))
 
+
+
+#?(:cljs
+   (extend-protocol IEquiv
+     LangStr
+     (-equiv [this that]
+             (and (instance? LangStr that)
+                  (= (.-s this) (.-s that))
+                  (= (.-lang this) (.-lang that))))))
+
+
+(defmethod cljs.compiler/emit-constant* ont_app.vocabulary.lstr.LangStr
+  [x]
+  (apply cljs.compiler/emits [(str "new ont_app.vocabulary.lstr.LangStr (\""
+                                   (#?(:clj .s :cljs .-s) x)
+                                   "\" , \""
+                                   (#?(:clj .lang :cljs .-lang) x)
+                                   "\")")]))
 
 (defn lang 
   "returns the language tag associated with `langStr`"
   [^LangStr langStr]
-  (:lang langStr))
+  (#?(:clj .lang :cljs .-lang) langStr))
+
+;; END READER MACROS
 
 (def langstring-re #"^(.*)@([-a-zA-Z]+)")
 

@@ -98,8 +98,8 @@
   (testing "langstr dispatch"
     (let [x (lstr/read-LangStr "asdf@en")]
       (is (= (type x) ont_app.vocabulary.lstr.LangStr))
-      (is (= (:s x) "asdf"))
-      (is (= (:lang x) "en"))
+      (is (= (.s x) "asdf"))
+      (is (= (.lang x) "en"))
       (is (= (str x) "asdf"))
       (is (= (lstr/lang x) "en"))
       )))
