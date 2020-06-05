@@ -8,4 +8,5 @@ v 0.1.1
 - cljs-put-ns-meta! has alias put-ns-meta!
 - cljs-get-ns-meta has alias get-ns-meta
 - iri-for has alias uri-for
+- there's an optional on-no-ns argument in keyword-for
 
