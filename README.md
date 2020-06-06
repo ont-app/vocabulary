@@ -514,11 +514,9 @@ The reader encodes and instance of type LangStr (it is autoiconic):
 > (def brit-jail #lstr "gaol@en-GB")
 brit-jail
 > brit-jail
-{:s "gaol", :lang "en-GB"}
+#lstr "gaol@en-GB"
 > (type brit-jail)
 ont_app.vocabulary.lstr.LangStr
-> (prn brit-jail)
-#lstr "gaol@en-GB"
 >
 ```
 
