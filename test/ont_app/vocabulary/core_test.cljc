@@ -102,5 +102,6 @@
       (is (= (.lang x) "en"))
       (is (= (str x) "asdf"))
       (is (= (lstr/lang x) "en"))
+      (is (= x (lstr/read-LangStr "asdf@en")))
       )))
 

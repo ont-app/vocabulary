@@ -12,7 +12,13 @@
 ;; defrecord
 (deftype LangStr [s lang]
   Object
-  (toString [_] s))
+  (toString [_] s)
+  #?(:clj
+     (equals [this that]
+       (and (instance? LangStr that)
+            (= (.s this) (.s that))
+            (= (.lang this) (.lang that)))))
+  )
 
   
 ;; for clj...
@@ -44,6 +50,7 @@
 
 
 (defmethod cljs.compiler/emit-constant* ont_app.vocabulary.lstr.LangStr
+  ;; Emits a string of js instantiating a LangStr
   [x]
   (apply cljs.compiler/emits [(str "new ont_app.vocabulary.lstr.LangStr (\""
                                    (#?(:clj .s :cljs .-s) x)
@@ -61,13 +68,16 @@
 (def langstring-re #"^(.*)@([-a-zA-Z]+)")
 
 (defn ^LangStr read-LangStr [form]
+  "Returns an instance of LangStr parsed from `form`
+Where:
+- `form` :- `str`@`lang`"
   (let [m (re-matches langstring-re form)
         ]
     (when (not= (count m) 3)
       (throw (ex-info "Bad LangString fomat"
                       {:type ::BadLangstringFormat
-                       :regex langstring-re
-                       :form form})))
+                       ::regex langstring-re
+                       ::form form})))
     (let [[_ s lang] m]
       (LangStr. s lang))))
 
