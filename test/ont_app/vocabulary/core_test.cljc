@@ -92,7 +92,7 @@
 
 (deftest language-tagged-strings
   ;; the actual reader macro won't compile with actual #lstr tag
-  ;; due to some odd race condition in compilation which seems to be
+  ;; due to a race condition in compilation which seems to be
   ;; resolved in dependent modules.
   ;; see test in ont-app/igraph-vocabulary to test the actual tag
   (testing "langstr dispatch"
