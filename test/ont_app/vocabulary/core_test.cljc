@@ -9,18 +9,13 @@
    [ont-app.vocabulary.lstr :as lstr]
    ))
 
-(v/cljc-put-ns-meta!
+(v/put-ns-meta!
  'ont-app.vocabulary.core-test
  {
   :voc/mapsTo 'ont-app.vocabulary.core ;; <- part of the test
   })
 
 ;; FUN WITH READER MACROS
-
-#_(def ErrObject
-  #?(:clj Exception
-     :cljs js/Object
-     ))
 
 (deftest platform-specific-tests
   (testing "namespace access"
@@ -29,8 +24,17 @@
           ]
       (is (= (get-sym (v/cljc-find-ns 'ont-app.vocabulary.core))
              'ont-app.vocabulary.core)))))
-              
-  
+
+(defn- cljc-s
+  [x]
+  #?(:clj (.s x)
+     :cljs (.-s x)))
+
+(defn- cljc-lang
+  [x]
+  #?(:clj (.lang x)
+     :cljs (.-lang x)))
+
 ;; NO READER MACROS BELOW THIS POINT
 
 
@@ -55,7 +59,7 @@
     (is (= (v/keyword-for "http://xmlns.com/foaf/0.1/homepage")
            :foaf/homepage))
     (is (= (v/keyword-for "http://example.com/my/stuff")
-           :http+58++47++47+example.com+47+my+47+stuff))
+           :http:+47++47+example.com+47+my+47+stuff))
     (is (= (v/keyword-for (fn [u k] :no-qname-found)
                           "http://example.com/my/stuff")
            :no-qname-found))
@@ -80,6 +84,26 @@
 
      ))
 
+(deftest encode-and-decode-kw-names
+  (testing "keywords should not choke the reader"
+    (is (= (v/encode-kw-name "123")
+           "+n+123"))
+    (is (= (v/decode-kw-name (v/encode-kw-name "123"))
+           "123"))
+    (is (= (v/iri-for :foaf/+n+123)
+           "http://xmlns.com/foaf/0.1/123"))
+    (is (= (v/keyword-for "http://xmlns.com/foaf/0.1/123")
+           :foaf/+n+123))
+    (is (= (v/keyword-for "foaf:123")
+           :foaf/+n+123))
+    (is (= (v/qname-for (v/keyword-for "foaf:123"))
+           "foaf:123"))
+    (is (= (v/keyword-for "http://xmlns.com/foaf/0.1/Subtopic/x")
+           :foaf/Subtopic+47+x))
+    (is (= (v/iri-for (v/keyword-for "http://xmlns.com/foaf/0.1/Subtopic/x"))
+           "http://xmlns.com/foaf/0.1/Subtopic/x"))
+    ))
+
 (deftest maps-to-test
   (testing ":voc/mapsTo ns metadata should resolve prefixes properly"
     ;; note that the local ns  maps to vocabulary.core
@@ -98,8 +122,10 @@
   (testing "langstr dispatch"
     (let [x (lstr/read-LangStr "asdf@en")]
       (is (= (type x) ont_app.vocabulary.lstr.LangStr))
-      (is (= (.s x) "asdf"))
-      (is (= (.lang x) "en"))
+      (is (= (cljc-s x)
+             "asdf"))
+      (is (= (cljc-lang x)
+             "en"))
       (is (= (str x) "asdf"))
       (is (= (lstr/lang x) "en"))
       (is (= x (lstr/read-LangStr "asdf@en")))

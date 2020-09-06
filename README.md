@@ -128,7 +128,7 @@ attach metadata. So _ont-app/vocabulary_ provides this idiom to
 achieve the same effect in both clj and cljs environments:
 
 ```
-(voc/cljc-put-ns-meta!
+(voc/put-ns-meta!
  'org.example
   {
     :vann/preferredNamespacePrefix "eg"

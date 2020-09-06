@@ -67,10 +67,11 @@
 
 (def langstring-re #"^(.*)@([-a-zA-Z]+)")
 
-(defn ^LangStr read-LangStr [form]
+(defn ^LangStr read-LangStr
   "Returns an instance of LangStr parsed from `form`
 Where:
 - `form` :- `str`@`lang`"
+  [form]
   (let [m (re-matches langstring-re form)
         ]
     (when (not= (count m) 3)
