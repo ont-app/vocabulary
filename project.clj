@@ -45,5 +45,4 @@
   ["resources/dev/js/compiled"
    "resources/test"
    :target-path
-   ]
-   )
+   ])

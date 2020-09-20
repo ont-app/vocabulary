@@ -319,6 +319,7 @@ Where
       (s/replace #"/" "+47+")
       (maybe-prepend+n+))))
 
+
 (defn decode-kw-name
   "Inverse of `encode-kw-name`. Returns original value of `kw-name`
   Where
@@ -710,4 +711,8 @@ Where
      :foaf/homepage "https://www.w3.org/2001/XMLSchema"
      })
 
+
+;; deprecated
+(def ^:deprecated encode-uri-string encode-kw-name)
+(def ^:deprecated decode-uri-string decode-kw-name)
 
