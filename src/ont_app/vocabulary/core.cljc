@@ -187,6 +187,26 @@ Where
                (recur acc (subs input 1)))))))
      ))
 
+;; Java-specific URI utilities
+(defn escape-utf-8
+  [c]
+  #?(:clj
+     (str "%"
+          (->> (str (char c)) .getBytes (map #(format "%X" %)) (s/join "%")))
+     :cljs
+     (throw (ex-info "Not supported in cljs" {:type :not-supported-in-cljs
+                                              :c c}))))
+(defn uri-test
+    "True when `c` is problem-free in java URIs, and presumably all URIs.
+  Typically used to create an edn file to inform encoding/decoding URI strings"
+  [c]
+  #?(:clj
+     (let [s (str "http://blah.com/" c)]
+       (= (str (java.net.URI. s)) s))
+     :cljs
+     (throw (ex-info "Not supported in cljs" {:type :not-supported-in-cljs
+                                              :c c}))))
+
 ;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; ;;; NO READER MACROS BEYOND THIS POINT
 ;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -299,7 +319,95 @@ Where
       (get (prefix-to-ns) prefix)))
       
 
+(defn get-escapes
+  "Returns {`test-breaker` `escaped`, ...}
+  Where
+  `test-breaker` is a char that breaks `char-test`
+  `char-test` := fn [c] -> true if the char does not need escaping
+  `escape-fn` := fn [c] -> `escaped`
+  "
+  [char-test escape-fn]
+  (let [max-char 65535
+        collect-test-breaker (fn [sacc c]
+                             (try
+                               (if (not (char-test c))
+                                 (conj sacc c)
+                                 sacc)
+                               (catch Throwable e
+                                 (conj sacc c))))
+        test-breakers (reduce collect-test-breaker
+                              #{}
+                              (map char (range max-char)))
+        collect-escape (fn [macc c] (assoc macc c (escape-fn (int c))))
+        ]
+    (reduce collect-escape {} test-breakers)
+    ))
 
+
+(def invert-escape-map #(reduce-kv (fn [macc c v] (assoc macc v (str c))) {} %))
+
+(defn escapes-re
+  "Returns a regex to recognize escape patterns in an encoded string
+  Where
+  `inverted-escapes-map` := {`escape-pattern` `original`, ...}
+  "
+  [inverted-escapes-map]
+  (re-pattern (s/join "|"
+                      (sort (fn [a b] (> (count a) (count b)))
+                            ;; ... longer patterns first
+                            (keys inverted-escapes-map)))))
+(defn generate-uri-escapes
+  "Side-effects: writes uri-escapes.edn and uri-escapes-inverted.edn
+  These are used to cache values used in clj/s to escape URIs
+  Note: typically used once to populate the resources.
+"
+  []
+  (spit "resources/uri-escapes.edn" (get-escapes uri-test escape-utf-8)))
+
+
+(def uri-escapes (read-string (slurp "resources/uri-escapes.edn")))
+
+(def uri-escapes-inverted (invert-escape-map uri-escapes))
+
+(defn encode-uri-string
+  "Renders `s` in a form that can be parsed as a URI"
+  [s]
+  (s/escape s uri-escapes))
+
+(def uri-escapes-re (escapes-re uri-escapes-inverted))
+
+(defn decode-uri-string
+  "Inverts URI escapes in `s`. Inverse of encode-uri-string."
+  [s]
+  (s/replace s uri-escapes-re (fn [esc] (uri-escapes-inverted esc))))
+
+(defn kw-test
+  "True when `c` is problem-free in keywords.
+  Typically used in creataing edn files to inform encoding/decoding keywords"
+  [c]
+  (let [s (str "a" c "b")]
+    (= (keyword s)
+       (read-string (str ":" s)))))
+
+(defn generate-kwi-escapes
+  "Side-effects: writes uri-escapes.edn and uri-escapes-inverted.edn
+  These are used to cache values used in clj/s to escape URIs
+  Note: typically used once to populate the resources.
+"
+  []
+  (spit "resources/kw-escapes.edn" (get-escapes kw-test escape-utf-8)))
+
+(def kw-escapes (read-string (slurp "resources/kw-escapes.edn")))
+
+(def kw-terminal-escapes
+  "Escapes for characters forbidden a the end of a keyword"
+  {\/ (escape-utf-8 \/)
+   \: (escape-utf-8 \:)})
+
+(def kw-escapes-inverted (invert-escape-map (merge kw-escapes
+                                                   kw-terminal-escapes)))
+
+(def kw-escapes-re (escapes-re kw-escapes-inverted))
 
 (defn encode-kw-name
   "Returns modified `kw-name`, derived s.t. when used as the name component of
@@ -314,9 +422,15 @@ Where
                         (if (re-matches #"^[0-9]+.*" s)
                           (str "+n+" s)
                           s))
+        maybe-escape-last (fn [s]
+                            (if (contains? kw-terminal-escapes (last s))
+                              (str (subs s 0 (dec (count s)))
+                                   (str (kw-terminal-escapes (last s))))
+                              s))
         ]
   (-> kw-name
-      (s/replace #"/" "+47+")
+      (s/escape kw-escapes)
+      (maybe-escape-last)
       (maybe-prepend+n+))))
 
 
@@ -327,10 +441,11 @@ Where
   [kw-name]
   (-> kw-name
       (s/replace #"^\+n\+" "")
-      (s/replace #"\+47\+" "/")))
+      (s/replace kw-escapes-re (fn [esc] (kw-escapes-inverted esc)))))
 
 
 (declare keyword-for) ;; inverse of iri-for
+
 (defn iri-for 
   "Returns `iri`  for `kw` based on metadata attached to `ns`
   Inverse of `iri-for`
@@ -345,21 +460,22 @@ Where
   [kw]
    {:pre [(keyword? kw)]
     }
-  (if (re-matches #"^:(http|https|file)\:.*" (str kw))
-      ;;(#{"http:" "https:" "file:"} (namespace kw)) ;; uri scheme http://...
-    (decode-kw-name (name kw))
-    ;; else not http....
-    (if-let [prefix (namespace kw)
-             ]
-      (let [_ns (or (cljc-find-ns (symbol prefix))
-                    (prefixed-ns prefix))]
-        (if-not _ns
-          (throw (cljc-error (str "No URI declared for prefix '" prefix "'")))
-          (str (-> _ns
-                   (ns-to-namespace))
-               (decode-kw-name (name kw)))))
-      ;; else no prefix
-      (throw (cljc-error (str "Could not find IRI for " kw))))))
+  (let [prefix (namespace kw)
+        kw-name (name kw)
+        ]
+    (if (#{"http:" "https:" "file:"} prefix )
+      (str prefix "/" (-> kw-name decode-kw-name encode-uri-string))
+      ;; else not a scheme....
+      (if prefix
+        (let [_ns (or (cljc-find-ns (symbol prefix))
+                      (prefixed-ns prefix))]
+          (if-not _ns
+            (throw (cljc-error (str "No URI declared for prefix '" prefix "'")))
+            (str (-> _ns
+                     (ns-to-namespace))
+                 (-> kw-name decode-kw-name encode-uri-string))))
+        ;; else no prefix
+        (throw (cljc-error (str "Could not find IRI for " kw)))))))
 
 (def uri-for "Alias of iri-for" iri-for)
 
@@ -416,37 +532,38 @@ Where
   {:pre [(keyword? kw)
          ]
    }
-  (if (re-matches #"^:(http|https|file):.*" (str kw))
-    ;; this is a scheme, not a namespace
-    (let [uri-str (decode-kw-name (name kw))]
+  (let [prefix (namespace kw)
+        kw-name (name kw)]
+    (if (#{"https:" "http:" "file:"} prefix)
+      ;; scheme was parsed as namespace of kw
+      (let [uri-str (str prefix "/" (-> kw-name decode-kw-name encode-uri-string))]
         (if-let [rem (re-matches (namespace-re) uri-str)]
-          (let [[_ namespace-uri name] rem]
-            (if (not (invalid-qname-name name))
+          (let [[_ namespace-uri kw-name] rem]
+            (if (not (invalid-qname-name kw-name))
               (str
                (->> namespace-uri
                     (get (namespace-to-ns))
                     (ns-to-prefix))
                ":"
-               name)))
+               kw-name)))
           ;;else no namespace match
           (str "<" uri-str ">")))
-    ;; else this is not scheme-based URI
-    (if-let [prefix (namespace kw)
-             ]
-      (let [_ns (or (cljc-find-ns (symbol prefix))
-                    (prefixed-ns prefix))
+      ;; else this is not scheme-based URI
+      (if prefix
+        (let [_ns (or (cljc-find-ns (symbol prefix))
+                      (prefixed-ns prefix))
             
-            ]
-        (if-not _ns
-          (throw (cljc-error (str "Could not resolve prefix " prefix))))
-        (if (invalid-qname-name (name kw)) ;; invalid as qname
-          (str "<" (prefix-to-namespace-uri prefix) (name kw) ">")
-          ;;else valid as qname
-          (str (ns-to-prefix _ns)
-               ":"
-               (decode-kw-name (name kw)))))
-      ;; else no namespace
-      (str "<" (decode-kw-name (name kw)) ">"))))
+              ]
+          (when-not _ns
+            (throw (cljc-error (str "Could not resolve prefix " prefix))))
+          (if (invalid-qname-name kw-name) ;; invalid as qname
+            (str "<" (prefix-to-namespace-uri prefix) kw-name ">")
+            ;;else valid as qname
+            (str (ns-to-prefix _ns)
+                 ":"
+                 (-> kw-name decode-kw-name encode-uri-string))))
+        ;; else no namespace in keyword
+        (str "<" (-> kw-name decode-kw-name encode-uri-string) ">")))))
 
 
 (defn prefix-re-str 
@@ -473,33 +590,33 @@ NOTE: this is a string because the actual re-pattern will differ per clj/cljs.
   NOTE: typically <on-no-ns> would log a warning or make an assertion.
 "
   ([uri]
-   (keyword-for (fn [u k] k)  uri))
+   (keyword-for (fn [u k] k) uri))
   ([on-no-ns uri]
   {:pre [(string? uri)]
    }
+   #dbg
   (if-let [[_ prefix _name] (re-matches
                              (re-pattern
                               (str (prefix-re-str) "(.*)"))
                              uri)]
     ;; ... this is a qname...
-    (keyword prefix (encode-kw-name _name))
+    (keyword prefix (-> _name decode-uri-string encode-kw-name))
     ;;else this isn't a qname. Maybe it's a full URI we have a prefix for...
      (let [[_ namespace value] (re-matches (namespace-re) uri)
            ]
        (if (not value)
          ;; there's nothing but prefix
-         (on-no-ns uri (keyword (encode-kw-name uri)))
+         (on-no-ns uri (-> uri decode-uri-string encode-kw-name keyword))
          ;; else there's a match to the namespace regex
          (if (not namespace)
-           (on-no-ns uri (keyword value))
+           (on-no-ns uri (keyword (decode-uri-string value)))
            ;; we found a namespace for which we have a prefix...
            (keyword (-> namespace
                         ((namespace-to-ns))
                         get-ns-meta
                         :vann/preferredNamespacePrefix)
-                    (encode-kw-name value)
+                    (-> value decode-uri-string encode-kw-name)
                     )))))))
-
 
 (defn sparql-prefixes-for 
   "Returns [<prefix-string>...] for each prefix identified in <sparql-string>
@@ -712,7 +829,4 @@ Where
      })
 
 
-;; deprecated
-(def ^:deprecated encode-uri-string encode-kw-name)
-(def ^:deprecated decode-uri-string decode-kw-name)
 

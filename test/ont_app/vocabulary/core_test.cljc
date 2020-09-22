@@ -5,7 +5,9 @@
       )
    #?(:clj [clojure.core :refer [read-string]]
       :cljs [cljs.reader :refer [read-string]])
-   [ont-app.vocabulary.core :as v]
+   #?(:clj [ont-app.vocabulary.core :as v :refer :all]
+      :cljs [ont-app.vocabulary.core :as v]
+      )
    [ont-app.vocabulary.lstr :as lstr]
    ))
 
@@ -37,80 +39,103 @@
 
 ;; NO READER MACROS BELOW THIS POINT
 
-
 (deftest attr-map-test
   (testing "Tests the conditions found in attr-map tests"
-     (is (= (v/ns-to-namespace (v/cljc-find-ns 'ont-app.vocabulary.foaf))
-            "http://xmlns.com/foaf/0.1/"))
-     (is (= (v/ns-to-prefix 'ont-app.vocabulary.foaf)
-            "foaf"))
-     (is (= (v/iri-for :foaf/homepage)
-           "http://xmlns.com/foaf/0.1/homepage"))
-    (is (= (v/iri-for (v/keyword-for "http://blah"))
-           "http://blah"))
-    (is (= (v/iri-for ::v/blah)
-           "http://rdf.naturallexicon.org/ont-app/vocabulary/blah"))
-    (is (= (v/ns-to-prefix (v/cljc-find-ns 'ont-app.vocabulary.foaf))
-              "foaf"))
-    (is (= (v/qname-for ::v/blah)
-           "voc:blah"))
-    (is (= (v/qname-for :foaf/homepage)
-           "foaf:homepage"))
-    (is (= (v/keyword-for "http://xmlns.com/foaf/0.1/homepage")
-           :foaf/homepage))
-    (is (= (v/keyword-for "http://example.com/my/stuff")
-           :http:+47++47+example.com+47+my+47+stuff))
-    (is (= (v/keyword-for (fn [u k] :no-qname-found)
-                          "http://example.com/my/stuff")
-           :no-qname-found))
-    (is (= (v/cljc-find-prefixes (v/prefix-re-str)
+    (is (= "http://xmlns.com/foaf/0.1/"
+           (v/ns-to-namespace (v/cljc-find-ns 'ont-app.vocabulary.foaf))
+            ))
+    (is (= "foaf"
+           (v/ns-to-prefix 'ont-app.vocabulary.foaf)
+            ))
+    (is (= "http://xmlns.com/foaf/0.1/homepage"
+           (v/iri-for :foaf/homepage)
+           ))
+    (is (= "http://blah"
+           (v/iri-for (v/keyword-for "http://blah"))
+           ))
+    (is (= "http://rdf.naturallexicon.org/ont-app/vocabulary/blah"
+           (v/iri-for ::v/blah)
+           ))
+    (is (= "foaf"
+           (v/ns-to-prefix (v/cljc-find-ns 'ont-app.vocabulary.foaf))
+           ))
+    (is (= "voc:blah"
+           (v/qname-for ::v/blah)
+           ))
+    (is (= "foaf:homepage"
+           (v/qname-for :foaf/homepage)
+           ))
+    (is (= :foaf/homepage
+           (v/keyword-for "http://xmlns.com/foaf/0.1/homepage")
+           ))
+    (is (= :http://example.com/my/stuff
+           (v/keyword-for "http://example.com/my/stuff")
+           ))
+    (is (= :no-prefix-found
+           (v/keyword-for (fn [u k] :no-prefix-found)
+                          "example.com/my/stuff")
+           ))
+    (is (= #{"foaf"}
+           (v/cljc-find-prefixes (v/prefix-re-str)
                                  "Select * Where{?s foaf:homepage ?homepage}")
-           #{"foaf"}))
-    (is (= (v/collect-prefixes {}
+           ))
+    (is (= {"foaf" #?(:clj (v/cljc-find-ns 'ont-app.vocabulary.foaf)
+                      :cljs 'ont-app.vocabulary.foaf)
+            }
+           (v/collect-prefixes {}
                                #?(:clj (find-ns 'ont-app.vocabulary.foaf)
                                   :cljs 'ont-app.vocabulary.foaf
                                   ))
-           {"foaf" #?(:clj (v/cljc-find-ns 'ont-app.vocabulary.foaf)
-                      :cljs 'ont-app.vocabulary.foaf)
-            }))
-    (is (=
-            (v/sparql-prefixes-for
-             "Select * Where{?s foaf:homepage ?homepage}")
-            (list "PREFIX foaf: <http://xmlns.com/foaf/0.1/>")))
-    (is (= (v/prepend-prefix-declarations
-               "Select * Where{?s foaf:homepage ?homepage}")
-           "PREFIX foaf: <http://xmlns.com/foaf/0.1/>\nSelect * Where{?s foaf:homepage ?homepage}"))
-    
-
+           ))
+    (is (= (list "PREFIX foaf: <http://xmlns.com/foaf/0.1/>")
+           (v/sparql-prefixes-for
+            "Select * Where{?s foaf:homepage ?homepage}")
+            ))
+    (is (= "PREFIX foaf: <http://xmlns.com/foaf/0.1/>\nSelect * Where{?s foaf:homepage ?homepage}"
+           (v/prepend-prefix-declarations
+            "Select * Where{?s foaf:homepage ?homepage}")
+           ))
      ))
 
 (deftest encode-and-decode-kw-names
   (testing "keywords should not choke the reader"
-    (is (= (v/encode-kw-name "123")
-           "+n+123"))
-    (is (= (v/decode-kw-name (v/encode-kw-name "123"))
-           "123"))
-    (is (= (v/iri-for :foaf/+n+123)
-           "http://xmlns.com/foaf/0.1/123"))
-    (is (= (v/keyword-for "http://xmlns.com/foaf/0.1/123")
-           :foaf/+n+123))
-    (is (= (v/keyword-for "foaf:123")
-           :foaf/+n+123))
-    (is (= (v/qname-for (v/keyword-for "foaf:123"))
-           "foaf:123"))
-    (is (= (v/keyword-for "http://xmlns.com/foaf/0.1/Subtopic/x")
-           :foaf/Subtopic+47+x))
-    (is (= (v/iri-for (v/keyword-for "http://xmlns.com/foaf/0.1/Subtopic/x"))
-           "http://xmlns.com/foaf/0.1/Subtopic/x"))
+    (is (= "+n+123"
+           (v/encode-kw-name "123")
+           ))
+    (is (= "123"
+           (v/decode-kw-name (v/encode-kw-name "123"))
+           ))
+    (is (= "http://xmlns.com/foaf/0.1/123"
+           (v/iri-for :foaf/+n+123)
+           ))
+    (is (= :foaf/+n+123
+           (v/keyword-for "http://xmlns.com/foaf/0.1/123")
+           ))
+    (is (= :foaf/+n+123
+           (v/keyword-for "foaf:123")
+           ))
+    (is (= "foaf:123"
+           (v/qname-for (v/keyword-for "foaf:123"))
+           ))
+    (is (= :foaf/Subtopic/x
+           (v/keyword-for "http://xmlns.com/foaf/0.1/Subtopic/x")
+           ))
+    (is (= "http://xmlns.com/foaf/0.1/Subtopic/x"
+           (v/iri-for (v/keyword-for "http://xmlns.com/foaf/0.1/Subtopic/x"))
+           ))
+    (is (= :foaf/blah%2F
+           (v/keyword-for "http://xmlns.com/foaf/0.1/blah/")))
     ))
 
 (deftest maps-to-test
   (testing ":voc/mapsTo ns metadata should resolve prefixes properly"
     ;; note that the local ns  maps to vocabulary.core
-    (is (= (v/iri-for ::blah)
-           "http://rdf.naturallexicon.org/ont-app/vocabulary/blah"))
-    (is (= (v/qname-for ::blah)
-           "voc:blah"))
+    (is (= "http://rdf.naturallexicon.org/ont-app/vocabulary/blah"
+           (v/iri-for ::blah)
+           ))
+    (is (= "voc:blah"
+           (v/qname-for ::blah)
+           ))
     ))
 
 
@@ -121,13 +146,15 @@
   ;; see test in ont-app/igraph-vocabulary to test the actual tag
   (testing "langstr dispatch"
     (let [x (lstr/read-LangStr "asdf@en")]
-      (is (= (type x) ont_app.vocabulary.lstr.LangStr))
-      (is (= (cljc-s x)
-             "asdf"))
-      (is (= (cljc-lang x)
-             "en"))
-      (is (= (str x) "asdf"))
-      (is (= (lstr/lang x) "en"))
+      (is (= ont_app.vocabulary.lstr.LangStr (type x) ))
+      (is (= "asdf"
+             (cljc-s x)
+             ))
+      (is (= "en"
+             (cljc-lang x)
+             ))
+      (is (= "asdf" (str x) ))
+      (is (= "en" (lstr/lang x) ))
       (is (= x (lstr/read-LangStr "asdf@en")))
       )))
 
