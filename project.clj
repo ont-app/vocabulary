@@ -21,6 +21,7 @@
             ]
   ;; CLJC
   :source-paths ["src"]
+  :resource-paths ["resources"]
   :target-path "target/%s"
   :test-paths ["test"]
   ;; CLJS

@@ -2,6 +2,7 @@
   (:require
    [clojure.string :as s]
    [clojure.set :as set]
+   #?(:clj [clojure.java.io :as io])
    ))       
 
 
@@ -362,10 +363,10 @@ Where
   Note: typically used once to populate the resources.
 "
   []
-  (spit "resources/uri-escapes.edn" (get-escapes uri-test escape-utf-8)))
+  (spit "uri-escapes.edn" (get-escapes uri-test escape-utf-8)))
 
 
-(def uri-escapes (read-string (slurp "resources/uri-escapes.edn")))
+(def uri-escapes (read-string (slurp (io/resource "uri-escapes.edn"))))
 
 (def uri-escapes-inverted (invert-escape-map uri-escapes))
 
@@ -397,7 +398,7 @@ Where
   []
   (spit "resources/kw-escapes.edn" (get-escapes kw-test escape-utf-8)))
 
-(def kw-escapes (read-string (slurp "resources/kw-escapes.edn")))
+(def kw-escapes (read-string (slurp (io/resource "kw-escapes.edn"))))
 
 (def kw-terminal-escapes
   "Escapes for characters forbidden a the end of a keyword"
@@ -594,7 +595,6 @@ NOTE: this is a string because the actual re-pattern will differ per clj/cljs.
   ([on-no-ns uri]
   {:pre [(string? uri)]
    }
-   #dbg
   (if-let [[_ prefix _name] (re-matches
                              (re-pattern
                               (str (prefix-re-str) "(.*)"))
@@ -602,20 +602,20 @@ NOTE: this is a string because the actual re-pattern will differ per clj/cljs.
     ;; ... this is a qname...
     (keyword prefix (-> _name decode-uri-string encode-kw-name))
     ;;else this isn't a qname. Maybe it's a full URI we have a prefix for...
-     (let [[_ namespace value] (re-matches (namespace-re) uri)
+     (let [[_ _namespace _value] (re-matches (namespace-re) uri)
            ]
-       (if (not value)
+       (if (not _value)
          ;; there's nothing but prefix
          (on-no-ns uri (-> uri decode-uri-string encode-kw-name keyword))
          ;; else there's a match to the namespace regex
-         (if (not namespace)
-           (on-no-ns uri (keyword (decode-uri-string value)))
+         (if (not _namespace)
+           (on-no-ns uri (keyword (decode-uri-string _value)))
            ;; we found a namespace for which we have a prefix...
-           (keyword (-> namespace
+           (keyword (-> _namespace
                         ((namespace-to-ns))
                         get-ns-meta
                         :vann/preferredNamespacePrefix)
-                    (-> value decode-uri-string encode-kw-name)
+                    (-> _value decode-uri-string encode-kw-name)
                     )))))))
 
 (defn sparql-prefixes-for 
