@@ -27,6 +27,7 @@
   ;; CLJS
   :cljsbuild
   {:test-commands {"test" ["lein" "doo" "node" "test" "once"]}
+   :resource-paths ["resources"]
    :builds
    {
     :test {:source-paths ["src" "test"]

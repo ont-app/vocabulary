@@ -1,8 +1,12 @@
 # Change Log
 All notable changes to this project will be documented in this file. This change log follows the conventions of [keepachangelog.com](http://keepachangelog.com/).
 
+
 v 0.1.2
 - (Breaking) Changed LangStr from record to type
+- There's now a format module to handle en/de-coding of URIs and KWIs for clj(s)
+- cljc-(get/put)-ns-meta! is deprecated in favor of just (get/put)-ns-meta!
+- duplicate prefix mappings throw an error
 
 v 0.1.1
 - keyword-for now allows you to respond to the case where no ns

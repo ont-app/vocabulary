@@ -9,6 +9,7 @@
       :cljs [ont-app.vocabulary.core :as v]
       )
    [ont-app.vocabulary.lstr :as lstr]
+   [ont-app.vocabulary.format :as fmt]
    ))
 
 (v/put-ns-meta!
@@ -36,6 +37,15 @@
   [x]
   #?(:clj (.lang x)
      :cljs (.-lang x)))
+
+
+#?(:cljs
+   (deftest test-kw-escape-coverage
+     (let [max-char 65535
+           ]
+       (doseq [c (range 0 max-char)]
+         (if (not (contains? fmt/kw-escapes (char c)))
+           (is (= true (fmt/kw-test c))))))))
 
 ;; NO READER MACROS BELOW THIS POINT
 
@@ -65,10 +75,12 @@
     (is (= "foaf:homepage"
            (v/qname-for :foaf/homepage)
            ))
+    ;; 
     (is (= :foaf/homepage
            (v/keyword-for "http://xmlns.com/foaf/0.1/homepage")
            ))
-    (is (= :http://example.com/my/stuff
+    (is (= (read-string (fmt/ensure-readable-keywords
+                         ":http://example.com/my/stuff"))
            (v/keyword-for "http://example.com/my/stuff")
            ))
     (is (= :no-prefix-found
@@ -98,12 +110,12 @@
      ))
 
 (deftest encode-and-decode-kw-names
-  (testing "keywords should not choke the reader"
+  (testing "keywords should not choke the reader. URI strings  should be parsable as URIs"
     (is (= "+n+123"
-           (v/encode-kw-name "123")
+           (fmt/encode-kw-name "123")
            ))
     (is (= "123"
-           (v/decode-kw-name (v/encode-kw-name "123"))
+           (fmt/decode-kw-name (fmt/encode-kw-name "123"))
            ))
     (is (= "http://xmlns.com/foaf/0.1/123"
            (v/iri-for :foaf/+n+123)
@@ -117,7 +129,7 @@
     (is (= "foaf:123"
            (v/qname-for (v/keyword-for "foaf:123"))
            ))
-    (is (= :foaf/Subtopic/x
+    (is (= (read-string (fmt/ensure-readable-keywords ":foaf/Subtopic/x"))
            (v/keyword-for "http://xmlns.com/foaf/0.1/Subtopic/x")
            ))
     (is (= "http://xmlns.com/foaf/0.1/Subtopic/x"

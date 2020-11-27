@@ -12,6 +12,7 @@
 ;; defrecord
 (deftype LangStr [s lang]
   Object
+  (hashCode [this] (hash (str (.s this) "@" (.lang this))))
   (toString [_] s)
   #?(:clj
      (equals [this that]

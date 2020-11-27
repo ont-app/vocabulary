@@ -9,7 +9,7 @@ RDF-style language-tagged literals.
 - [Defining keyword Identifiers (KWIs) mapped to URI namespaces](#h2-defining-kwis)
   - [Basic namespace metadata](#h3-basic-metadata)
   - [Working with KWIs](#h3-working-with-kwis)
-    - [`iri-for` and `uri-for`](#h4-iri-for)
+    - [`uri-for`](#h4-iri-for)
     - [`qname-for`](#h4-qname-for)
     - [`keyword-for`](#h4-keyword-for)
   - [Accessing-namespace-metadata](#h3-accessing-namespace-metadata)
@@ -23,7 +23,7 @@ RDF-style language-tagged literals.
     - [`sparql-prefixes-for`](#h4-sparql-prefixes-for)
     - [`prepend-prefix-declarations`](#h4-prepend-prefix-declarations)
   - [Common Linked Data namespaces](#h3-linked-data)
-    - [Imported with_ont-app.vocabulary.core_](#h4-imported-with-voc)
+    - [Imported with_ont-app.vocabulary.core](#h4-imported-with-voc)
     - [Imported with ont-app.vocabulary.wikidata](#h4-imported-with-wd)
     - [Imported with ont-app.vocabulary.linguistics](#h4-imported-with-ling)
 - [Language-tagged strings](#h2-language-tagged-strings)
@@ -53,12 +53,12 @@ Clojure provides for the definition of
 which function as identifiers within Clojure code, and serve many
 useful purposes.  These keywords can be interned within specific
 namespaces to avoid collisions. The role played by these keywords is
-very similar to the role played by IRIs within the [Linked Open
+very similar to the role played by URIs within the [Linked Open
 Data](http://linkeddata.org/) (LOD) community, which also has a regime
 for providing namespaces.
 
 Ont-app/vocabulary provides mappings between Clojure namespaces and
-IRI-based namespaces using declarations within Clojure namespace
+URI-based namespaces using declarations within Clojure namespace
 metadata.
 
 There is also support for a similar arrangement within Clojurescript,
@@ -68,7 +68,6 @@ Clojurescript does not implement namespaces as first-class objects.
 These mappings set the stage for using Keyword Identifiers (KWIs)
 mappable between Clojure code and the larger world through a
 correspondence with URIs.
-
 
 Another construct from RDF that may have application more generally in
 graph-based data is that of a language-tagged literal, which tags
@@ -113,7 +112,7 @@ This expresses an equivalence between the clojure keyword...
 ```
   :eg/example-var
 ```
-... and the IRI ...
+... and the URI ...
 ```
  <http://example.org/example-var>
 ```
@@ -137,40 +136,51 @@ achieve the same effect in both clj and cljs environments:
 ```
 
 In Clojure, it simply updates the metadata of the named namespace
-(which may need to be created with [_create-ns_](https://clojuredocs.org/clojure.core/create-ns)). In Clojurescript,
+(which may be automatically created with [_create-ns_](https://clojuredocs.org/clojure.core/create-ns)). In Clojurescript,
 this updates a dedicated map from _org.example_ to 'pseudo-metadata'
 in a global atom called _cljs-ns-metadata_.
 
 <a name="h3-working-with-kwis"></a>
 ### Working with KWIs
 
-We can get the IRI string associated with a keyword:
 
 <a name="h4-iri-for"></a>
-#### `iri-for` and `uri-for`
+#### `uri-for`
+
+We can get the URI string associated with a keyword:
+
+The function `uri-for` works for fully qualified keywords, whose
+aliases interned in the local lexical environment (note the
+double-colon):
+
 ```
-> (v/iri-for :eg/Example)
+> (require [org.example :as eg]) ;; or any other alias
+> (v/uri-for ::eg/Example)
+
 "http://example.org/Example"
 >
 ```
 
-The function `iri-for` works as well for aliases interned in the local
-lexical environment (note the double-colon):
-
+We can also usually get away with using a single colon (these are qualified, but not _fully_ qualified ...
 ```
-> (v/iri-for ::v/appendix)
-"http://rdf.naturallexicon.org/ont-app/vocabulary/appendix"
+> (v/uri-for :eg/Example)
+"http://example.org/Example"
 >
 ```
 
-However, it's important to note that while _::v/appendix_ and
-_:voc/appendix_ resolve to the same IRI string, the keywords
+... but because the namespace is hard-coded and not bound to clojure's
+aliasing system, there is the possibility of a clash in the case where
+the same alias was chosen for two different namesspace. This is not
+really a problem for well-known prefixes like `rdfs` or `foaf`, but
+may become a bigger problem if you choose a generic prefix like
+"data".
+
+Also, it's important to note that while _::eg/Example_ and
+_:eg/Example_ resolve to the same URI string, the keywords
 themselves are not equal in Clojure.
 
-This function is called `iri-for` because any UTF-8 characters can be
-used, making them IRIs, a superset of URIs, which use a more
-limited set of characters. But people are in the habit of using the
-term URI, so the _iri-for_ function has an alias _uri-for_.
+
+This function is called `uri-for` to reflect common usage, but because any UTF-8 characters can be used, these are actually [IRIs](https://en.wikipedia.org/wiki/Internationalized_Resource_Identifier). The function _iri-for_ function is also defined an alias of _uri-for_.
 
 <a name="h4-qname-for"></a>
 #### `qname-for`
@@ -178,19 +188,15 @@ term URI, so the _iri-for_ function has an alias _uri-for_.
 We can get the [qname](https://en.wikipedia.org/wiki/QName) for a keyword:
 
 ```
-> (v/qname-for :foaf/homepage)
+> (v/qname-for ::foaf/homepage)
 "foaf:homepage"
->
-;; (with the 'v' declaration above)...
-> (v/qname-for ::v/appendix)
-"voc:appendix"
 >
 ```
 
 <a name="h4-keyword-for"></a>
 #### `keyword-for`
 
-We can get a keyword for an IRI...
+We can get a keyword for an URI...
 
 ```
 > (v/keyword-for "http://xmlns.com/foaf/0.1/homepage")
@@ -199,14 +205,15 @@ We can get a keyword for an IRI...
 ```
 
 If the namespace does not have sufficient metadata to create a
-namespaced keyword, the entire URI will be rendered, with
-reader-friendly characters substituted as needed:
+namespaced keyword, the keyword will be interned in an namespace based on the URI scheme:
 
 ```
 > (v/keyword-for "http://example.com/my/stuff")
-:http+58++47++47+example.com+47+my+47+stuff))
+:http://example.com/my/stuff))
 >
 ```
+
+Characters which would choke the reader will be %-escaped. These characters differ depending on whether we're using the jvm or cljs platforms.
 
 There is an optional arity-2 version whose first argument is called
 when no ns could be resolved:
@@ -215,7 +222,7 @@ when no ns could be resolved:
 > (v/keyword-for (fn [u k] (log/warn "No namespace metadata found for " u) k)
                   "http://example.com/my/stuff")
 WARN: No namespace metadata found for "http://example.com/my/stuff"
-:http+58++47++47+example.com+47+my+47+stuff
+:http://example.com/my/stuff
 >          
 ```
 
@@ -330,7 +337,7 @@ In Clojurescript, since there's no _ns_ object, the results would look like this
 
 <a name="h4-ns-to-namespace"></a>
 #### `ns-to-namespace`
-We can get the IRI namespace associated with an `ns`
+We can get the URI namespace associated with an `ns`
 
 In Clojure:
 
@@ -392,7 +399,7 @@ need to clear the caches:
 <a name="h3-support-for-sparql"></a>
 ### Support for SPARQL queries
 
-RDF is explicitly constructed from IRIs, and there is an intimate
+RDF is explicitly constructed from URIs, and there is an intimate
 relationship between [SPARQL](https://en.wikipedia.org/wiki/SPARQL)
 queries and RDF namespaces. `ont-app/vocabulary` provides facilities
 for extracting SPARQL prefix declarations from queries containing
@@ -432,7 +439,7 @@ effects](https://en.wikipedia.org/wiki/Network_effect) can emerge when
 vocabularies emerge which are shared amongst a community of users
 working in the same domain.
 
-The is a large number of public vocabularies dedicated to various
+There are a large number of public vocabularies dedicated to various
 application domains, some of which have gained a good deal of traction
 in the Linked Data community. Ont-app/vocabulary includes declarations
 of their associated namespaces, packaged within the core module, a
