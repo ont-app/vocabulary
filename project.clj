@@ -1,4 +1,4 @@
-(defproject ont-app/vocabulary "0.1.2-SNAPSHOT"
+(defproject ont-app/vocabulary "0.1.2"
   :description "Utilities to map between namespaced keywords and URIs"
   :url "https://github.com/ont-app/vocabulary"
   :license {:name "Eclipse Public License"

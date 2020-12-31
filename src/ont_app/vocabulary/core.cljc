@@ -12,9 +12,9 @@
      ]]
 ))
 
-(def prefix-to-ns-cache (atom nil))
-(def namespace-to-ns-cache (atom nil))
-(def prefix-re-str-cache (atom nil))
+(def ^:private prefix-to-ns-cache (atom nil))
+(def ^:private namespace-to-ns-cache (atom nil))
+(def ^:private prefix-re-str-cache (atom nil))
 
 (defn clear-caches! 
   "Side-effects: resets all caches in voc/ to nil
@@ -30,10 +30,6 @@ NOTE: call this when you may have imported new namespace metadata
 ;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 #?(:cljs (enable-console-print!))
-
-(defn cljc-error [msg]
-  #?(:clj (Exception. msg)
-     :cljs (js/Error msg)))
 
 
 ;; namespace metadata isn't available at runtime in cljs...
@@ -352,12 +348,20 @@ Where
         (let [_ns (or (cljc-find-ns (symbol prefix))
                       (prefixed-ns prefix))]
           (if-not _ns
-            (throw (cljc-error (str "No URI declared for prefix '" prefix "'")))
+            (throw (ex-info (str "No URI declared for prefix '" prefix "'")
+                            {:type ::NoUriDeclaredForPrefix
+                             ::kw kw
+                             ::prefix prefix
+                             }))
+
             (str (-> _ns
                      (ns-to-namespace))
                  (-> kw-name decode-kw-name encode-uri-string))))
         ;; else no prefix
-        (throw (cljc-error (str "Could not find IRI for " kw)))))))
+        (throw (ex-info (str "Could not find IRI for " kw)
+                        {:type ::NoIRIForKw
+                         ::kw kw
+                         }))))))
 
 (def iri-for "Alias of uri-for" uri-for)
 
@@ -438,7 +442,11 @@ Where
             
               ]
           (when-not _ns
-            (throw (cljc-error (str "Could not resolve prefix " prefix))))
+            (throw (ex-info (str "Could not resolve prefix " prefix)
+                            {:type ::CouldNotResolvePrefix
+                             ::kw kw
+                             ::prefix prefix
+                             })))
           (if (invalid-qname-name kw-name) ;; invalid as qname
             (str "<" (prefix-to-namespace-uri prefix) kw-name ">")
             ;;else valid as qname
