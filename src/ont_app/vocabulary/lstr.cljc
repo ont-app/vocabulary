@@ -2,7 +2,8 @@
   {:doc "Defines LangStr type to inform #lstr custom reader tag"
    :author "Eric D. Scott"
    }
-  (:require [cljs.compiler])
+  #?(:cljs
+     (:require [cljs.compiler]))
   )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -50,14 +51,15 @@
                   (= (.-lang this) (.-lang that))))))
 
 
-(defmethod cljs.compiler/emit-constant* ont_app.vocabulary.lstr.LangStr
-  ;; Emits a string of js instantiating a LangStr
-  [x]
-  (apply cljs.compiler/emits [(str "new ont_app.vocabulary.lstr.LangStr (\""
-                                   (#?(:clj .s :cljs .-s) x)
-                                   "\" , \""
-                                   (#?(:clj .lang :cljs .-lang) x)
-                                   "\")")]))
+#?(:cljs
+   (defmethod cljs.compiler/emit-constant* ont_app.vocabulary.lstr.LangStr
+     ;; Emits a string of js instantiating a LangStr
+     [x]
+     (apply cljs.compiler/emits [(str "new ont_app.vocabulary.lstr.LangStr (\""
+                                      (#?(:clj .s :cljs .-s) x)
+                                      "\" , \""
+                                      (#?(:clj .lang :cljs .-lang) x)
+                                   "\")")])))
 
 (defn lang 
   "returns the language tag associated with `langStr`"
