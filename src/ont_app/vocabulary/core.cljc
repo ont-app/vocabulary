@@ -316,15 +316,16 @@ Where
   [prefix]
   {:pre [(string? prefix)]
    }
-  (or (get (cljc-ns-aliases) (symbol prefix))
-      (get (prefix-to-ns) prefix)))
+  (or (get (prefix-to-ns) prefix)
+      (get (cljc-ns-aliases) (symbol prefix))
+      ))
       
 
 (declare keyword-for) ;; inverse of iri-for
 
 (defn uri-for
   "Returns `iri`  for `kw` based on metadata attached to `ns`
-  Inverse of `iri-for`
+  Alias of `iri-for`
 Where
   - `iri` is of the form `namespace``value`
   - `kw` is a keyword of the form `prefix`:`value`
