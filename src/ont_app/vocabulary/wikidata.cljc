@@ -26,7 +26,7 @@
      :dc/description "Direct properties in wikibase"
      :vann/preferredNamespaceUri "http://www.wikidata.org/prop/direct/"
      :vann/preferredNamespacePrefix "wdt"
-     :rdfs/seeAlso :wikibase:directClaim
+     :rdfs/seeAlso :wikibase/directClaim
      }
     )
 (voc/put-ns-meta!

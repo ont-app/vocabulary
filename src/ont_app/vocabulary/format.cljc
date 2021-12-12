@@ -268,7 +268,7 @@
     (escapes-re kw-escapes-inverted))
 
 (defn encode-kw-ns
-  "Returns modified `kw-ns`, derived s.t. when used as the namespacecomponent of
+  "Returns modified `kw-ns`, derived s.t. when used as the namespace component of
    some   `kw`, `kw` will not choke the reader.
   Inverse of `decode-kw-name`
   Where

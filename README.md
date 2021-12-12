@@ -41,7 +41,7 @@ Available at [clojars](https://clojars.org/ont-app/vocabulary).
  (defproject .....
   :dependencies 
   [...
-   [ont-app/vocabulary "<this version>"]
+   [ont-app/vocabulary "<this version>" :as voc]
    ...
    ])
 ```   
@@ -54,16 +54,18 @@ which function as identifiers within Clojure code, and serve many
 useful purposes.  These keywords can be interned within specific
 namespaces to avoid collisions. The role played by these keywords is
 very similar to the role played by URIs within the [Linked Open
-Data](http://linkeddata.org/) (LOD) community, which also has a regime
+Data](https://www.wikidata.org/wiki/Q515701) (LOD) community, which also has a regime
 for providing namespaces.
 
-Ont-app/vocabulary provides mappings between Clojure namespaces and
-URI-based namespaces using declarations within Clojure namespace
-metadata.
+Ont-app/vocabulary provides mappings between [Clojure
+namespaces](https://clojure.org/reference/namespaces) and
+[URI](https://en.wikipedia.org/wiki/Uniform_Resource_Identifier)-based
+namespaces using declarations within Clojure namespace metadata.
 
-There is also support for a similar arrangement within Clojurescript,
-though some things are done a little differently given the fact that
-Clojurescript does not implement namespaces as first-class objects.
+There is also support for a similar arrangement within
+[Clojurescript](https://clojurescript.org/), though some things are
+done a little differently given the fact that Clojurescript does not
+implement namespaces as first-class objects.
 
 These mappings set the stage for using Keyword Identifiers (KWIs)
 mappable between Clojure code and the larger world through a
@@ -84,13 +86,14 @@ e.g. `#lstr "gaol@en-GB"` and `#lstr "jail@en-US"`.
 (ns ...
  (:require
    ...
-   [ont-app.vocabulary.core] 
+   [ont-app.vocabulary.core :as voc] 
    ...))
 ```
 
 This will load function definitions interned in the vocabulary.core
-namespace, and also a number of other `ns` declarations, each
-dedicated to a commonly occurring namespace in the world of LOD.
+namespace, and also [a number of other `ns`
+declarations](#h4-imported-with-voc), each dedicated to a commonly
+occurring namespace in the world of LOD.
 
 <a name="h3-basic-metadata"></a>
 ### Basic namespace metadata 
@@ -155,7 +158,7 @@ double-colon):
 
 ```
 > (require [org.example :as eg]) ;; or any other alias
-> (v/uri-for ::eg/Example)
+> (voc/uri-for ::eg/Example)
 
 "http://example.org/Example"
 >
@@ -163,7 +166,7 @@ double-colon):
 
 We can also usually get away with using a single colon (these are qualified, but not _fully_ qualified ...
 ```
-> (v/uri-for :eg/Example)
+> (voc/uri-for :eg/Example)
 "http://example.org/Example"
 >
 ```
@@ -180,7 +183,10 @@ _:eg/Example_ resolve to the same URI string, the keywords
 themselves are not equal in Clojure.
 
 
-This function is called `uri-for` to reflect common usage, but because any UTF-8 characters can be used, these are actually [IRIs](https://en.wikipedia.org/wiki/Internationalized_Resource_Identifier). The function _iri-for_ function is also defined an alias of _uri-for_.
+This function is called `uri-for` to reflect common usage, but because
+any UTF-8 characters can be used, these are actually
+[IRIs](https://en.wikipedia.org/wiki/Internationalized_Resource_Identifier). The
+function _iri-for_ function is also defined as an alias of _uri-for_.
 
 <a name="h4-qname-for"></a>
 #### `qname-for`
@@ -188,7 +194,7 @@ This function is called `uri-for` to reflect common usage, but because any UTF-8
 We can get the [qname](https://en.wikipedia.org/wiki/QName) for a keyword:
 
 ```
-> (v/qname-for ::foaf/homepage)
+> (voc/qname-for ::foaf/homepage)
 "foaf:homepage"
 >
 ```
@@ -196,19 +202,19 @@ We can get the [qname](https://en.wikipedia.org/wiki/QName) for a keyword:
 <a name="h4-keyword-for"></a>
 #### `keyword-for`
 
-We can get a keyword for an URI...
+We can get a keyword for a URI string...
 
 ```
-> (v/keyword-for "http://xmlns.com/foaf/0.1/homepage")
+> (voc/keyword-for "http://xmlns.com/foaf/0.1/homepage")
 :foaf/homepage
 >
 ```
 
 If the namespace does not have sufficient metadata to create a
-namespaced keyword, the keyword will be interned in an namespace based on the URI scheme:
+namespaced keyword, the keyword will be interned in a namespace based on the URI scheme:
 
 ```
-> (v/keyword-for "http://example.com/my/stuff")
+> (voc/keyword-for "http://example.com/my/stuff")
 :http://example.com/my/stuff))
 >
 ```
@@ -219,7 +225,7 @@ There is an optional arity-2 version whose first argument is called
 when no ns could be resolved:
 
 ```
-> (v/keyword-for (fn [u k] (log/warn "No namespace metadata found for " u) k)
+> (voc/keyword-for (fn [u k] (log/warn "No namespace metadata found for " u) k)
                   "http://example.com/my/stuff")
 WARN: No namespace metadata found for "http://example.com/my/stuff"
 :http://example.com/my/stuff
@@ -235,7 +241,7 @@ WARN: No namespace metadata found for "http://example.com/my/stuff"
 Let's take another look at the metadata we used above to declare mappings between clojure namespaces and RDF namespaces:
 
 ```
-(v/put-ns-meta!
+(voc/put-ns-meta!
  'org.example
   {
     :vann/preferredNamespacePrefix "eg"
@@ -262,7 +268,7 @@ The namespace for `vann` is also declared as _ont-app.vocabulary.vann_ in the
 `ont_app/vocabulary/core.cljc` file, with this declaration:
 
 ```
-(v/put-ns-meta!
+(voc/put-ns-meta!
  'ont-app.vocabulary.vann
  {
    :rdfs/label "VANN"
@@ -276,7 +282,7 @@ The namespace for `vann` is also declared as _ont-app.vocabulary.vann_ in the
 There is an inverse of _put-ns-meta!_ called _get-ns-meta_:
 
 ```
-> (v/get-ns-metadata 'ont-app.vocabulary.foaf)
+> (voc/get-ns-metadata 'ont-app.vocabulary.foaf)
 {
  :dc/title "Friend of a Friend (FOAF) vocabulary"
  :dc/description "The Friend of a Friend (FOAF) RDF vocabulary,
@@ -309,10 +315,11 @@ for download at the URLs given.
 
 <a name="h4-prefix-to-ns"></a>
 #### `prefix-to-ns`
-We can get a map all the prefixes of namespaces declared within the current lexical environment:
+We can get a map of all the prefixes of namespaces declared within the
+current lexical environment:
 
 ```
-> (v/prefix-to-ns)
+> (voc/prefix-to-ns)
 {"dc" #namespace[ont-app.vocabulary.dc],
  "owl" #namespace[ont-app.vocabulary..owl],
  "ontolex" #namespace[ont-app.vocabulary.ontolex],
@@ -325,7 +332,7 @@ We can get a map all the prefixes of namespaces declared within the current lexi
 In Clojurescript, since there's no _ns_ object, the results would look like this:
 
 ```
-> (v/prefix-to-ns)
+> (voc/prefix-to-ns)
 {"dc" ont-app.vocabulary.dc,
  "owl" ont-app.vocabulary..owl,
  "ontolex" ont-app.vocabulary.ontolex,
@@ -342,7 +349,7 @@ We can get the URI namespace associated with an `ns`
 In Clojure:
 
 ```
-> (v/ns-to-namespace (find-ns 'ont-app.vocabulary.foaf))
+> (voc/ns-to-namespace (find-ns 'ont-app.vocabulary.foaf))
 "http://xmlns.com/foaf/0.1/"
 >
 ```
@@ -350,7 +357,7 @@ In Clojure:
 In both Clojure and ClojureScript:
 
 ```
-> (v/ns-to-namespace 'ont-app.vocabulary.foaf)
+> (voc/ns-to-namespace 'ont-app.vocabulary.foaf)
 "http://xmlns.com/foaf/0.1/"
 >
 ```
@@ -360,14 +367,14 @@ In both Clojure and ClojureScript:
 We can get a map from namespace URIs to their associated clojure namespaces:
 
 ```
-> (v/namespace-to-ns)
+> (voc/namespace-to-ns)
 {
  "http://www.w3.org/2002/07/owl#"
  #namespace[org.naturallexicon.lod.owl],
  "http://persistence.uni-leipzig.org/nlp2rdf/ontologies/nif-core#"
  #namespace[org.naturallexicon.lod.nif],
  "http://purl.org/dc/elements/1.1/"
- #namespace[org.naturallexicion.lod.dc],
+ #namespace[org.naturallexicon.lod.dc],
  "http://www.w3.org/ns/dcat#"
  #namespace[org.naturallexicon.lod.dcat],
  ...
@@ -381,7 +388,7 @@ With the usual allowance for clojurescript described above.
 #### `ns-to-prefix`
 We can get the prefix associated with an `ns`:
 ```
-> (v/ns-to-prefix (v/cljc-find-ns 'org.naturallexicon.lod.foaf))
+> (voc/ns-to-prefix (voc/cljc-find-ns 'org.naturallexicon.lod.foaf))
 "foaf"
 >
 ```
@@ -393,7 +400,7 @@ you're making changes to the metadata and it's not 'taking', you may
 need to clear the caches:
 
 ```
-> (v/clear-caches!)
+> (voc/clear-caches!)
 ```
 
 <a name="h3-support-for-sparql"></a>
@@ -409,7 +416,7 @@ qnames.
 #### `sparql-prefixes-for`
 We can infer the PREFIX declarations appropriate to a SPARQL query:
 ```
-> (v/sparql-prefixes-for
+> (voc/sparql-prefixes-for
              "Select * Where{?s foaf:homepage ?homepage}")
 ("PREFIX foaf: <http://xmlns.com/foaf/0.1/>")
 >
@@ -420,7 +427,7 @@ We can infer the PREFIX declarations appropriate to a SPARQL query:
 Or we can just go ahead and prepend the prefixes...
 
 ```
-> (v/prepend-prefix-declarations
+> (voc/prepend-prefix-declarations
                "Select * Where {?s foaf:homepage ?homepage}")
 "PREFIX foaf: <http://xmlns.com/foaf/0.1/>
 Select * Where{?s foaf:homepage ?homepage}"
@@ -476,7 +483,7 @@ pertinent to the
 [Wikidata](#https://www.wikidata.org/wiki/Wikidata:Main_Page) database.
 
 It also defines the value for [Wikidata's public SPARQL endpoint](https://query.wikidata.org/bigdata/namespace/wdq/sparql) is
-as the constant:
+as this constant:
 
 `ont-app.vocabulary.wikidata/sparql-endpoint`
 
@@ -512,10 +519,10 @@ To enable this language tag, we must require the namespace:
 ```
 
 This library defines a reader macro `#lstr` and accompanying record
-_LangStr_ to facilitate wriing language-tagged strings in clojure. The
+_LangStr_ to facilitate writing language-tagged strings in clojure. The
 value above for example would be written: `#lstr "gaol@en-GB"`.
 
-The reader encodes and instance of type LangStr (it is autoiconic):
+The reader encodes an instance of type LangStr (it is autoiconic):
 
 ```
 > (def brit-jail #lstr "gaol@en-GB")
