@@ -1,5 +1,5 @@
 (defproject ont-app/vocabulary "0.1.4-SNAPSHOT"
-  :description "Utilities to map between namespaced keywords and URIs"
+  :description "Utilities to map between namespaced keywords and URIs, and support language-tagged strings."
   :url "https://github.com/ont-app/vocabulary"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
@@ -34,12 +34,13 @@
   :codox {:output-path "doc"}
   :profiles
   {:dev {:dependencies
-         [ ;; dep disambiguation...
-          [com.google.errorprone/error_prone_annotations "2.4.0"]
-          [com.google.code.findbugs/jsr305 "3.0.2"]
+         [;; deps :tree disambiguation...
+          ;; <none>
           ;; clojure
-          [org.clojure/clojure "1.10.1"]
-          [org.clojure/clojurescript "1.10.773"]]}}
+          [org.clojure/clojure "1.10.3"]
+          [org.clojure/clojurescript "1.10.896"]
+          [lein-doo "0.1.11"]
+          ]}}
   :clean-targets
   ^{:protect false}
   ["resources/dev/js/compiled"
