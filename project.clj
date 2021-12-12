@@ -1,18 +1,9 @@
-(defproject ont-app/vocabulary "0.1.3"
-  :description "Utilities to map between namespaced keywords and URIs"
+(defproject ont-app/vocabulary "0.1.4"
+  :description "Utilities to map between namespaced keywords and URIs, and support language-tagged strings."
   :url "https://github.com/ont-app/vocabulary"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :min-lein-version "2.7.1"
-  :dependencies [;; dep disambiguation...
-                 [com.google.errorprone/error_prone_annotations "2.4.0"]
-                 [com.google.code.findbugs/jsr305 "3.0.2"]
-                 ;; clojure
-                 [org.clojure/clojure "1.10.1"]
-                 [org.clojure/clojurescript "1.10.773"]
-                 ;; 3rd party
-                 [lein-doo "0.1.11"]
-                 ]
   :plugins [
             [lein-cljsbuild "1.1.7"
              :exclusions [[org.clojure/clojure]]]
@@ -41,7 +32,15 @@
                       }}
    }} ;; cljsbuild
   :codox {:output-path "doc"}
-  :profiles {}
+  :profiles
+  {:dev {:dependencies
+         [;; deps :tree disambiguation...
+          ;; <none>
+          ;; clojure
+          [org.clojure/clojure "1.10.3"]
+          [org.clojure/clojurescript "1.10.896"]
+          [lein-doo "0.1.11"]
+          ]}}
   :clean-targets
   ^{:protect false}
   ["resources/dev/js/compiled"

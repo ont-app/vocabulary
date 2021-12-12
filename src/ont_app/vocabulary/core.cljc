@@ -72,13 +72,11 @@ NOTE: call this when you may have imported new namespace metadata
    
    ))
 
-(def ^:deprecated cljc-put-ns-meta! "Deprecated. Use put-ns-meta!" put-ns-meta!)
-
 (defn get-ns-meta
-  "Returns <metadata> assigned to ns named `_ns`
+  "Returns `metadata` assigned to ns named `_ns`
   Where
   - `_ns` names a namespace or a 'dummy' namespace whose sole purpose is to hold metadata.
-  - `metadata` := {<key> <value>, ...}
+  - `metadata` := {`key` `value`, ...}
   - `key` is a keyword containing vocabulary metadata, e.g. :vann/preferredNamespacePrefix
   "
   ([_ns]
@@ -98,20 +96,19 @@ NOTE: call this when you may have imported new namespace metadata
                             {:type ::CannotInferNamespace}))
       :clj (get-ns-meta *ns*))))
 
-(def ^:deprecated cljc-get-ns-meta "Deprecated. Use get-ns-meta" get-ns-meta)
 
 #?(:cljs
    (def ^:dynamic *alias-map*
-     "{<alias> <ns-name>, ...}
+     "{`alias` `ns-name`, ...}
   Where
-  <alias> is a symbol
-  <ns-name> is a symbol naming an ns in the current lexical env
-  Informs cljc-ns-aliases in cljs space.
+  `alias` is a symbol
+  `ns-name` is a symbol naming an ns in the current lexical env
+  NOTE: Informs cljc-ns-aliases in cljs space.
   "
      {}))
 
 (defn cljc-ns-aliases 
-  "Returns {<alias> <ns>, ...}
+  "Returns {`alias` `ns`, ...}
 Where
   - `alias` is a symbol
   - `ns` is its associated ns in the current lexical environment.
@@ -231,9 +228,9 @@ dcat:mediaType relation for some dcat:downloadURL.
   [prefixes prefix _ns]
   (throw (ex-info (str "Prefix `" prefix "` is being associated with both " (prefixes prefix) " and " _ns)
                   {:type ::DuplicatePrefix
-                   ::prefixes prefixes
-                   ::prefix prefix
-                   ::ns _ns})))
+                   :prefixes prefixes
+                   :prefix prefix
+                   :ns _ns})))
 
 (defn collect-prefixes 
   "Returns {`prefix` `namespace` ...} s.t. `next-ns` is included
@@ -256,7 +253,6 @@ Where
         (reduce add-prefix acc p)
         (add-prefix acc p))
       acc)))
-
 
 (defn prefix-to-ns 
   "Returns {`prefix` `ns` ...}
@@ -289,8 +285,11 @@ Where
        :vann/preferredNamespaceUri)))
 
 (defn namespace-to-ns 
-  "returns {`namespace` `ns` ...} for each ns with :vann/preferredNamespaceUri
-declaration
+  "returns {`namespace` `ns` ...} for each `ns` with :vann/preferredNamespaceUri
+  declaration
+  Where
+  - `namespace` is the URI suitable for for an RDF prefix declaration
+  - `ns` is either a clojure ns or a symbol naming a clojure ns.
 "
   []
   (when-not @namespace-to-ns-cache
@@ -735,4 +734,8 @@ Where
      })
 
 
+
+;; deprecated
+(def ^:deprecated cljc-put-ns-meta! "Deprecated. Use put-ns-meta!" put-ns-meta!)
+(def ^:deprecated cljc-get-ns-meta "Deprecated. Use get-ns-meta" get-ns-meta)
 

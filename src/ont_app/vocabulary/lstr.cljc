@@ -80,8 +80,8 @@ Where:
     (when (not= (count m) 3)
       (throw (ex-info "Bad LangString fomat"
                       {:type ::BadLangstringFormat
-                       ::regex langstring-re
-                       ::form form})))
+                       :regex langstring-re
+                       :form form})))
     (let [[_ s lang] m]
       (LangStr. s lang))))
 
