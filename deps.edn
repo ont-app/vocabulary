@@ -1,0 +1,15 @@
+{:mvn/repos {"sonatype" {:url "https://oss.sonatype.org/content/repositories/snapshots/"}}
+ :paths ["src" "resources"]
+ :deps {org.clojure/clojure {:mvn/version "1.9.0"}}
+ :aliases
+ {;; running tests/checks of various kinds:
+  :test ; clojure -X:test to run clj tests
+  {:extra-paths ["test"]
+   :extra-deps  {io.github.cognitect-labs/test-runner
+                 {:git/tag "v0.5.0" :git/sha "48c3c67"}}
+   :exec-fn     cognitect.test-runner.api/test}
+
+  ;; various "runners" for tests/CI:
+  :cljs ; clojure -M:test:cljs to run cljs tests
+  {:extra-deps {olical/cljs-test-runner {:mvn/version "3.8.0"}}
+   :main-opts ["-m" "cljs-test-runner.main"]}}}
