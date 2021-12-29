@@ -10,7 +10,12 @@
      encode-kw-name
      encode-uri-string
      ]]
+   [ont-app.vocabulary.lstr :as lstr]
+   ;;#?(:cljs [cljs.reader :as edn])
+
+
 ))
+
 
 (def ^:private prefix-to-ns-cache (atom nil))
 (def ^:private namespace-to-ns-cache (atom nil))
@@ -28,6 +33,9 @@ NOTE: call this when you may have imported new namespace metadata
 ;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; FUN WITH READER MACROS
 ;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;;#?(:cljs
+;;   (cljs.reader/register-tag-parser! "lstr" lstr/read-LangStr))
 
 #?(:cljs (enable-console-print!))
 

@@ -10,6 +10,7 @@
       )
    [ont-app.vocabulary.lstr :as lstr]
    [ont-app.vocabulary.format :as fmt]
+   ;;#?(:cljs [cljs.reader :as edn])
    ))
 
 (v/put-ns-meta!
@@ -169,4 +170,16 @@
       (is (= "en" (lstr/lang x) ))
       (is (= x (lstr/read-LangStr "asdf@en")))
       )))
+
+
+
+(deftest issue-12-language-tagged-strings-in-cljs
+  ;; the actual reader macro won't compile with actual #lstr tag
+  ;; due to a race condition in compilation which seems to be
+  ;; resolved in dependent modules.
+  ;; see test in ont-app/igraph-vocabulary to test the actual tag
+  (testing "lstr tag"
+    (let [x #?(:clj #lstr "dog@en" :cljs (read-string "#lstr \"dog@en\""))
+          ]
+      (is (= ont_app.vocabulary.lstr.LangStr (type x) )))))
 
