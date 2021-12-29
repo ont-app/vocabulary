@@ -153,10 +153,6 @@
 
 
 (deftest language-tagged-strings
-  ;; the actual reader macro won't compile with actual #lstr tag
-  ;; due to a race condition in compilation which seems to be
-  ;; resolved in dependent modules.
-  ;; see test in ont-app/igraph-vocabulary to test the actual tag
   (testing "langstr dispatch"
     (let [x (lstr/read-LangStr "asdf@en")]
       (is (= ont_app.vocabulary.lstr.LangStr (type x) ))
@@ -174,12 +170,8 @@
 
 
 (deftest issue-12-language-tagged-strings-in-cljs
-  ;; the actual reader macro won't compile with actual #lstr tag
-  ;; due to a race condition in compilation which seems to be
-  ;; resolved in dependent modules.
-  ;; see test in ont-app/igraph-vocabulary to test the actual tag
   (testing "lstr tag"
-    (let [x #?(:clj #lstr "dog@en" :cljs (read-string "#lstr \"dog@en\""))
+    (let [x #lstr "dog@en" ;;#?(:clj #lstr "dog@en" :cljs (read-string "#lstr \"dog@en\""))
           ]
       (is (= ont_app.vocabulary.lstr.LangStr (type x) )))))
 

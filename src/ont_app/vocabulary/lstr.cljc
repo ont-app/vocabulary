@@ -11,17 +11,9 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;; defrecord
-(deftype LangStr [s lang]
+(defrecord LangStr [s lang]
   Object
-  (hashCode [this] (hash (str (.s this) "@" (.lang this))))
-  (toString [_] s)
-  #?(:clj
-     (equals [this that]
-       (and (instance? LangStr that)
-            (= (.s this) (.s that))
-            (= (.lang this) (.lang that)))))
-  )
-
+  (toString [_] s))
   
 ;; for clj...
 #?(:clj
