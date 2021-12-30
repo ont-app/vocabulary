@@ -7,6 +7,8 @@ pom.xml
 pom.xml.asc
 *.jar
 *.class
+.cpcache
+cljs-test-runner-out
 /.lein-*
 /.nrepl-port
 .hgignore
