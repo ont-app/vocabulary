@@ -5,7 +5,7 @@
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :min-lein-version "2.7.1"
   :plugins [
-            [lein-cljsbuild "1.1.7"
+            [lein-cljsbuild "1.1.8"
              :exclusions [[org.clojure/clojure]]]
             [lein-codox "0.10.6"]
             [lein-doo "0.1.11"]
@@ -21,6 +21,15 @@
    :resource-paths ["resources"]
    :builds
    {
+    :build {:source-paths ["src"]
+           :compiler {:output-to "resources/build/compiled.js"
+                      :output-dir "resources/build/js/compiled/out"
+                      ;; entry point for doo-runner:
+                      ;; :main ont-app.vocabulary.doo
+                      :target :nodejs
+                      :optimizations :advanced ;; none
+                      :warnings {:bad-method-signature false}
+                      }}
     :test {:source-paths ["src" "test"]
            :compiler {:output-to "resources/test/compiled.js"
                       :output-dir "resources/test/js/compiled/out"

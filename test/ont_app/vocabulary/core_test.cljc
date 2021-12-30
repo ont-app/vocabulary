@@ -171,7 +171,8 @@
 
 (deftest issue-12-language-tagged-strings-in-cljs
   (testing "lstr tag"
-    (let [x #lstr "dog@en" ;;#?(:clj #lstr "dog@en" :cljs (read-string "#lstr \"dog@en\""))
+    (let [x #lstr "doggies@en" ;;#?(:clj #lstr "dog@en" :cljs (read-string "#lstr \"dog@en\""))
           ]
+      (println x)
       (is (= ont_app.vocabulary.lstr.LangStr (type x) )))))
 
