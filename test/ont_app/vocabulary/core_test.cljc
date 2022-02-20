@@ -183,10 +183,13 @@
           ]
       (is (= ont_app.vocabulary.lstr.LangStr (type x) )))))
 
-(deftest issue-15-lstr-should-accommodate-newlines
-  (testing "lstr newlines"
-    (let [x (read-string "#lstr \"line1\nline2@en\"")
-          ]
-      (is (= (str x)
-             "line1\nline2")))))
+#?(:clj
+   ;; Cannot be supported under cljs
+   ;; see https://github.com/ont-app/vocabulary/issues/15
+   (deftest issue-15-lstr-should-accommodate-newlines
+     (testing "lstr newlines"
+       (let [x (read-string "#lstr \"line1\nline2@en\"")
+             ]
+         (is (= (str x)
+                "line1\nline2"))))))
 
