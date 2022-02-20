@@ -68,7 +68,7 @@
 
 ;; END READER MACROS
 
-(def langstring-re #"^(.*)@([-a-zA-Z]+)")
+(def langstring-re #"(?s)^(.*)@([-a-zA-Z]+)")
 
 (defn ^LangStr read-LangStr
   "Returns an instance of LangStr parsed from `form`
