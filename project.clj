@@ -1,4 +1,4 @@
-(defproject ont-app/vocabulary "0.1.6-SNAPSHOT"
+(defproject ont-app/vocabulary "0.1.7-SNAPSHOT"
   :description "Utilities to map between namespaced keywords and URIs, and support language-tagged strings."
   :url "https://github.com/ont-app/vocabulary"
   :license {:name "Eclipse Public License"
@@ -38,7 +38,7 @@
           ;; <none>
           ;; clojure
           [org.clojure/clojure "1.10.3"]
-          [org.clojure/clojurescript "1.10.896"]
+          [org.clojure/clojurescript "1.11.4"]
           [lein-doo "0.1.11"]
           ]}}
   :clean-targets

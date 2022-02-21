@@ -79,9 +79,8 @@ of `"gaol"@en-GB` vs. `"jail"@en-US`. This library defines a custom
 reader tag `lstr` for declaring similar language-tagged strings,
 e.g. `#lstr "gaol@en-GB"` and `#lstr "jail@en-US"`.
 
-Sorry, but for now the #lstr feature is only supported on the jvm, pending
-resolution of [issue
-12](https://github.com/ont-app/vocabulary/issues/12).
+Embedding #lstr into compiled cljs code is not supported, pending resolution of [issue
+12](https://github.com/ont-app/vocabulary/issues/12). The work-around seems to be to wrap it in a read-string.
 
 <a name="h2-defining-kwis"></a>
 ## Defining Keyword Identifiers (KWIs) mapped to URI namespaces

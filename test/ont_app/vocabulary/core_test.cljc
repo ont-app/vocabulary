@@ -179,17 +179,17 @@
   ;; resolved in dependent modules.
   ;; see test in ont-app/igraph-vocabulary to test the actual tag
   (testing "lstr tag"
-    (let [x (read-string "#lstr \"dog@en\"")
+    (let [x #?(:clj #lstr "dog@en"
+               :cljs (read-string "#lstr \"dog@en\""))
+          ;; this is what needs to be fixed. 
           ]
       (is (= ont_app.vocabulary.lstr.LangStr (type x) )))))
 
-#?(:clj
-   ;; Cannot be supported under cljs
-   ;; see https://github.com/ont-app/vocabulary/issues/15
-   (deftest issue-15-lstr-should-accommodate-newlines
-     (testing "lstr newlines"
-       (let [x (read-string "#lstr \"line1\nline2@en\"")
-             ]
-         (is (= (str x)
-                "line1\nline2"))))))
+
+(deftest issue-15-lstr-should-accommodate-newlines
+  (testing "lstr newlines"
+    (let [x (read-string "#lstr \"line1\nline2@en\"")
+          ]
+      (is (= (str x)
+             "line1\nline2")))))
 
