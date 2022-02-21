@@ -68,7 +68,7 @@
 
 (def langstring-re  #?(:clj #"(?s)^(.*)@([-a-zA-Z]+)"
                        ;; (?s) Dot matches all (including newline)
-                       :cljs #"^(.*)@([-a-zA-Z]+)"
+                       :cljs #"^((?:.|\s)*)@([-a-zA-Z]+)"
                        ;; This language feature is only supported for ECMASCRIPT_2018 mode or better: RegExp flag 's'
                        ))
     
