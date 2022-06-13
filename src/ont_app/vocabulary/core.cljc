@@ -13,9 +13,7 @@
    [ont-app.vocabulary.lstr :as lstr]
    ;;#?(:cljs [cljs.reader :as edn])
 
-
 ))
-
 
 (def ^:private prefix-to-ns-cache (atom nil))
 (def ^:private namespace-to-ns-cache (atom nil))
@@ -39,7 +37,6 @@ NOTE: call this when you may have imported new namespace metadata
 
 #?(:cljs (enable-console-print!))
 
-
 ;; namespace metadata isn't available at runtime in cljs...
 #?(:cljs
    (def cljs-ns-metadata
@@ -62,23 +59,30 @@ NOTE: call this when you may have imported new namespace metadata
   for examples of namespaces declared solely to hold vocabulary metadata.
   "
   ([_ns m]
-  #?(:cljs
-     (swap! cljs-ns-metadata
-            assoc _ns m)
-     :clj
-     (alter-meta!
-      (if (symbol? _ns)
-        (or (find-ns _ns)
-            (create-ns _ns))
-        ;;else not a symbol
-        _ns)
-      merge m))
+   #?(:cljs
+      (swap! cljs-ns-metadata
+             assoc _ns m)
+      :clj
+      (alter-meta!
+       (if (symbol? _ns)
+         (if-let [found (find-ns _ns)]
+           found
+           ;; else no proper namespace found
+           (or (try (eval `(var ~_ns))
+                    (catch Exception e))
+               (create-ns _ns)))
+                             
+         ;; else not a symbol
+         (let []
+           (assert (= (type (find-ns 'user)) clojure.lang.Namespace))
+           _ns))
+       merge m))
    (clear-caches!))
+
   ([m]
    #?(:cljs (put-ns-meta! (namespace ::dummy)) 
-      :clj (put-ns-meta! *ns* m))
-   
-   ))
+      :clj (put-ns-meta! *ns* m))))
+
 
 (defn get-ns-meta
   "Returns `metadata` assigned to ns named `_ns`
@@ -199,9 +203,15 @@ Where
      ))
 
 
+(def cljc-ns-map
+  "mimics behavior of `ns-map` on cljs, but returns empty symbol->binding map"
+  #?(:clj ns-map
+     :cljs (fn [not-a-real-ns] {})))
+
 ;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; ;;; NO READER MACROS BEYOND THIS POINT
 ;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 
 ;; ;; SCHEMA
 
@@ -229,9 +239,9 @@ dcat:mediaType relation for some dcat:downloadURL.
    ])
 
 ;; ;; FUNCTIONS
-;; A reduce-fn
 (defn on-duplicate-prefix
   "Throws an error if a prefix is bound to more than one namespace.
+  Reduces into `prefix` argument
   NOTE: Can be overridden with `with-redefs`."
   [prefixes prefix _ns]
   (throw (ex-info (str "Prefix `" prefix "` is being associated with both " (prefixes prefix) " and " _ns)
@@ -239,6 +249,23 @@ dcat:mediaType relation for some dcat:downloadURL.
                    :prefixes prefixes
                    :prefix prefix
                    :ns _ns})))
+
+(defn vann-annotated-objects []
+  "Returns `[obj, ...]
+Where:
+- `obj` bears metadata s.t. (get-ns-meta obj)  includes :vann/... annotations
+"
+  (let [has-vann-declarations? (fn [obj]
+                                 (if-let [m (get-ns-meta obj)]
+                                   (and (:vann/preferredNamespacePrefix m)
+                                        (:vann/preferredNamespaceUri m))))
+        ]
+    (filter has-vann-declarations?
+            (reduce conj
+                    ;; proper namespaces...
+                    (cljc-all-ns)
+                    ;; vars ...
+                    (mapcat (comp vals cljc-ns-map) (cljc-all-ns))))))
 
 (defn collect-prefixes 
   "Returns {`prefix` `namespace` ...} s.t. `next-ns` is included
@@ -262,6 +289,7 @@ Where
         (add-prefix acc p))
       acc)))
 
+
 (defn prefix-to-ns 
   "Returns {`prefix` `ns` ...}
 Where 
@@ -273,7 +301,9 @@ Where
   []
   (when-not @prefix-to-ns-cache
     (reset! prefix-to-ns-cache
-            (reduce collect-prefixes {} (cljc-all-ns))))
+            (reduce collect-prefixes
+                    {}
+                    (vann-annotated-objects))))
   @prefix-to-ns-cache)
 
 (defn ns-to-namespace 
@@ -301,20 +331,21 @@ Where
 "
   []
   (when-not @namespace-to-ns-cache
-    (let [maybe-mapping (fn [_ns]
-                          (if-let [namespace (:vann/preferredNamespaceUri
-                                              (get-ns-meta _ns))
-                                   ]
-                            [namespace _ns]))
+    (let [collect-mapping (fn [acc _ns]
+                            (if-let [namespace (:vann/preferredNamespaceUri
+                                                (get-ns-meta _ns))
+                                     ]
+                              (assoc acc namespace _ns)
+                              ;;else
+                              acc))
+          
           ]
       (reset! namespace-to-ns-cache
-              (into {}
-                    (filter identity
-                            (map maybe-mapping
-                                 (cljc-all-ns)))))))
+              (reduce collect-mapping {} (vann-annotated-objects)))))
+
   @namespace-to-ns-cache)
 
-(defn- prefixed-ns 
+(defn prefixed-ns 
   "Returns nil or the ns whose `prefix` was declared in metadata with
   :vann/preferredNamespacePrefix
 Where
@@ -327,8 +358,6 @@ Where
       (get (cljc-ns-aliases) (symbol prefix))
       ))
       
-
-(declare keyword-for) ;; inverse of iri-for
 
 (defn uri-for
   "Returns `iri`  for `kw` based on metadata attached to `ns`
@@ -362,8 +391,7 @@ Where
                              ::prefix prefix
                              }))
 
-            (str (-> _ns
-                     (ns-to-namespace))
+            (str (-> _ns (ns-to-namespace))
                  (-> kw-name decode-kw-name encode-uri-string))))
         ;; else no prefix
         (throw (ex-info (str "Could not find IRI for " kw)
@@ -447,7 +475,6 @@ Where
       (if prefix
         (let [_ns (or (cljc-find-ns (symbol prefix))
                       (prefixed-ns prefix))
-            
               ]
           (when-not _ns
             (throw (ex-info (str "Could not resolve prefix " prefix)
@@ -489,8 +516,9 @@ NOTE: this is a string because the actual re-pattern will differ per clj/cljs.
                         (fmt/encode-kw-name (str "/" to-keep))))
              _keyword))
   )
+
 (defn keyword-for 
-  "Returns a keyword equivalent of `uri`, properly prefixed if LOD declarations
+  "Returns a keyword equivalent of `uri`, properly prefixed if Vann declarations
   exist in some ns in the current lexical environment.
   Side effects per `on-no-ns`
   Where
@@ -499,25 +527,25 @@ NOTE: this is a string because the actual re-pattern will differ per clj/cljs.
      possibly with side-effects in response to the fact that no qname was found for
      `uri` (default returns `kw`)
   NOTE: typically `on-no-ns` would log a warning or make an assertion.
-"
+  "
   ([uri]
    (keyword-for default-on-no-ns uri))
   ([on-no-ns uri]
-  {:pre [(string? uri)]
-   }
-  (if-let [prefix-re-match  (re-matches
-                             (re-pattern
-                              (str (prefix-re-str) "(.*)"))
-                             uri)]
-    ;; ... this is a qname...
-    (let [[_ prefix _name] prefix-re-match]
-      (keyword prefix (-> _name decode-uri-string encode-kw-name)))
-    ;;else this isn't a qname. Maybe it's a full URI we have a prefix for...
-    ;; namespace re match returns [s namepace value] or nil
-    (let [namespace-re-match  (re-matches (namespace-re) uri)
-          _namespace (and namespace-re-match (namespace-re-match 1))
-          _value (and namespace-re-match (namespace-re-match 2))
-          ]
+   {:pre [(string? uri)]
+    }
+   (if-let [prefix-re-match  (re-matches
+                              (re-pattern
+                               (str (prefix-re-str) "(.*)"))
+                              uri)]
+     ;; ... this is a qname...
+     (let [[_ prefix _name] prefix-re-match]
+       (keyword prefix (-> _name decode-uri-string encode-kw-name)))
+     ;;else this isn't a qname. Maybe it's a full URI we have a prefix for...
+     ;; namespace re match returns [s namepace value] or nil
+     (let [namespace-re-match  (re-matches (namespace-re) uri)
+           _namespace (and namespace-re-match (namespace-re-match 1))
+           _value (and namespace-re-match (namespace-re-match 2))
+           ]
        (if (not _value)
          ;; there's nothing but prefix
          (on-no-ns uri (-> uri decode-uri-string encode-kw-name keyword))
@@ -620,6 +648,7 @@ Where
      }
     )
 
+ 
 (put-ns-meta!
  'ont-app.vocabulary.vann
     {

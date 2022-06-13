@@ -8,6 +8,7 @@ RDF-style language-tagged literals.
 - [Motivation](#h2-motivation)
 - [Defining keyword Identifiers (KWIs) mapped to URI namespaces](#h2-defining-kwis)
   - [Basic namespace metadata](#h3-basic-metadata)
+  - [Adding vann metadata to a Clojure Var](h3-adding-vann-metadata-to-a-clojure-var)
   - [Working with KWIs](#h3-working-with-kwis)
     - [`uri-for`](#h4-iri-for)
     - [`qname-for`](#h4-qname-for)
@@ -61,6 +62,9 @@ Ont-app/vocabulary provides mappings between [Clojure
 namespaces](https://clojure.org/reference/namespaces) and
 [URI](https://en.wikipedia.org/wiki/Uniform_Resource_Identifier)-based
 namespaces using declarations within Clojure namespace metadata.
+
+The same metadata can also be attached to [Clojure
+vars](https://clojure.org/reference/vars) with the same effect.
 
 There is also support for a similar arrangement within
 [Clojurescript](https://clojurescript.org/), though some things are
@@ -146,6 +150,35 @@ In Clojure, it simply updates the metadata of the named namespace
 this updates a dedicated map from _org.example_ to 'pseudo-metadata'
 in a global atom called _cljs-ns-metadata_.
 
+<a name="h3-adding-vann-metadata-to-a-clojure-var"></a>
+### Adding `vann` metadata to a Clojure Var
+
+You also have the option of assigning the `vann` metadata described
+above to a [Clojure Var](https://clojure.org/reference/vars). 
+
+```
+(def 
+  ^{
+      :vann/preferredNamespacePrefix "myVar"
+      :vann/preferredNamespaceUri "http://example.org/myVar/"
+    }
+   my-var nil)
+```
+
+This metadata is attatched to the var.
+
+```
+(meta #'my.namespace/my-var)
+->
+{:vann/preferredNamespacePrefix "myVar",
+ :vann/preferredNamespaceUri "http://example.org/myVar/",
+ ...
+ :name my-var,
+ :ns #namespace[my.namespace]}}
+```
+
+All the same behaviors described herein will apply. 
+
 <a name="h3-working-with-kwis"></a>
 ### Working with KWIs
 
@@ -155,36 +188,12 @@ in a global atom called _cljs-ns-metadata_.
 
 We can get the URI string associated with a keyword:
 
-The function `uri-for` works for fully qualified keywords, whose
-aliases interned in the local lexical environment (note the
-double-colon):
 
-```
-> (require [org.example :as eg]) ;; or any other alias
-> (voc/uri-for ::eg/Example)
-
-"http://example.org/Example"
->
-```
-
-We can also usually get away with using a single colon (these are qualified, but not _fully_ qualified ...
 ```
 > (voc/uri-for :eg/Example)
 "http://example.org/Example"
 >
 ```
-
-... but because the namespace is hard-coded and not bound to clojure's
-aliasing system, there is the possibility of a clash in the case where
-the same alias was chosen for two different namesspace. This is not
-really a problem for well-known prefixes like `rdfs` or `foaf`, but
-may become a bigger problem if you choose a generic prefix like
-"data".
-
-Also, it's important to note that while _::eg/Example_ and
-_:eg/Example_ resolve to the same URI string, the keywords
-themselves are not equal in Clojure.
-
 
 This function is called `uri-for` to reflect common usage, but because
 any UTF-8 characters can be used, these are actually
@@ -197,7 +206,7 @@ function _iri-for_ function is also defined as an alias of _uri-for_.
 We can get the [qname](https://en.wikipedia.org/wiki/QName) for a keyword:
 
 ```
-> (voc/qname-for ::foaf/homepage)
+> (voc/qname-for :foaf/homepage)
 "foaf:homepage"
 >
 ```

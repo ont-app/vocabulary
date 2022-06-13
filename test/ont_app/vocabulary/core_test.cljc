@@ -11,6 +11,7 @@
    [ont-app.vocabulary.lstr :as lstr]
    [ont-app.vocabulary.format :as fmt]
    ;;#?(:cljs [cljs.reader :as edn])
+   ;;#?(:clj [ont-app.vocabulary.issue21])
    ))
 
 (v/put-ns-meta!
@@ -18,6 +19,8 @@
  {
   :voc/mapsTo 'ont-app.vocabulary.core ;; <- part of the test
   })
+
+
 
 ;; FUN WITH READER MACROS
 
@@ -47,6 +50,25 @@
        (doseq [c (range 0 max-char)]
          (if (not (contains? fmt/kw-escapes (char c)))
            (is (= true (fmt/kw-test c))))))))
+
+
+#?(:clj
+   (deftest
+     ^{:vann/preferredNamespacePrefix "issue21"
+       :vann/preferredNamespaceUri "http://rdf.naturallexicon.com/issue21/"
+       }
+     issue-21-uncouple-voc-from-ns
+     (is (=  "http://rdf.naturallexicon.com/issue21/uri-for"
+             (v/uri-for :issue21/uri-for)))
+     (is (= "issue21:uri-for"
+            (v/qname-for :issue21/uri-for)))
+     (is (= :issue21/uri-for
+            (v/keyword-for "http://rdf.naturallexicon.com/issue21/uri-for")))
+     (is (= #{"PREFIX issue21: <http://rdf.naturallexicon.com/issue21/>"}
+         (into #{} (v/sparql-prefixes-for
+                    "Select * Where{?s issue21:testing ?whatever}"))))
+     ))
+
 
 ;; NO READER MACROS BELOW THIS POINT
 
