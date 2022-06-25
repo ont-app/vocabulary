@@ -250,11 +250,12 @@ dcat:mediaType relation for some dcat:downloadURL.
                    :prefix prefix
                    :ns _ns})))
 
-(defn vann-annotated-objects []
+(defn vann-annotated-objects 
   "Returns `[obj, ...]
 Where:
 - `obj` bears metadata s.t. (get-ns-meta obj)  includes :vann/... annotations
 "
+  []
   (let [has-vann-declarations? (fn [obj]
                                  (if-let [m (get-ns-meta obj)]
                                    (and (:vann/preferredNamespacePrefix m)
@@ -262,7 +263,7 @@ Where:
         ]
     (filter has-vann-declarations?
             (reduce conj
-                    ;; proper namespaces...
+                    ;; namespaces...
                     (cljc-all-ns)
                     ;; vars ...
                     (mapcat (comp vals cljc-ns-map) (cljc-all-ns))))))

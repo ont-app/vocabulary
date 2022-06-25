@@ -4,6 +4,7 @@
   (:require
    [clojure.string :as s]
    [clojure.set :as set]
+   [clojure.edn :as edn]
    #?(:clj [clojure.java.io :as io])
    #?(:cljs [cljs.reader :refer [read-string]])
    ))
@@ -196,7 +197,7 @@
    {}))
 
 
-(def uri-escapes #?(:clj (clojure.edn/read-string
+(def uri-escapes #?(:clj (edn/read-string
                           (slurp (io/resource "uri-escapes.edn")))
                     :cljs cljs-uri-escapes))
 
@@ -251,7 +252,7 @@
     (char 58) "%3A"})) ;; colon
 
 (def kw-escapes "Escapes map for keywords"
-    #?(:clj (clojure.edn/read-string (slurp (io/resource "kw-escapes.edn")))
+    #?(:clj (edn/read-string (slurp (io/resource "kw-escapes.edn")))
        :cljs cljs-kw-escapes))
 
 
