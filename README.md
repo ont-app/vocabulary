@@ -5,14 +5,15 @@ RDF-style language-tagged literals.
 
 ## Contents
 - [Installation](#h2-installation)
+- [A brief synopsis](#h2-a-brief-synopsis)
 - [Motivation](#h2-motivation)
 - [Defining keyword Identifiers (KWIs) mapped to URI namespaces](#h2-defining-kwis)
   - [Basic namespace metadata](#h3-basic-metadata)
   - [Adding vann metadata to a Clojure Var](h3-adding-vann-metadata-to-a-clojure-var)
   - [Working with KWIs](#h3-working-with-kwis)
     - [`uri-for`](#h4-iri-for)
-    - [`qname-for`](#h4-qname-for)
     - [`keyword-for`](#h4-keyword-for)
+    - [`qname-for`](#h4-qname-for)
   - [Accessing-namespace-metadata](#h3-accessing-namespace-metadata)
     - [`put-ns-meta!` and `get-ns-meta`](#h4-put-ns-meta)
     - [`prefix-to-ns`](#h4-prefix-to-ns)
@@ -47,6 +48,38 @@ Available at [clojars](https://clojars.org/ont-app/vocabulary).
    ])
 ```   
 
+<a name="h2-a-brief-synopsis"></a>
+## A brief synopis
+
+
+```
+(ns ...
+ (:require
+   [ont-app.vocabulary.core :as voc] 
+   ))
+
+```
+
+```
+> (voc/uri-for :rdfs/subClassOf)
+"http://www.w3.org/2000/01/rdf-schema#subClassOf"
+```
+
+```
+> (voc/keyword-for "http://www.w3.org/2000/01/rdf-schema#subClassOf")
+:rdfs/subClassOf
+```
+
+```
+> (voc/qname-for :rdfs/subClassOf
+"rdfs:subClassOf"
+```
+
+```
+> (voc/keyword-for "rdfs:subClassOf")
+:rdfs/subClassOf
+```
+
 <a name="h2-motivation"></a>
 ## Motivation
 Clojure provides for the definition of
@@ -63,16 +96,16 @@ namespaces](https://clojure.org/reference/namespaces) and
 [URI](https://en.wikipedia.org/wiki/Uniform_Resource_Identifier)-based
 namespaces using declarations within Clojure namespace metadata.
 
-The same metadata can also be attached to [Clojure
+It also lets you attach the same metadata to [Clojure
 vars](https://clojure.org/reference/vars) with the same effect.
 
-There is also support for a similar arrangement within
+There is support for a similar arrangement within
 [Clojurescript](https://clojurescript.org/), though some things are
 done a little differently given the fact that Clojurescript does not
-implement namespaces as first-class objects.
+implement metadata in the same way.
 
 These mappings set the stage for using Keyword Identifiers (KWIs)
-mappable between Clojure code and the larger world through a
+mappable between Clojure code and the world through a
 correspondence with URIs.
 
 Another construct from RDF that may have application more generally in
@@ -145,16 +178,18 @@ achieve the same effect in both clj and cljs environments:
   })
 ```
 
-In Clojure, it simply updates the metadata of the named namespace
-(which may be automatically created with [_create-ns_](https://clojuredocs.org/clojure.core/create-ns)). In Clojurescript,
-this updates a dedicated map from _org.example_ to 'pseudo-metadata'
-in a global atom called _cljs-ns-metadata_.
+In Clojure, it simply updates the metadata of the named namespace. If
+the namespace does not already exist, it will be automatically created
+with [_create-ns_](https://clojuredocs.org/clojure.core/create-ns). In
+Clojurescript, this updates a dedicated map from _org.example_ to
+'pseudo-metadata' in a global atom called _cljs-ns-metadata_.
 
 <a name="h3-adding-vann-metadata-to-a-clojure-var"></a>
 ### Adding `vann` metadata to a Clojure Var
 
-You also have the option of assigning the `vann` metadata described
-above to a [Clojure Var](https://clojure.org/reference/vars). 
+On the JVM, You also have the option of assigning the `vann` metadata
+described above to a [Clojure
+Var](https://clojure.org/reference/vars).
 
 ```
 (def 
@@ -177,17 +212,15 @@ This metadata is attatched to the var.
  :ns #namespace[my.namespace]}}
 ```
 
-All the same behaviors described herein will apply. 
+All the same behaviors described herein will apply.
 
 <a name="h3-working-with-kwis"></a>
 ### Working with KWIs
-
 
 <a name="h4-iri-for"></a>
 #### `uri-for`
 
 We can get the URI string associated with a keyword:
-
 
 ```
 > (voc/uri-for :eg/Example)
@@ -199,17 +232,6 @@ This function is called `uri-for` to reflect common usage, but because
 any UTF-8 characters can be used, these are actually
 [IRIs](https://en.wikipedia.org/wiki/Internationalized_Resource_Identifier). The
 function _iri-for_ function is also defined as an alias of _uri-for_.
-
-<a name="h4-qname-for"></a>
-#### `qname-for`
-
-We can get the [qname](https://en.wikipedia.org/wiki/QName) for a keyword:
-
-```
-> (voc/qname-for :foaf/homepage)
-"foaf:homepage"
->
-```
 
 <a name="h4-keyword-for"></a>
 #### `keyword-for`
@@ -223,11 +245,11 @@ We can get a keyword for a URI string...
 ```
 
 If the namespace does not have sufficient metadata to create a
-namespaced keyword, the keyword will be interned in a namespace based on the URI scheme:
+namespaced keyword, the keyword will be interned in a namespace based on the URI scheme, escaped to conform with proper keyword syntax:
 
 ```
 > (voc/keyword-for "http://example.com/my/stuff")
-:http://example.com/my/stuff))
+:http%3A/%2Fexample.com%2Fmy%2Fstuff
 >
 ```
 
@@ -244,6 +266,16 @@ WARN: No namespace metadata found for "http://example.com/my/stuff"
 >          
 ```
 
+<a name="h4-qname-for"></a>
+#### `qname-for`
+
+We can get the [qname](https://en.wikipedia.org/wiki/QName) for a keyword:
+
+```
+> (voc/qname-for :foaf/homepage)
+"foaf:homepage"
+>
+```
 
 <a name="h3-accessing-namespace-metadata"></a>
 ### Accessing namespace metadata
@@ -333,7 +365,7 @@ current lexical environment:
 ```
 > (voc/prefix-to-ns)
 {"dc" #namespace[ont-app.vocabulary.dc],
- "owl" #namespace[ont-app.vocabulary..owl],
+ "owl" #namespace[ont-app.vocabulary.owl],
  "ontolex" #namespace[ont-app.vocabulary.ontolex],
  "foaf" #namespace[ont-app.vocabulary.foaf],
  ...

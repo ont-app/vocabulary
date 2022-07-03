@@ -8,6 +8,7 @@
      decode-kw-name
      decode-uri-string
      encode-kw-name
+     encoded-kw-name->http-kw
      encode-uri-string
      ]]
    [ont-app.vocabulary.lstr :as lstr]
@@ -458,9 +459,13 @@ Where
    }
   (let [prefix (namespace kw)
         kw-name (name kw)]
-    (if (#{"https:" "http:" "file:"} prefix)
+    (if (#{"https:" "http:" "file:"
+           "https%3A" "http%3A" "file%3A"
+           } prefix)
       ;; scheme was parsed as namespace of kw
-      (let [uri-str (str prefix "/" (-> kw-name decode-kw-name encode-uri-string))]
+      (let [uri-str (str (-> prefix decode-kw-name)
+                         "/"
+                         (-> kw-name decode-kw-name encode-uri-string))]
         (if-let [rem (re-matches (namespace-re) uri-str)]
           (let [[_ namespace-uri kw-name] rem]
             (if (not (invalid-qname-name kw-name))
@@ -549,7 +554,10 @@ NOTE: this is a string because the actual re-pattern will differ per clj/cljs.
            ]
        (if (not _value)
          ;; there's nothing but prefix
-         (on-no-ns uri (-> uri decode-uri-string encode-kw-name keyword))
+         (on-no-ns uri (-> uri
+                           decode-uri-string
+                           encode-kw-name
+                           encoded-kw-name->http-kw))
          ;; else there's a match to the namespace regex
          (if (not _namespace)
            (on-no-ns uri (keyword (decode-uri-string _value)))

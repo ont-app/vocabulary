@@ -45,7 +45,7 @@
 
 #?(:cljs
    (deftest test-kw-escape-coverage
-     (let [max-char 65535
+      (let [max-char 65535
            ]
        (doseq [c (range 0 max-char)]
          (if (not (contains? fmt/kw-escapes (char c)))
@@ -215,3 +215,6 @@
       (is (= (str x)
              "line1\nline2")))))
 
+
+
+  

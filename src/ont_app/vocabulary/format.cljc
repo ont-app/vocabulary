@@ -58,8 +58,10 @@
                                  sacc)
                                (catch Throwable e
                                  (conj sacc c))))
+        forward-slash (char 47)
+        ;;colon (char 58)
         test-breakers (reduce collect-test-breaker
-                              #{}
+                              #{forward-slash}
                               (map char (range max-char)))
         collect-escape (fn [macc c] (assoc macc
                                            (key-fn c)
@@ -353,3 +355,15 @@
                                (encode-kw-name (nth elts 4)))))))))
 
 
+(defn encoded-kw-name->http-kw
+  "Returns `http-kw` for `http-str`
+  Where:
+  - `http-kw` is a keyword whose namespace matches the http scheme (with escaped ':')
+  - `http-str` is a string encoded for a keyword matching a standard http-type scheme
+  "
+  [http-str]
+  (let [[_ scheme path] (re-matches #"^(http[s]?|file)%3A%2F(.*)" http-str)
+        ]
+    (if (and scheme path)
+      (keyword (str scheme "%3A") path)
+      (keyword http-str))))
