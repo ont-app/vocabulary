@@ -251,7 +251,8 @@
    {\  "%E2%80%80", \　 "%E3%80%80", \space "%20", \@ "%40", \` "%60", \  "%E1%9A%80", \  "%E2%80%81", \  "%E2%80%82", \" "%22", \  "%E2%80%83", \  "%E2%80%84", \  "%E2%80%85", \  "%E2%80%86", \  "%E2%80%88", \( "%28", \  "%E2%80%A8", \tab "%9", \  "%E2%80%89", \) "%29", \  "%E2%80%A9", \newline "%A", \  "%E2%80%8A", \ "%B", \formfeed "%C", \, "%2C", \return "%D", \᠎ "%E1%A0%8E", \; "%3B", \[ "%5B", \{ "%7B", \ "%1C", \\ "%5C", \ "%1D", \] "%5D", \} "%7D", \ "%1E", \^ "%5E", \~ "%7E", \ "%1F", \  "%E2%81%9F"}
    ;; clojurescript-specific escapes for chars 
    {(char 47) "%2F" ;; forward slash
-    (char 58) "%3A"})) ;; colon
+    ;; (char 58) "%3A" ;; colon
+    })) 
 
 (def kw-escapes "Escapes map for keywords"
     #?(:clj (edn/read-string (slurp (io/resource "kw-escapes.edn")))
@@ -261,7 +262,8 @@
 (def kw-terminal-escapes
   "Escapes for characters forbidden a the end of a keyword"
   {(char 47) "%2F", ;; forward slash
-   (char 58) "%3A"}) ;; colon
+   (char 58) "%3A" ;; colon
+   }) 
 
 (def kw-escapes-inverted "Maps escaped charaters to the originals"
   (invert-escape-map (merge kw-escapes
@@ -279,7 +281,8 @@
   - `kw` is a keyword := :`ns`/`s`
   "
   [kw-ns]
-  (s/escape kw-ns kw-escapes))
+  (-> (s/escape kw-ns kw-escapes)
+      (s/replace #":$" "%3A")))
 
 
 (defn decode-kw-ns
@@ -300,6 +303,8 @@
                         (if (re-matches #"^[0-9]+.*" s)
                           (str "+n+" s)
                           s))
+        escape-double-colon (fn [s]
+                              (s/replace s  #"::" ":%3A"))
         maybe-escape-last (fn [s]
                             (if (contains? kw-terminal-escapes (last s))
                               (str (subs s 0 (dec (count s)))
@@ -308,6 +313,7 @@
         ]
   (-> kw-name
       (s/escape kw-escapes)
+      (escape-double-colon)
       (maybe-escape-last)
       (maybe-prepend+n+))))
 
@@ -362,7 +368,7 @@
   - `http-str` is a string encoded for a keyword matching a standard http-type scheme
   "
   [http-str]
-  (let [[_ scheme path] (re-matches #"^(http[s]?|file)%3A%2F(.*)" http-str)
+  (let [[_ scheme path] (re-matches #"^(http[s]?|file):%2F(.*)" http-str)
         ]
     (if (and scheme path)
       (keyword (str scheme "%3A") path)

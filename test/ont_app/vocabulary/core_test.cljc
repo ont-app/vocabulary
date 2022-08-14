@@ -14,6 +14,7 @@
    ;;#?(:clj [ont-app.vocabulary.issue21])
    ))
 
+
 (v/put-ns-meta!
  'ont-app.vocabulary.core-test
  {
