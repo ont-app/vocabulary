@@ -34,8 +34,9 @@ NOTE: call this when you may have imported new namespace metadata
 ;; FUN WITH READER MACROS
 ;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;;#?(:cljs
-;;   (cljs.reader/register-tag-parser! "lstr" lstr/read-LangStr))
+#?(:cljs
+   (cljs.reader/register-tag-parser! "lstr" lstr/read-LangStr)
+   )
 
 #?(:cljs (enable-console-print!))
 
@@ -362,8 +363,8 @@ Where
       ))
       
 
-(defn default-on-no-kwi-ns
-  "Checks for urns and arns, and otherwise throws ::NoIRIForKw"
+(defn kwi-missing-namespace-if-not-urn-or-arn
+  "Returns the name-stiring of `kw`, or throws ::NoIRIForKw if `kw` is incorrectly missing a namespace"
   [kw]
   {:pre [(keyword? kw)
          (empty? (namespace kw))
@@ -375,6 +376,32 @@ Where
                   {:type ::NoIRIForKw
                    ::kw kw
                    }))))
+
+(defn default-on-no-kwi-ns
+  "Returns the name-string of `kw` if its name string is a typical URI or URN, otherwise throws a :NoIRIForKw error
+  Where
+  - `kw` is a keyword with no namespace.
+"
+  [kw]
+  {:pre [(keyword? kw)
+         (empty? (namespace kw))
+         ]
+   }
+  (let [kw-name (name kw)
+        ]
+    (if (or (re-matches #"^(urn:|arn:).*" kw-name)
+            (re-matches #"^(http:|https:|file:).*" kw-name))
+      (-> kw-name
+          decode-kw-name
+          encode-uri-string)
+      (throw (ex-info (str "Could not find IRI for " kw)
+                      {:type ::NoIRIForKw
+                       ::kw kw
+                       }))
+      )))
+
+  
+
   
 (defn uri-for
   "Returns `iri`  for `kw` based on metadata attached to `ns` Alias of `iri-for` or `on-no-prefix (kw) if the keyword is not namespaced.
@@ -398,7 +425,8 @@ Where
         kw-name (name kw)
         ]
     (if prefix
-      (if (#{"http:" "https:" "file:"} (decode-kw-ns prefix) )
+      (if (#{"http:" "https:" "file:"} (decode-kw-ns prefix))
+        ;; this doesn't happen much anymore. Retained for back-compatibility
         (str (-> prefix decode-kw-name encode-uri-string)
              "/"
              (-> kw-name decode-kw-name encode-uri-string))
@@ -416,7 +444,6 @@ Where
                  (-> kw-name decode-kw-name encode-uri-string)))))
       ;; else no prefix
       (on-no-kwi-ns kw)))))
-  
 
 (def iri-for "Alias of uri-for" uri-for)
 
@@ -528,19 +555,16 @@ NOTE: this is a string because the actual re-pattern will differ per clj/cljs.
                  "):")))
   @prefix-re-str-cache)
 
+
+
 (defn default-on-no-ns
   "Returns the kwi normally appropriate for `_keyword` in cases where no ns can be matched, as is the case with say http://.....
   "
   [_uri _keyword]
-  #?(:clj (if (keyword? _keyword)
+  (if (keyword? _keyword)
             _keyword
-            (keyword (str _keyword)))
-     :cljs (if-let [http-re-match (re-matches #"^(.*)://(.*)" _uri)]
-             (let [[_ scheme to-keep] http-re-match]
-               (keyword (fmt/encode-kw-ns (str scheme ":"))
-                        (fmt/encode-kw-name (str "/" to-keep))))
-             _keyword))
-  )
+            (keyword (str _keyword))))
+  
 
 (defn keyword-for 
   "Returns a keyword equivalent of `uri`, properly prefixed if Vann declarations
@@ -576,7 +600,7 @@ NOTE: this is a string because the actual re-pattern will differ per clj/cljs.
          (on-no-ns uri (-> uri
                            decode-uri-string
                            encode-kw-name
-                           encoded-kw-name->http-kw))
+                           ))
          ;; else there's a match to the namespace regex
          (if (not _namespace)
            (on-no-ns uri (keyword (decode-uri-string _value)))

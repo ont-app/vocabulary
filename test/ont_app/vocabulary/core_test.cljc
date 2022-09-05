@@ -22,7 +22,9 @@
   })
 
 
-
+#?(:cljs
+  (cljs.reader/register-tag-parser! "lstr" lstr/read-LangStr))
+   
 ;; FUN WITH READER MACROS
 
 (deftest platform-specific-tests
@@ -103,8 +105,7 @@
     (is (= :foaf/homepage
            (v/keyword-for "http://xmlns.com/foaf/0.1/homepage")
            ))
-    (is (= (read-string (fmt/ensure-readable-keywords
-                         ":http://example.com/my/stuff"))
+    (is (= :http:%2F%2Fexample.com%2Fmy%2Fstuff
            (v/keyword-for "http://example.com/my/stuff")
            ))
     (is (= :no-prefix-found
@@ -153,7 +154,7 @@
     (is (= "foaf:123"
            (v/qname-for (v/keyword-for "foaf:123"))
            ))
-    (is (= (read-string (fmt/ensure-readable-keywords ":foaf/Subtopic/x"))
+    (is (= :foaf/Subtopic%2Fx
            (v/keyword-for "http://xmlns.com/foaf/0.1/Subtopic/x")
            ))
     (is (= "http://xmlns.com/foaf/0.1/Subtopic/x"
@@ -195,16 +196,16 @@
       )))
 
 
+#?(:clj (def x #lstr "asdf@en"))
 
 (deftest issue-12-language-tagged-strings-in-cljs
   ;; the actual reader macro won't compile with actual #lstr tag
   ;; due to a race condition in compilation which seems to be
   ;; resolved in dependent modules.
   ;; see test in ont-app/igraph-vocabulary to test the actual tag
-  (testing "lstr tag"
-    (let [x #?(:clj #lstr "dog@en"
-               :cljs (read-string "#lstr \"dog@en\""))
-          ;; this is what needs to be fixed. 
+  (testing "read lstr tag"
+    (let [x (read-string "#lstr \"dog@en\"")
+          ;; 'We'd like to read this directly in source
           ]
       (is (= ont_app.vocabulary.lstr.LangStr (type x) )))))
 

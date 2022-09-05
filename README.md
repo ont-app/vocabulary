@@ -48,6 +48,11 @@ Available at [clojars](https://clojars.org/ont-app/vocabulary).
    ])
 ```   
 
+Or in a `deps.edn` file:
+
+`{:deps {ont-app/vocabulary {:mvn/version "RELEASE"}}}`
+
+
 <a name="h2-a-brief-synopsis"></a>
 ## A brief synopis
 

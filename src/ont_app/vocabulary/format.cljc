@@ -327,7 +327,7 @@
       (s/replace #"^\+n\+" "")
       (s/replace kw-escapes-re (fn [esc] (kw-escapes-inverted esc)))))
 
-(defn ensure-readable-keywords
+#_(defn ensure-readable-keywords
   "Returns `edn'`, replacing keywords properly encoded for clj or cljs
   Where
   - `edn` is a string of edn
