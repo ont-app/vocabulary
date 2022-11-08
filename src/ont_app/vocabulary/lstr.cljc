@@ -13,7 +13,14 @@
 ;; defrecord
 (defrecord LangStr [s lang]
   Object
-  (toString [_] s))
+  (hashCode [this] (hash (str (.s this) "@" (.lang this))))
+  (toString [_] s)
+  #?(:clj
+     (equals [this that]
+       (and (instance? LangStr that)
+            (= (.s this) (.s that))
+            (= (.lang this) (.lang that)))))
+  )
   
 ;; for clj...
 #?(:clj
@@ -31,8 +38,6 @@
      LangStr
      (-pr-writer [this writer opts]
        (write-all writer "#lstr \"" (.toString this) "@" (.-lang this) "\""))))
-
-
 
 #?(:cljs
    (extend-protocol IEquiv
@@ -58,9 +63,14 @@
   [^LangStr langStr]
   (#?(:clj .lang :cljs .-lang) langStr))
 
-;; END READER MACROS
+(def langstring-re  #?(:clj #"(?s)^(.*)@([-a-zA-Z]+)"
+                       ;; (?s) Dot matches all (including newline)
+                       ;; only supported for ECMASCRIPT_2018 mode or better.
+                       :cljs #"^((?:.|\s)*)@([-a-zA-Z]+)"
+                       ))
 
-(def langstring-re #"^(.*)@([-a-zA-Z]+)")
+
+;; END READER MACROS
 
 (defn ^LangStr read-LangStr
   "Returns an instance of LangStr parsed from `form`
@@ -76,4 +86,31 @@ Where:
                        :form form})))
     (let [[_ s lang] m]
       (LangStr. s lang))))
+
+(defn ^LangStr new_read-LangStr
+  "Returns an instance of LangStr parsed from `form`
+Where:
+- `form` :- `str`@`lang`"
+  [form]
+  #?(:clj
+     (let [m (re-matches langstring-re form)
+           ]
+       (when (not= (count m) 3)
+         (throw (ex-info "Bad LangString fomat"
+                         {:type ::BadLangstringFormat
+                          :regex langstring-re
+                          :form form})))
+       (let [[_ s lang] m]
+         (LangStr. s lang)))
+     :cljs
+     `(let [m (re-matches langstring-re ~form)
+            ]
+        (when (not= (count m) 3)
+          (throw (ex-info "Bad LangString fomat"
+                          {:type ::BadLangstringFormat
+                           :regex langstring-re
+                           :form ~form})))
+        (let [[_ s lang] m]
+          (LangStr. s lang)))))
+
 

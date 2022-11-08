@@ -11,7 +11,9 @@
    [ont-app.vocabulary.lstr :as lstr]
    [ont-app.vocabulary.format :as fmt]
    ;;#?(:cljs [cljs.reader :as edn])
+   ;;#?(:clj [ont-app.vocabulary.issue21])
    ))
+
 
 (v/put-ns-meta!
  'ont-app.vocabulary.core-test
@@ -19,6 +21,10 @@
   :voc/mapsTo 'ont-app.vocabulary.core ;; <- part of the test
   })
 
+
+#?(:cljs
+  (cljs.reader/register-tag-parser! "lstr" lstr/read-LangStr))
+   
 ;; FUN WITH READER MACROS
 
 (deftest platform-specific-tests
@@ -42,11 +48,30 @@
 
 #?(:cljs
    (deftest test-kw-escape-coverage
-     (let [max-char 65535
+      (let [max-char 65535
            ]
        (doseq [c (range 0 max-char)]
          (if (not (contains? fmt/kw-escapes (char c)))
            (is (= true (fmt/kw-test c))))))))
+
+
+#?(:clj
+   (deftest
+     ^{:vann/preferredNamespacePrefix "issue21"
+       :vann/preferredNamespaceUri "http://rdf.naturallexicon.com/issue21/"
+       }
+     issue-21-uncouple-voc-from-ns
+     (is (=  "http://rdf.naturallexicon.com/issue21/uri-for"
+             (v/uri-for :issue21/uri-for)))
+     (is (= "issue21:uri-for"
+            (v/qname-for :issue21/uri-for)))
+     (is (= :issue21/uri-for
+            (v/keyword-for "http://rdf.naturallexicon.com/issue21/uri-for")))
+     (is (= #{"PREFIX issue21: <http://rdf.naturallexicon.com/issue21/>"}
+         (into #{} (v/sparql-prefixes-for
+                    "Select * Where{?s issue21:testing ?whatever}"))))
+     ))
+
 
 ;; NO READER MACROS BELOW THIS POINT
 
@@ -80,8 +105,7 @@
     (is (= :foaf/homepage
            (v/keyword-for "http://xmlns.com/foaf/0.1/homepage")
            ))
-    (is (= (read-string (fmt/ensure-readable-keywords
-                         ":http://example.com/my/stuff"))
+    (is (= :http:%2F%2Fexample.com%2Fmy%2Fstuff
            (v/keyword-for "http://example.com/my/stuff")
            ))
     (is (= :no-prefix-found
@@ -130,7 +154,7 @@
     (is (= "foaf:123"
            (v/qname-for (v/keyword-for "foaf:123"))
            ))
-    (is (= (read-string (fmt/ensure-readable-keywords ":foaf/Subtopic/x"))
+    (is (= :foaf/Subtopic%2Fx
            (v/keyword-for "http://xmlns.com/foaf/0.1/Subtopic/x")
            ))
     (is (= "http://xmlns.com/foaf/0.1/Subtopic/x"
@@ -168,11 +192,28 @@
       )))
 
 
+#?(:clj (def x #lstr "asdf@en"))
 
 (deftest issue-12-language-tagged-strings-in-cljs
-  (testing "lstr tag"
-    (let [x #lstr "doggies@en" ;;#?(:clj #lstr "dog@en" :cljs (read-string "#lstr \"dog@en\""))
+  ;; the actual reader macro won't compile with actual #lstr tag
+  ;; due to a race condition in compilation which seems to be
+  ;; resolved in dependent modules.
+  ;; see test in ont-app/igraph-vocabulary to test the actual tag
+  (testing "read lstr tag"
+    (let [x (read-string "#lstr \"dog@en\"")
+          ;; 'We'd like to read this directly in source
           ]
       (println x)
       (is (= ont_app.vocabulary.lstr.LangStr (type x) )))))
 
+
+(deftest issue-15-lstr-should-accommodate-newlines
+  (testing "lstr newlines"
+    (let [x (read-string "#lstr \"line1\nline2@en\"")
+          ]
+      (is (= (str x)
+             "line1\nline2")))))
+
+
+
+  
