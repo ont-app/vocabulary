@@ -2,9 +2,13 @@
  :paths ["src" "resources"]
  :deps {
         org.clojure/clojure {:mvn/version "1.11.1"}
+        org.clojure/clojurescript {:mvn/version "1.11.60"}
         }
  :aliases {
+           ;;;;;;;;;;;;;;;;
            ;; JVM SUPPORT
+           ;;;;;;;;;;;;;;;;
+
            ;; Informs :build alias, below
            :test {
                   :extra-paths ["test"]
@@ -14,6 +18,7 @@
                                                                      :git/sha "dfb30dd"}
                                }
                   }
+           ;; Building utilities
            ;; invoke with -T:build
            ;; for help: clojure -A:deps -T:build help/doc
            :build {
@@ -23,8 +28,11 @@
                           }
                    :ns-default build
                    }
-           
+
+           ;;;;;;;;;;;;;;;;;;;;;;;;;;
            ;; CLOJURESCRIPT SUPPORT
+           ;;;;;;;;;;;;;;;;;;;;;;;;;;
+
            ;; Test cljs version with `clojure -M:test-cljs`
            ;; Get help with clojure -M:test-cljs --help
            ;; See also https://github.com/Olical/cljs-test-runner
@@ -33,13 +41,13 @@
                        :extra-paths ["test"]
                        :main-opts ["-m" "cljs-test-runner.main"]
                        }
-           
+
            ;; SHADOW-CLJS SUPPORT
            ;; Alias referenced in shadow-cljs.edn
-           :cljs {
-                  :extra-deps {thheller/shadow-cljs {:mvn/version "2.20.7"}}
-                  :extra-paths ["test"]
-                  }
+           :shadow {
+                    :extra-deps {thheller/shadow-cljs {:mvn/version "2.20.7"}}
+                    :extra-paths ["test"]
+                    }
            } ;; aliases
  }
 

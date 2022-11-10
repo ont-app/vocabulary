@@ -5,7 +5,6 @@
    [ont-app.vocabulary.core :as voc]
    ))
 
-
 (def sparql-endpoint
   "The public SPARQL endpoint provided by WMF."
   "https://query.wikidata.org/bigdata/namespace/wdq/sparql")
@@ -184,6 +183,3 @@
      :vann/preferredNamespacePrefix "wdno"
      }
     )
-
-  
-

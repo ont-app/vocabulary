@@ -3,13 +3,10 @@
   and keywords"
   (:require
    [clojure.string :as s]
-   [clojure.set :as set]
    [clojure.edn :as edn]
    #?(:clj [clojure.java.io :as io])
    #?(:cljs [cljs.reader :refer [read-string]])
    ))
-
-
 
 ;; Java-specific URI utilities
 (defn escape-utf-8
@@ -25,7 +22,7 @@
                       :c c}))))
 
 (defn uri-test
-    "True when `c` is problem-free in java URIs.
+  "True when `c` is problem-free in java URIs.
   Typically used to create an edn file to inform encoding/decoding URI strings"
   [c]
   #?(:clj
@@ -37,12 +34,12 @@
                       :fn "uri-test"
                       :c c}))))
 
-
 #?(:clj
    (defn get-escapes
   "Returns {`test-breaker` `escaped`, ...} for `char-test` and `escape-fn`
   Where
   - `test-breaker` is a char that breaks `char-test`
+  - `escaped` is a string escaping `c`
   - `char-test` := fn [c] -> true if the char does not need escaping
   - `escape-fn` := fn [c] -> `escaped`
   "
@@ -56,7 +53,7 @@
                                (if (not (char-test c))
                                  (conj sacc c)
                                  sacc)
-                               (catch Throwable e
+                               (catch Throwable _
                                  (conj sacc c))))
         forward-slash (char 47)
         ;;colon (char 58)
@@ -70,10 +67,12 @@
     (reduce collect-escape {} test-breakers)
     ))))
 
-(def invert-escape-map #(reduce-kv (fn [macc c v] (assoc macc v (str c))) {} %))
+(def invert-escape-map
+  "fn [{`escaped-char` `escape-str`, ...}] ->{`escape-str` `escaped-char-str`, ...}"
+  #(reduce-kv (fn [macc c v] (assoc macc v (str c))) {} %))
 
 (defn escapes-re
-  "Returns a regex to recognize escape patterns in an encoded string per `inverted-escpaes-map`
+  "Returns a regex to recognize escape patterns in an encoded string per `inverted-escapes-map`
   Where
   - `inverted-escapes-map` := {`escape-pattern` `original`, ...}
   "
@@ -90,7 +89,6 @@
 "
      []
      (spit "uri-escapes.edn" (get-escapes uri-test escape-utf-8))))
-
 
 (def cljs-uri-escapes
   "A direct copy of (io/resource 'uri-escapes.edn')"
@@ -198,12 +196,15 @@
    ;; characters that break the cljs reader
    {}))
 
+(def uri-escapes
+  "{`c` `escape-str`, ...} for characters that break a URI string"
+  #?(:clj (edn/read-string
+           (slurp (io/resource "uri-escapes.edn")))
+     :cljs cljs-uri-escapes))
 
-(def uri-escapes #?(:clj (edn/read-string
-                          (slurp (io/resource "uri-escapes.edn")))
-                    :cljs cljs-uri-escapes))
-
-(def uri-escapes-inverted (invert-escape-map uri-escapes))
+(def uri-escapes-inverted
+  "{`escape-str` `char-str`, ...} to decode escaped URI strings"
+  (invert-escape-map uri-escapes))
 
 #?(:clj
    (defn uri-string?
@@ -213,7 +214,7 @@
        (not (nil? (some-> s
                           (java.net.URI.)
                           (#(and (.getScheme %)(.getAuthority %))))))
-       (catch Throwable e
+       (catch Throwable _
          false))))
 
 (defn encode-uri-string
@@ -221,7 +222,9 @@
   [s]
   (s/escape s uri-escapes))
 
-(def uri-escapes-re (escapes-re uri-escapes-inverted))
+(def uri-escapes-re
+  "A regex to replace escape strings with the original escaped char."
+  (escapes-re uri-escapes-inverted))
 
 (defn decode-uri-string
   "Inverts URI escapes in `s`. Inverse of encode-uri-string."
@@ -246,6 +249,7 @@
   (spit "resources/kw-escapes.edn" (get-escapes kw-test escape-utf-8))))
 
 (def cljs-kw-escapes
+  "{`kw-char` `escape-string`, ...}, for keyword-invalid chars."
   (merge
    ;; copy of kw-escapes.edn
    {\  "%E2%80%80", \　 "%E3%80%80", \space "%20", \@ "%40", \` "%60", \  "%E1%9A%80", \  "%E2%80%81", \  "%E2%80%82", \" "%22", \  "%E2%80%83", \  "%E2%80%84", \  "%E2%80%85", \  "%E2%80%86", \  "%E2%80%88", \( "%28", \  "%E2%80%A8", \tab "%9", \  "%E2%80%89", \) "%29", \  "%E2%80%A9", \newline "%A", \  "%E2%80%8A", \ "%B", \formfeed "%C", \, "%2C", \return "%D", \᠎ "%E1%A0%8E", \; "%3B", \[ "%5B", \{ "%7B", \ "%1C", \\ "%5C", \ "%1D", \] "%5D", \} "%7D", \ "%1E", \^ "%5E", \~ "%7E", \ "%1F", \  "%E2%81%9F"}
@@ -258,14 +262,13 @@
     #?(:clj (edn/read-string (slurp (io/resource "kw-escapes.edn")))
        :cljs cljs-kw-escapes))
 
-
 (def kw-terminal-escapes
   "Escapes for characters forbidden a the end of a keyword"
   {(char 47) "%2F", ;; forward slash
    (char 58) "%3A" ;; colon
    }) 
 
-(def kw-escapes-inverted "Maps escaped charaters to the originals"
+(def kw-escapes-inverted "Maps escaped characters to the originals"
   (invert-escape-map (merge kw-escapes
                             kw-terminal-escapes)))
 
@@ -317,7 +320,6 @@
       (maybe-escape-last)
       (maybe-prepend+n+))))
 
-
 (defn decode-kw-name
   "Inverse of `encode-kw-name`. Returns original value of `kw-name`
   Where
@@ -327,42 +329,8 @@
       (s/replace #"^\+n\+" "")
       (s/replace kw-escapes-re (fn [esc] (kw-escapes-inverted esc)))))
 
-#_(defn ensure-readable-keywords
-  "Returns `edn'`, replacing keywords properly encoded for clj or cljs
-  Where
-  - `edn` is a string of edn
-  NOTE: this would typically be used to translate clj <-> cljs
-  "
-  [edn]
-  (let [keyword-recognizer #":([^/\s]+)((/?)(\S+))?"
-        categorize (fn [elts]
-                     ;; `elts` are parse elements from kw recognizer
-                     (cond
-                       (and (some? (nth elts 1))
-                            (nil? (nth elts 2))
-                            (nil? (nth elts 3))
-                            (nil? (nth elts 4))) :simple
-                       (and (some? (nth elts 1))
-                            (some? (nth elts 2))
-                            (some? (nth elts 3))
-                            (some? (nth elts 4))) :namespaced
-
-                       ))
-        ]
-    (clojure.string/replace
-     edn
-     keyword-recognizer
-     (fn [elts]
-       (str ":"
-            (case (categorize elts)
-              :simple (encode-kw-name (nth elts 1))
-              :namespaced (str (encode-kw-ns (nth elts 1))
-                               "/"
-                               (encode-kw-name (nth elts 4)))))))))
-
-
-(defn encoded-kw-name->http-kw
-  "Returns `http-kw` for `http-str`
+#_(defn encoded-kw-name->http-kw
+    "Returns `http-kw` for `http-str. Doesn't seem to be used anywhere; consider deleting.`
   Where:
   - `http-kw` is a keyword whose namespace matches the http scheme (with escaped ':')
   - `http-str` is a string encoded for a keyword matching a standard http-type scheme

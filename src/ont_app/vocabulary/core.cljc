@@ -1,21 +1,18 @@
 (ns ont-app.vocabulary.core
   (:require
    [clojure.string :as s]
-   [clojure.set :as set]
    [ont-app.vocabulary.format :as fmt
     :refer
     [decode-kw-ns
      decode-kw-name
      decode-uri-string
      encode-kw-name
-     encoded-kw-name->http-kw
      encode-uri-string
      ]]
    [ont-app.vocabulary.lstr :as lstr]
    ;;#?(:cljs [cljs.reader :as edn])
 
 ))
-
 
 (def ^:private prefix-to-ns-cache (atom nil))
 (def ^:private namespace-to-ns-cache (atom nil))
@@ -53,7 +50,7 @@ NOTE: call this when you may have imported new namespace metadata
   "Side-effect: ensures that subsequent calls to (cljc-get-ns-meta `_ns` return `m`
   Where
   - `_ns`  is an ns(clj only) or the name of a namespace, possibly declared for the sole purpose of holding vocabulary metadata (e.g. rdf, foaf, etc)
-  - `m` := {<key> <value>, ...}, metadata (clj) or 'pseudo-metadata' (cljs)
+  - `m` := {`key` `value`, ...}, metadata (clj) or 'pseudo-metadata' (cljs)
   - `key` is a keyword containing vocabulary metadata, e.g.
     `::vann/preferredNamespacePrefix`
   NOTE: In cljs, ns's are not available at runtime, so the metadata is stored
@@ -72,7 +69,7 @@ NOTE: call this when you may have imported new namespace metadata
            found
            ;; else no proper namespace found
            (or (try (eval `(var ~_ns))
-                    (catch Exception e))
+                    (catch Exception _))
                (create-ns _ns)))
                              
          ;; else not a symbol
@@ -85,7 +82,6 @@ NOTE: call this when you may have imported new namespace metadata
   ([m]
    #?(:cljs (put-ns-meta! (namespace ::dummy)) 
       :clj (put-ns-meta! *ns* m))))
-
 
 (defn get-ns-meta
   "Returns `metadata` assigned to ns named `_ns`
@@ -111,7 +107,6 @@ NOTE: call this when you may have imported new namespace metadata
                             {:type ::CannotInferNamespace}))
       :clj (get-ns-meta *ns*))))
 
-
 #?(:cljs
    (def ^:dynamic *alias-map*
      "{`alias` `ns-name`, ...}
@@ -134,7 +129,6 @@ as some symbol other than the preferred prefix.
   []
   #?(:clj (ns-aliases *ns*)
      :cljs *alias-map*))
-
 
 (defn cljc-find-ns 
   "Returns `ns-name-or-obj` for `_ns`, or nil.
@@ -165,7 +159,7 @@ Where
 (defn cljc-find-prefixes 
   "Returns #{`prefix`...} for `s`
 Where
-  - `prefix` is a prefix found in <s>, for which some (meta ns) has a 
+  - `prefix` is a prefix found in `s`, for which some (meta ns) has a 
      :vann/preferredNamespacePrefix declaration
   - `s` is a string, typically a SPARQL query body for which we want to 
     infer prefix declarations.
@@ -205,7 +199,6 @@ Where
                (recur acc (subs input 1)))))))
      ))
 
-
 (def cljc-ns-map
   "mimics behavior of `ns-map` on cljs, but returns empty symbol->binding map"
   #?(:clj ns-map
@@ -214,7 +207,6 @@ Where
 ;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; ;;; NO READER MACROS BEYOND THIS POINT
 ;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
 
 ;; ;; SCHEMA
 
@@ -229,7 +221,7 @@ details."
   })
 
 (def terms
-  "Describes vocabulary for this namespace."
+  "Describes vocabulary for this namespace. May be read into an IGraph downstream."
   ^{:triples-format :vector-of-vectors}
   [[:voc/appendix
     :rdf/type :rdf:Property
@@ -256,7 +248,8 @@ dcat:mediaType relation for some dcat:downloadURL.
 (defn vann-annotated-objects 
   "Returns `[obj, ...]
 Where:
-- `obj` bears metadata s.t. (get-ns-meta obj)  includes :vann/... annotations
+  - `obj` bears metadata s.t. (get-ns-meta obj)  includes :vann/... annotations
+    - these may be either namespaces or vars
 "
   []
   (let [has-vann-declarations? (fn [obj]
@@ -293,7 +286,6 @@ Where
         (add-prefix acc p))
       acc)))
 
-
 (defn prefix-to-ns 
   "Returns {`prefix` `ns` ...}
 Where 
@@ -315,7 +307,7 @@ Where
 Where
   - `iri` is an iri declared with :vann/preferredNamespaceUri in the metadata for 
     `ns`, or nil
-  - `ns` is an instance of clojure.lang.Namespace
+  - `ns` is an instance of clojure.lang.Namespace (in clj) or a symbol-name for ns (cljs)
 "
   [_ns]
   (or
@@ -331,7 +323,7 @@ Where
   declaration
   Where
   - `namespace` is the URI suitable for for an RDF prefix declaration
-  - `ns` is either a clojure ns or a symbol naming a clojure ns.
+  - `ns` is either a clojure ns (clj) or a symbol naming a clojure ns (cljs).
 "
   []
   (when-not @namespace-to-ns-cache
@@ -346,7 +338,6 @@ Where
           ]
       (reset! namespace-to-ns-cache
               (reduce collect-mapping {} (vann-annotated-objects)))))
-
   @namespace-to-ns-cache)
 
 (defn prefixed-ns 
@@ -361,7 +352,16 @@ Where
   (or (get (prefix-to-ns) prefix)
       (get (cljc-ns-aliases) (symbol prefix))
       ))
-      
+
+(def ^:dynamic ordinary-iri-str-re
+  "An regex matching a standard IRI string like http://"
+  #"^(http:|https:|file:).*"
+  )
+  
+(def ^:dynamic exceptional-iri-str-re
+  "A regex matching an IRI string which doesn't match the usual http//-ish scheme, such as urn:"
+  #"^(urn:|arn:).*"
+  )
 
 (defn kwi-missing-namespace-if-not-urn-or-arn
   "Returns the name-stiring of `kw`, or throws ::NoIRIForKw if `kw` is incorrectly missing a namespace"
@@ -370,7 +370,7 @@ Where
          (empty? (namespace kw))
          ]
    }
-  (if (re-matches #"^(urn:|arn:).*" (name kw))
+  (if (re-matches exceptional-iri-str-re (name kw))
     (name kw)
     (throw (ex-info (str "Could not find IRI for " kw)
                   {:type ::NoIRIForKw
@@ -389,8 +389,8 @@ Where
    }
   (let [kw-name (name kw)
         ]
-    (if (or (re-matches #"^(urn:|arn:).*" kw-name)
-            (re-matches #"^(http:|https:|file:).*" kw-name))
+    (if (or (re-matches ordinary-iri-str-re kw-name)
+            (re-matches exceptional-iri-str-re kw-name))
       (-> kw-name
           decode-kw-name
           encode-uri-string)
@@ -399,9 +399,6 @@ Where
                        ::kw kw
                        }))
       )))
-
-  
-
   
 (defn uri-for
   "Returns `iri`  for `kw` based on metadata attached to `ns` Alias of `iri-for` or `on-no-prefix (kw) if the keyword is not namespaced.
@@ -488,7 +485,11 @@ Where
                                        (keys (namespace-to-ns))))
                      ")(.*)"))))
 
-(def invalid-qname-name (partial re-find #"/" ))
+(def invalid-qname-name
+  "fn [qname-name] -> truthy if `qname-name` is not valid
+  Where
+  - `qname-name` is a string"
+  (partial re-find #"/" ))
 
 (defn qname-for 
   "Returns the 'qname' URI for `kw`, or <...>'d full URI if no valid qname
@@ -541,7 +542,6 @@ Where
         ;; else no namespace in keyword
         (str "<" (-> kw-name decode-kw-name encode-uri-string) ">")))))
 
-
 (defn prefix-re-str 
   "Returns a regex string that recognizes prefixes declared in ns metadata with 
   `:vann/preferredNamespacePrefix` keys. 
@@ -555,8 +555,6 @@ NOTE: this is a string because the actual re-pattern will differ per clj/cljs.
                  "):")))
   @prefix-re-str-cache)
 
-
-
 (defn default-on-no-ns
   "Returns the kwi normally appropriate for `_keyword` in cases where no ns can be matched, as is the case with say http://.....
   "
@@ -564,7 +562,6 @@ NOTE: this is a string because the actual re-pattern will differ per clj/cljs.
   (if (keyword? _keyword)
             _keyword
             (keyword (str _keyword))))
-  
 
 (defn keyword-for 
   "Returns a keyword equivalent of `uri`, properly prefixed if Vann declarations
@@ -631,14 +628,12 @@ Where
     (map sparql-prefix-for (cljc-find-prefixes (prefix-re-str)
                                                sparql-string))))
 
-
 (defn prepend-prefix-declarations 
   "Returns `sparql-string`, prepended with appropriate PREFIX decls.
 "
   [sparql-string]
   (s/join "\n" (conj (vec (sparql-prefixes-for sparql-string))
                      sparql-string)))
-
 
 ;; ;;; NAMESPACE DECLARATIONS
 ;; ;;; These are commonly used RDF namespaces.
@@ -699,7 +694,6 @@ Where
                      :dcat/mediaType "text/turtle"]]
      }
     )
-
  
 (put-ns-meta!
  'ont-app.vocabulary.vann
@@ -748,7 +742,6 @@ Where
      :dcat/downloadURL "https://www.w3.org/ns/shacl.ttl"
      })
 
-
 (put-ns-meta!
  'ont-app.vocabulary.dcat
     {
@@ -793,7 +786,6 @@ Where
      }
     )
 
-
 (put-ns-meta!
  'ont-app.vocabulary.schema
     {
@@ -821,8 +813,6 @@ Where
      :vann/preferredNamespacePrefix "xsd"
      :foaf/homepage "https://www.w3.org/2001/XMLSchema"
      })
-
-
 
 ;; deprecated
 (def ^:deprecated cljc-put-ns-meta! "Deprecated. Use put-ns-meta!" put-ns-meta!)

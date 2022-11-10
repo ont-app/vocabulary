@@ -1,9 +1,9 @@
 ;; shadow-cljs configuration
-{:deps {:aliases [:cljs]}
+{:deps {:aliases [shadow]}
   :builds
  {;; Runs shadow node-test
-  ;; `shadow-cljs compile lib-test`
-  :lib-test {:target :node-test
+  ;; `shadow-cljs compile node-test`
+  :node-test {:target :node-test
              :output-to "out/test/vocabulary.js"
              :autorun true
              }

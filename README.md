@@ -29,6 +29,10 @@ RDF-style language-tagged literals.
     - [Imported with ont-app.vocabulary.wikidata](#h4-imported-with-wd)
     - [Imported with ont-app.vocabulary.linguistics](#h4-imported-with-ling)
 - [Language-tagged strings](#h2-language-tagged-strings)
+- [Developer notes](#h2-developer-notes)
+  - [Building a jar](#h3-building-a-jar)
+  - [Testing](#h3-testing)
+  - [Cleanup](#h3-cleanup)
 - [License](#h2-license)
 
 <a name="h2-installation"></a>
@@ -99,7 +103,7 @@ for providing namespaces.
 Ont-app/vocabulary provides mappings between [Clojure
 namespaces](https://clojure.org/reference/namespaces) and
 [URI](https://en.wikipedia.org/wiki/Uniform_Resource_Identifier)-based
-namespaces using declarations within Clojure namespace metadata.
+namespaces using declarations within Clojure metadata on those namespaces.
 
 It also lets you attach the same metadata to [Clojure
 vars](https://clojure.org/reference/vars) with the same effect.
@@ -110,19 +114,17 @@ done a little differently given the fact that Clojurescript does not
 implement metadata in the same way.
 
 These mappings set the stage for using Keyword Identifiers (KWIs)
-mappable between Clojure code and the world through a
+mappable between Clojure code and the wider world through a
 correspondence with URIs.
 
 Another construct from RDF that may have application more generally in
-graph-based data is that of a language-tagged literal, which tags
-strings of natural language with their associated language. For
-example we could use such tags to express the differing orthographies
-of `"gaol"@en-GB` vs. `"jail"@en-US`. This library defines a custom
-reader tag `lstr` for declaring similar language-tagged strings,
-e.g. `#lstr "gaol@en-GB"` and `#lstr "jail@en-US"`.
-
-Embedding #lstr into compiled cljs code is not supported, pending resolution of [issue
-12](https://github.com/ont-app/vocabulary/issues/12). The work-around seems to be to wrap it in a read-string.
+graph-based data is that of a [language-tagged
+literal](#h2-language-tagged-strings), which tags strings of natural
+language with their associated language. For example we could use such
+tags to express the differing orthographies of `"gaol"@en-GB`
+vs. `"jail"@en-US`. This library defines a custom reader tag
+`voc/lstr` for declaring similar language-tagged strings,
+e.g. `#voc/lstr "gaol@en-GB"` and `#voc/lstr "jail@en-US"`.
 
 <a name="h2-defining-kwis"></a>
 ## Defining Keyword Identifiers (KWIs) mapped to URI namespaces
@@ -151,7 +153,7 @@ Within standard (JVM-based) clojure, the minimal specification to support ont-ap
     :vann/preferredNamespaceUri "http://example.org/"
   }
   (:require 
-  [ont-app.vocabulary.core :as v]
+  [ont-app.vocabulary.core :as voc]
   ...))
 ```
 
@@ -205,7 +207,7 @@ Var](https://clojure.org/reference/vars).
    my-var nil)
 ```
 
-This metadata is attatched to the var.
+This metadata is attached to the var.
 
 ```
 (meta #'my.namespace/my-var)
@@ -217,7 +219,8 @@ This metadata is attatched to the var.
  :ns #namespace[my.namespace]}}
 ```
 
-All the same behaviors described herein will apply.
+All the same behaviors described herein for namespace metadata will apply.
+
 
 <a name="h3-working-with-kwis"></a>
 ### Working with KWIs
@@ -250,11 +253,12 @@ We can get a keyword for a URI string...
 ```
 
 If the namespace does not have sufficient metadata to create a
-namespaced keyword, the keyword will be interned in a namespace based on the URI scheme, escaped to conform with proper keyword syntax:
+namespaced keyword, the keyword will be interned as an unqualified
+keyword, escaped to conform with proper keyword syntax:
 
 ```
 > (voc/keyword-for "http://example.com/my/stuff")
-:http%3A/%2Fexample.com%2Fmy%2Fstuff
+:http:%2F%2Fexample.com%2Fmy%2Fstuff
 >
 ```
 
@@ -264,23 +268,28 @@ There is an optional arity-2 version whose first argument is called
 when no ns could be resolved:
 
 ```
-> (voc/keyword-for (fn [u k] (log/warn "No namespace metadata found for " u) k)
-                  "http://example.com/my/stuff")
+> (voc/keyword-for (fn [u k] 
+                     (log/warn "No namespace metadata found for " u) 
+                     (keyword-for u))
+                  "http://example.com/my/stuff)
+
 WARN: No namespace metadata found for "http://example.com/my/stuff"
-:http://example.com/my/stuff
+:http:%2F%2Fexample.com%2Fmy%2Fstuff
 >          
 ```
 
 <a name="h4-qname-for"></a>
 #### `qname-for`
 
-We can get the [qname](https://en.wikipedia.org/wiki/QName) for a keyword:
+We can get the [qname](https://en.wikipedia.org/wiki/QName) for a
+keyword, suitable for insertion into RDF or SPARQL source:
 
 ```
 > (voc/qname-for :foaf/homepage)
 "foaf:homepage"
 >
 ```
+
 
 <a name="h3-accessing-namespace-metadata"></a>
 ### Accessing namespace metadata
@@ -323,10 +332,13 @@ The namespace for `vann` is also declared as _ont-app.vocabulary.vann_ in the
    :rdfs/label "VANN"
    :dc/description "A vocabulary for annotating vocabulary descriptions"
    :vann/preferredNamespaceUri "http://purl.org/vocab/vann"
-   :vann/peferredNamespacePrefix "vann"
+   :vann/preferredNamespacePrefix "vann"
    :foaf/homepage "http://vocab.org/vann/"
  })
 ```
+
+Using the `put-ns-meta!` function ensures that this metadata works on
+both clojure and clojurescript.
 
 There is an inverse of _put-ns-meta!_ called _get-ns-meta_:
 
@@ -358,9 +370,11 @@ Note that these are all simple key/value declarations except the
 ```
 
 This includes triples which elaborate on constructs mentioned in the
-key-value paris in the rest of the metadata, in this case describing
+key-value pairs in the rest of the metadata, in this case describing
 the media types of files describing the vocabulary which are available
-for download at the URLs given.
+for download at the URLs given. This vector-of-triples format is
+readable by one of ont-app/vocabulary's siblings,
+[ont-app/igraph](https://github.com/ont-app/igraph).
 
 <a name="h4-prefix-to-ns"></a>
 #### `prefix-to-ns`
@@ -512,7 +526,7 @@ Open Data prefixes:
 | PREFIX | URI | Comments |
 | --- | --- | --- |
 | [rdf](https://www.w3.org/2001/sw/wiki/RDF) | https://www.w3.org/2001/sw/wiki/RDF | the basic RDF constructs |
-| [rdfs](https://www.w3.org/TR/rdf-schema/) | https://www.w3.org/TR/rdf-schema/ | expresses class relations, domain, ranges, etc. |
+| [rdfs](https://www.w3.org/TR/rdf-schema/) | https://www.w3.org/TR/rdf-schema/ | expresses class relations, domain, range, etc. |
 | [owl](https://www.w3.org/OWL/) | https://www.w3.org/OWL/ | for more elaborate ontologies |
 | [vann](http://vocab.org/vann/) | https://vocab.org/vann/ | for annotating vocabulary descriptons |
 | [dc](http://purl.org/dc/elements/1.1/) | http://purl.org/dc/elements/1.1/ | elements of [Dublin Core](http://dublincore.org/) metadata initiative |
@@ -531,8 +545,9 @@ declarations for the [several namespaces](https://www.mediawiki.org/wiki/Wikibas
 pertinent to the
 [Wikidata](#https://www.wikidata.org/wiki/Wikidata:Main_Page) database.
 
-It also defines the value for [Wikidata's public SPARQL endpoint](https://query.wikidata.org/bigdata/namespace/wdq/sparql) is
-as this constant:
+It also defines the value for [Wikidata's public SPARQL
+endpoint](https://query.wikidata.org/bigdata/namespace/wdq/sparql) as
+this constant:
 
 `ont-app.vocabulary.wikidata/sparql-endpoint`
 
@@ -547,7 +562,6 @@ The `ont-app.vocabulary.linguistics` module declares namespaces for:
 | [pmn](http://premon.fbk.eu/ontology/core.html) | http://premon.fbk.eu/ontology/core# | PreMOn - dedicated to describing English verbs |
 | [nif](http://persistence.uni-leipzig.org/nlp2rdf/ontologies/nif-core/nif-core.html) | http://persistence.uni-leipzig.org/nlp2rdf/ontologies/nif-core#  | Natural Language Interchange Format - for annotating corpora |
 
-
 There are also a set of namespaces particular to my Natural Lexicon
 project, which are still under development.
     
@@ -556,7 +570,7 @@ project, which are still under development.
 
 RDF entails use of language-tagged strings (e.g. `"gaol"@en-GB`) when
 providing natural-language content. Typing this directly in Clojure
-code is a bit a bit awkward, since the inner quotes would need to be
+code is a bit awkward, since the inner quotes would need to be
 escaped.
 
 To enable this language tag, we must require the namespace:
@@ -567,17 +581,18 @@ To enable this language tag, we must require the namespace:
   )
 ```
 
-This library defines a reader macro `#lstr` and accompanying record
-_LangStr_ to facilitate writing language-tagged strings in clojure. The
-value above for example would be written: `#lstr "gaol@en-GB"`.
+This library defines a reader macro `#voc/lstr` and accompanying
+deftype _LangStr_ to facilitate writing language-tagged strings in
+clojure. The value above for example would be written: `#voc/lstr
+"gaol@en-GB"`.
 
 The reader encodes an instance of type LangStr (it is autoiconic):
 
 ```
-> (def brit-jail #lstr "gaol@en-GB")
+> (def brit-jail #voc/lstr "gaol@en-GB")
 brit-jail
 > brit-jail
-#lstr "gaol@en-GB"
+#voc/lstr "gaol@en-GB"
 > (type brit-jail)
 ont_app.vocabulary.lstr.LangStr
 >
@@ -586,7 +601,7 @@ ont_app.vocabulary.lstr.LangStr
 Rendered as a string, the language tag is dropped
 
 ```
-> (str #lstr "gaol@en-GB")
+> (str #voc/lstr "gaol@en-GB")
 "gaol"
 >
 ```
@@ -594,19 +609,79 @@ Rendered as a string, the language tag is dropped
 We get the language tag with `lang`:
 
 ```
-> (lang #lstr "gaol@en-GB")
+> (lang #voc/lstr "gaol@en-GB")
 "en-GB"
 >
+```
+
+<a name="#h2-developer-notes"></a>
+
+## Developer notes
+
+This library should work under both clojure and clojurescript.
+
+There is a build.clj 'tool' file defined for deps.edn specifications.
+
+
+For help:
+
+```
+clojure -A:deps -T:build help/doc
+```
+
+<a name="#h3-building-a-jar"></a>
+
+### Building a jar
+This should build the uberjar:
+
+```
+clojure -T:build ci
+```
+
+
+<a name="#h3-testing"></a>
+### Testing
+
+Straight JVM testing:
+
+```
+clojure -T:build test
+```
+
+Testing clojurescript version using [olical/cljs-test-runner](https://github.com/Olical/cljs-test-runner):
+
+```
+clojure -M:cljs-test
+```
+
+Testing node using shadow-cljs:
+
+```
+shadow-cljs compile node-test
+```
+
+<a name="#h3-cleanup"></a>
+### Cleanup
+
+This will clean up files generated during builds (c.f. `lein clean`):
+
+```
+clojure -T:build clean
+```
+
+This will clean the caches too, which may fix the occasional funkiness:
+
+```
+clojure -T:build clean :include-caches? true
 ```
 
 <a name="h2-license"></a>
 ## License
 
-Copyright © 2019-20 Eric D. Scott
+Copyright © 2019-22 Eric D. Scott
 
 Distributed under the Eclipse Public License either version 1.0 or (at
 your option) any later version.
-
 
 <table>
 <tr>
