@@ -2,11 +2,8 @@
   {:doc "Defines a set of namespaces relating to linguistics"
    }
   (:require
-   [clojure.string :as s]
-   [clojure.set :as set]
    [ont-app.vocabulary.core :as voc]
    ))       
-
 
 ;; LEMON/ONTOLEX
 (voc/put-ns-meta!
@@ -57,7 +54,6 @@
   )
 
 ;; NATURAL LANGUAGE INTERCHANGE FORMAT (NIF)
-
 (voc/put-ns-meta!
  'ont-app.vocabulary.linguistics.nif
   {
@@ -71,7 +67,6 @@
                     }
    }
   )
-
 
 ;; NATURAL LEXICON
 ;; Namespaces native to naturallexicon.org and the ont-app project
@@ -87,7 +82,6 @@
    })
 
 ;; ENGLISH
-
 (voc/put-ns-meta!
  'ont-app.vocabulary.linguistics.natlex.en.ont
   {
@@ -109,7 +103,6 @@
   )
 
 ;; CHINESE
-
 (voc/put-ns-meta!
  'ont-app.vocabulary.linguistics.natlex.zh.ont
   {
@@ -129,7 +122,6 @@
    "http://rdf.naturallexicon.org/zh/written/"
    }
   )
-    
 
 (voc/put-ns-meta!
  'ont-app.vocabulary.linguistics.natlex.zh.cmn
@@ -140,5 +132,3 @@
    "http://rdf.naturallexicon.org/zh/cmn/"
    }
   )
-
-

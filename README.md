@@ -3,15 +3,20 @@
 Integration between Clojure keywords and URIs, plus support for
 RDF-style language-tagged literals.
 
+This library should work under both clojure and clojurescript.
+
 ## Contents
 - [Installation](#h2-installation)
+- [A brief synopsis](#h2-a-brief-synopsis)
 - [Motivation](#h2-motivation)
 - [Defining keyword Identifiers (KWIs) mapped to URI namespaces](#h2-defining-kwis)
   - [Basic namespace metadata](#h3-basic-metadata)
+  - [Adding vann metadata to a Clojure Var](h3-adding-vann-metadata-to-a-clojure-var)
   - [Working with KWIs](#h3-working-with-kwis)
     - [`uri-for`](#h4-iri-for)
-    - [`qname-for`](#h4-qname-for)
+      - [URI syntax](#uri-syntax)
     - [`keyword-for`](#h4-keyword-for)
+    - [`qname-for`](#h4-qname-for)
   - [Accessing-namespace-metadata](#h3-accessing-namespace-metadata)
     - [`put-ns-meta!` and `get-ns-meta`](#h4-put-ns-meta)
     - [`prefix-to-ns`](#h4-prefix-to-ns)
@@ -46,6 +51,43 @@ Available at [clojars](https://clojars.org/ont-app/vocabulary).
    ])
 ```   
 
+Or in a `deps.edn` file:
+
+`{:deps {ont-app/vocabulary {:mvn/version "RELEASE"}}}`
+
+
+<a name="h2-a-brief-synopsis"></a>
+## A brief synopis
+
+
+```
+(ns ...
+ (:require
+   [ont-app.vocabulary.core :as voc] 
+   ))
+
+```
+
+```
+> (voc/uri-for :rdfs/subClassOf)
+"http://www.w3.org/2000/01/rdf-schema#subClassOf"
+```
+
+```
+> (voc/keyword-for "http://www.w3.org/2000/01/rdf-schema#subClassOf")
+:rdfs/subClassOf
+```
+
+```
+> (voc/qname-for :rdfs/subClassOf
+"rdfs:subClassOf"
+```
+
+```
+> (voc/keyword-for "rdfs:subClassOf")
+:rdfs/subClassOf
+```
+
 <a name="h2-motivation"></a>
 ## Motivation
 Clojure provides for the definition of
@@ -60,27 +102,28 @@ for providing namespaces.
 Ont-app/vocabulary provides mappings between [Clojure
 namespaces](https://clojure.org/reference/namespaces) and
 [URI](https://en.wikipedia.org/wiki/Uniform_Resource_Identifier)-based
-namespaces using declarations within Clojure namespace metadata.
+namespaces using declarations within Clojure metadata on those namespaces.
 
-There is also support for a similar arrangement within
+It also lets you attach the same metadata to [Clojure
+vars](https://clojure.org/reference/vars) with the same effect.
+
+There is support for a similar arrangement within
 [Clojurescript](https://clojurescript.org/), though some things are
 done a little differently given the fact that Clojurescript does not
-implement namespaces as first-class objects.
+implement metadata in the same way.
 
 These mappings set the stage for using Keyword Identifiers (KWIs)
-mappable between Clojure code and the larger world through a
+mappable between Clojure code and the wider world through a
 correspondence with URIs.
 
 Another construct from RDF that may have application more generally in
-graph-based data is that of a language-tagged literal, which tags
-strings of natural language with their associated language. For
-example we could use such tags to express the differing orthographies
-of `"gaol"@en-GB` vs. `"jail"@en-US`. This library defines a custom
-reader tag `lstr` for declaring similar language-tagged strings,
-e.g. `#lstr "gaol@en-GB"` and `#lstr "jail@en-US"`.
-
-Embedding #lstr into compiled cljs code is not supported, pending resolution of [issue
-12](https://github.com/ont-app/vocabulary/issues/12). The work-around seems to be to wrap it in a read-string.
+graph-based data is that of a [language-tagged
+literal](#h2-language-tagged-strings), which tags strings of natural
+language with their associated language. For example we could use such
+tags to express the differing orthographies of `"gaol"@en-GB`
+vs. `"jail"@en-US`. This library defines a custom reader tag
+`voc/lstr` for declaring similar language-tagged strings,
+e.g. `#voc/lstr "gaol@en-GB"` and `#voc/lstr "jail@en-US"`.
 
 <a name="h2-defining-kwis"></a>
 ## Defining Keyword Identifiers (KWIs) mapped to URI namespaces
@@ -109,7 +152,7 @@ Within standard (JVM-based) clojure, the minimal specification to support ont-ap
     :vann/preferredNamespaceUri "http://example.org/"
   }
   (:require 
-  [ont-app.vocabulary.core :as v]
+  [ont-app.vocabulary.core :as voc]
   ...))
 ```
 
@@ -141,66 +184,72 @@ achieve the same effect in both clj and cljs environments:
   })
 ```
 
-In Clojure, it simply updates the metadata of the named namespace
-(which may be automatically created with [_create-ns_](https://clojuredocs.org/clojure.core/create-ns)). In Clojurescript,
-this updates a dedicated map from _org.example_ to 'pseudo-metadata'
-in a global atom called _cljs-ns-metadata_.
+In Clojure, it simply updates the metadata of the named namespace. If
+the namespace does not already exist, it will be automatically created
+with [_create-ns_](https://clojuredocs.org/clojure.core/create-ns). In
+Clojurescript, this updates a dedicated map from _org.example_ to
+'pseudo-metadata' in a global atom called _cljs-ns-metadata_.
+
+<a name="h3-adding-vann-metadata-to-a-clojure-var"></a>
+### Adding `vann` metadata to a Clojure Var
+
+On the JVM, You also have the option of assigning the `vann` metadata
+described above to a [Clojure
+Var](https://clojure.org/reference/vars).
+
+```
+(def 
+  ^{
+      :vann/preferredNamespacePrefix "myVar"
+      :vann/preferredNamespaceUri "http://example.org/myVar/"
+    }
+   my-var nil)
+```
+
+This metadata is attached to the var.
+
+```
+(meta #'my.namespace/my-var)
+->
+{:vann/preferredNamespacePrefix "myVar",
+ :vann/preferredNamespaceUri "http://example.org/myVar/",
+ ...
+ :name my-var,
+ :ns #namespace[my.namespace]}}
+```
+
+All the same behaviors described herein for namespace metadata will apply.
+
 
 <a name="h3-working-with-kwis"></a>
 ### Working with KWIs
-
 
 <a name="h4-iri-for"></a>
 #### `uri-for`
 
 We can get the URI string associated with a keyword:
 
-The function `uri-for` works for fully qualified keywords, whose
-aliases interned in the local lexical environment (note the
-double-colon):
-
-```
-> (require [org.example :as eg]) ;; or any other alias
-> (voc/uri-for ::eg/Example)
-
-"http://example.org/Example"
->
-```
-
-We can also usually get away with using a single colon (these are qualified, but not _fully_ qualified ...
 ```
 > (voc/uri-for :eg/Example)
 "http://example.org/Example"
 >
 ```
 
-... but because the namespace is hard-coded and not bound to clojure's
-aliasing system, there is the possibility of a clash in the case where
-the same alias was chosen for two different namesspace. This is not
-really a problem for well-known prefixes like `rdfs` or `foaf`, but
-may become a bigger problem if you choose a generic prefix like
-"data".
-
-Also, it's important to note that while _::eg/Example_ and
-_:eg/Example_ resolve to the same URI string, the keywords
-themselves are not equal in Clojure.
-
-
 This function is called `uri-for` to reflect common usage, but because
 any UTF-8 characters can be used, these are actually
 [IRIs](https://en.wikipedia.org/wiki/Internationalized_Resource_Identifier). The
 function _iri-for_ function is also defined as an alias of _uri-for_.
 
-<a name="h4-qname-for"></a>
-#### `qname-for`
+##### URI syntax
 
-We can get the [qname](https://en.wikipedia.org/wiki/QName) for a keyword:
+There are two dynamic variables defined to recognize and partially
+parse URI strings under _ont-app/vocabulary_.
 
-```
-> (voc/qname-for ::foaf/homepage)
-"foaf:homepage"
->
-```
+- `voc/ordinary-iri-str-re` by default is defined as `"^(http:|https:|file:).*"`
+- `voc/exceptional-iri-str-re` by default is defined as `#"^(urn:|arn:).*"`
+
+These can be [rebound](https://clojuredocs.org/clojure.core/binding)
+as needed to match against URIs for your specific use case.
 
 <a name="h4-keyword-for"></a>
 #### `keyword-for`
@@ -214,11 +263,12 @@ We can get a keyword for a URI string...
 ```
 
 If the namespace does not have sufficient metadata to create a
-namespaced keyword, the keyword will be interned in a namespace based on the URI scheme:
+namespaced keyword, the keyword will be interned as an unqualified
+keyword, escaped to conform with proper keyword syntax:
 
 ```
 > (voc/keyword-for "http://example.com/my/stuff")
-:http://example.com/my/stuff))
+:http:%2F%2Fexample.com%2Fmy%2Fstuff
 >
 ```
 
@@ -228,11 +278,26 @@ There is an optional arity-2 version whose first argument is called
 when no ns could be resolved:
 
 ```
-> (voc/keyword-for (fn [u k] (log/warn "No namespace metadata found for " u) k)
-                  "http://example.com/my/stuff")
+> (voc/keyword-for (fn [u k] 
+                     (log/warn "No namespace metadata found for " u) 
+                     (keyword-for u))
+                  "http://example.com/my/stuff)
+
 WARN: No namespace metadata found for "http://example.com/my/stuff"
-:http://example.com/my/stuff
+:http:%2F%2Fexample.com%2Fmy%2Fstuff
 >          
+```
+
+<a name="h4-qname-for"></a>
+#### `qname-for`
+
+We can get the [qname](https://en.wikipedia.org/wiki/QName) for a
+keyword, suitable for insertion into RDF or SPARQL source:
+
+```
+> (voc/qname-for :foaf/homepage)
+"foaf:homepage"
+>
 ```
 
 
@@ -277,10 +342,13 @@ The namespace for `vann` is also declared as _ont-app.vocabulary.vann_ in the
    :rdfs/label "VANN"
    :dc/description "A vocabulary for annotating vocabulary descriptions"
    :vann/preferredNamespaceUri "http://purl.org/vocab/vann"
-   :vann/peferredNamespacePrefix "vann"
+   :vann/preferredNamespacePrefix "vann"
    :foaf/homepage "http://vocab.org/vann/"
  })
 ```
+
+Using the `put-ns-meta!` function ensures that this metadata works on
+both clojure and clojurescript.
 
 There is an inverse of _put-ns-meta!_ called _get-ns-meta_:
 
@@ -312,9 +380,11 @@ Note that these are all simple key/value declarations except the
 ```
 
 This includes triples which elaborate on constructs mentioned in the
-key-value paris in the rest of the metadata, in this case describing
+key-value pairs in the rest of the metadata, in this case describing
 the media types of files describing the vocabulary which are available
-for download at the URLs given.
+for download at the URLs given. This vector-of-triples format is
+readable by one of ont-app/vocabulary's siblings,
+[ont-app/igraph](https://github.com/ont-app/igraph).
 
 <a name="h4-prefix-to-ns"></a>
 #### `prefix-to-ns`
@@ -324,7 +394,7 @@ current lexical environment:
 ```
 > (voc/prefix-to-ns)
 {"dc" #namespace[ont-app.vocabulary.dc],
- "owl" #namespace[ont-app.vocabulary..owl],
+ "owl" #namespace[ont-app.vocabulary.owl],
  "ontolex" #namespace[ont-app.vocabulary.ontolex],
  "foaf" #namespace[ont-app.vocabulary.foaf],
  ...
@@ -466,7 +536,7 @@ Open Data prefixes:
 | PREFIX | URI | Comments |
 | --- | --- | --- |
 | [rdf](https://www.w3.org/2001/sw/wiki/RDF) | https://www.w3.org/2001/sw/wiki/RDF | the basic RDF constructs |
-| [rdfs](https://www.w3.org/TR/rdf-schema/) | https://www.w3.org/TR/rdf-schema/ | expresses class relations, domain, ranges, etc. |
+| [rdfs](https://www.w3.org/TR/rdf-schema/) | https://www.w3.org/TR/rdf-schema/ | expresses class relations, domain, range, etc. |
 | [owl](https://www.w3.org/OWL/) | https://www.w3.org/OWL/ | for more elaborate ontologies |
 | [vann](http://vocab.org/vann/) | https://vocab.org/vann/ | for annotating vocabulary descriptons |
 | [dc](http://purl.org/dc/elements/1.1/) | http://purl.org/dc/elements/1.1/ | elements of [Dublin Core](http://dublincore.org/) metadata initiative |
@@ -485,8 +555,9 @@ declarations for the [several namespaces](https://www.mediawiki.org/wiki/Wikibas
 pertinent to the
 [Wikidata](#https://www.wikidata.org/wiki/Wikidata:Main_Page) database.
 
-It also defines the value for [Wikidata's public SPARQL endpoint](https://query.wikidata.org/bigdata/namespace/wdq/sparql) is
-as this constant:
+It also defines the value for [Wikidata's public SPARQL
+endpoint](https://query.wikidata.org/bigdata/namespace/wdq/sparql) as
+this constant:
 
 `ont-app.vocabulary.wikidata/sparql-endpoint`
 
@@ -501,7 +572,6 @@ The `ont-app.vocabulary.linguistics` module declares namespaces for:
 | [pmn](http://premon.fbk.eu/ontology/core.html) | http://premon.fbk.eu/ontology/core# | PreMOn - dedicated to describing English verbs |
 | [nif](http://persistence.uni-leipzig.org/nlp2rdf/ontologies/nif-core/nif-core.html) | http://persistence.uni-leipzig.org/nlp2rdf/ontologies/nif-core#  | Natural Language Interchange Format - for annotating corpora |
 
-
 There are also a set of namespaces particular to my Natural Lexicon
 project, which are still under development.
     
@@ -510,7 +580,7 @@ project, which are still under development.
 
 RDF entails use of language-tagged strings (e.g. `"gaol"@en-GB`) when
 providing natural-language content. Typing this directly in Clojure
-code is a bit a bit awkward, since the inner quotes would need to be
+code is a bit awkward, since the inner quotes would need to be
 escaped.
 
 To enable this language tag, we must require the namespace:
@@ -521,17 +591,18 @@ To enable this language tag, we must require the namespace:
   )
 ```
 
-This library defines a reader macro `#lstr` and accompanying record
-_LangStr_ to facilitate writing language-tagged strings in clojure. The
-value above for example would be written: `#lstr "gaol@en-GB"`.
+This library defines a reader macro `#voc/lstr` and accompanying
+deftype _LangStr_ to facilitate writing language-tagged strings in
+clojure. The value above for example would be written: `#voc/lstr
+"gaol@en-GB"`.
 
 The reader encodes an instance of type LangStr (it is autoiconic):
 
 ```
-> (def brit-jail #lstr "gaol@en-GB")
+> (def brit-jail #voc/lstr "gaol@en-GB")
 brit-jail
 > brit-jail
-#lstr "gaol@en-GB"
+#voc/lstr "gaol@en-GB"
 > (type brit-jail)
 ont_app.vocabulary.lstr.LangStr
 >
@@ -540,7 +611,7 @@ ont_app.vocabulary.lstr.LangStr
 Rendered as a string, the language tag is dropped
 
 ```
-> (str #lstr "gaol@en-GB")
+> (str #voc/lstr "gaol@en-GB")
 "gaol"
 >
 ```
@@ -548,19 +619,19 @@ Rendered as a string, the language tag is dropped
 We get the language tag with `lang`:
 
 ```
-> (lang #lstr "gaol@en-GB")
+> (lang #voc/lstr "gaol@en-GB")
 "en-GB"
 >
 ```
 
+
 <a name="h2-license"></a>
 ## License
 
-Copyright © 2019-20 Eric D. Scott
+Copyright © 2019-22 Eric D. Scott
 
 Distributed under the Eclipse Public License either version 1.0 or (at
 your option) any later version.
-
 
 <table>
 <tr>

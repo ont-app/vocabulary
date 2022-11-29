@@ -1,8 +1,29 @@
 # Change Log
 All notable changes to this project will be documented in this file. This change log follows the conventions of [keepachangelog.com](http://keepachangelog.com/).
 
+v 0.2.0
+- Moving from lein to deps.edn
+- Adding shadow-cljs.edn file defining a `:node-test` build
+- Custom tagged literal #lstr deprecated in favor of #voc/lstr
+- Fix for issue 12: #voc/lstr now works in clojurescript source
+- Fix for issue 19: Support for urns and arns.
+- Fix for issue 20: Improvements to char-escaping behavior for keywords and URIs
+- Fix for issue 21: vann metadata can be attached to vars as well as namespaces
+
+v 0.1.7
+- Tweaks to issue 15 fix.
+
+v 0.1.6
+- Fix for issue 15: Adding support for new lines in #lstr tags
+
+v 0.1.5
+- Minor tweaks
+
+v 0.1.4
+- Fix for issue 10: Removing unneeded dependencies
+
 v 0.1.3
-- cljs.compiler requirment conditional on :cljs (bug fix)
+- cljs.compiler requirement conditional on :cljs (bug fix)
 
 v 0.1.2
 - (Breaking) Changed LangStr from record to type
@@ -18,4 +39,3 @@ v 0.1.1
 - cljs-get-ns-meta has alias get-ns-meta
 - iri-for has alias uri-for
 - there's an optional on-no-ns argument in keyword-for
-
