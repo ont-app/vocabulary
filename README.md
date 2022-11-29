@@ -3,6 +3,8 @@
 Integration between Clojure keywords and URIs, plus support for
 RDF-style language-tagged literals.
 
+This library should work under both clojure and clojurescript.
+
 ## Contents
 - [Installation](#h2-installation)
 - [A brief synopsis](#h2-a-brief-synopsis)
@@ -12,6 +14,7 @@ RDF-style language-tagged literals.
   - [Adding vann metadata to a Clojure Var](h3-adding-vann-metadata-to-a-clojure-var)
   - [Working with KWIs](#h3-working-with-kwis)
     - [`uri-for`](#h4-iri-for)
+      - [URI syntax](#uri-syntax)
     - [`keyword-for`](#h4-keyword-for)
     - [`qname-for`](#h4-qname-for)
   - [Accessing-namespace-metadata](#h3-accessing-namespace-metadata)
@@ -29,10 +32,6 @@ RDF-style language-tagged literals.
     - [Imported with ont-app.vocabulary.wikidata](#h4-imported-with-wd)
     - [Imported with ont-app.vocabulary.linguistics](#h4-imported-with-ling)
 - [Language-tagged strings](#h2-language-tagged-strings)
-- [Developer notes](#h2-developer-notes)
-  - [Building a jar](#h3-building-a-jar)
-  - [Testing](#h3-testing)
-  - [Cleanup](#h3-cleanup)
 - [License](#h2-license)
 
 <a name="h2-installation"></a>
@@ -240,6 +239,17 @@ This function is called `uri-for` to reflect common usage, but because
 any UTF-8 characters can be used, these are actually
 [IRIs](https://en.wikipedia.org/wiki/Internationalized_Resource_Identifier). The
 function _iri-for_ function is also defined as an alias of _uri-for_.
+
+##### URI syntax
+
+There are two dynamic variables defined to recognize and partially
+parse URI strings under _ont-app/vocabulary_.
+
+- `voc/ordinary-iri-str-re` by default is defined as `"^(http:|https:|file:).*"`
+- `voc/exceptional-iri-str-re` by default is defined as `#"^(urn:|arn:).*"`
+
+These can be [rebound](https://clojuredocs.org/clojure.core/binding)
+as needed to match against URIs for your specific use case.
 
 <a name="h4-keyword-for"></a>
 #### `keyword-for`
@@ -614,66 +624,6 @@ We get the language tag with `lang`:
 >
 ```
 
-<a name="#h2-developer-notes"></a>
-
-## Developer notes
-
-This library should work under both clojure and clojurescript.
-
-There is a build.clj 'tool' file defined for deps.edn specifications.
-
-
-For help:
-
-```
-clojure -A:deps -T:build help/doc
-```
-
-<a name="#h3-building-a-jar"></a>
-
-### Building a jar
-This should build the uberjar:
-
-```
-clojure -T:build ci
-```
-
-
-<a name="#h3-testing"></a>
-### Testing
-
-Straight JVM testing:
-
-```
-clojure -T:build test
-```
-
-Testing clojurescript version using [olical/cljs-test-runner](https://github.com/Olical/cljs-test-runner):
-
-```
-clojure -M:cljs-test
-```
-
-Testing node using shadow-cljs:
-
-```
-shadow-cljs compile node-test
-```
-
-<a name="#h3-cleanup"></a>
-### Cleanup
-
-This will clean up files generated during builds (c.f. `lein clean`):
-
-```
-clojure -T:build clean
-```
-
-This will clean the caches too, which may fix the occasional funkiness:
-
-```
-clojure -T:build clean :include-caches? true
-```
 
 <a name="h2-license"></a>
 ## License

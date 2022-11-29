@@ -2,7 +2,10 @@
  :paths ["src" "resources"]
  :deps {
         org.clojure/clojure {:mvn/version "1.11.1"}
-        org.clojure/clojurescript {:mvn/version "1.11.60"}
+        org.clojure/clojurescript {:mvn/version "1.11.60"
+                                   :exclusions [org.msgpack/msgpack]
+                                   ;; ... per nvd warning CVE-2022-41719
+                                   }
         }
  :aliases {
            ;;;;;;;;;;;;;;;;
@@ -36,7 +39,7 @@
            ;; Test cljs version with `clojure -M:test-cljs`
            ;; Get help with clojure -M:test-cljs --help
            ;; See also https://github.com/Olical/cljs-test-runner
-           :cljs-test {
+           :test-cljs {
                        :extra-deps {olical/cljs-test-runner {:mvn/version "3.8.0"}}
                        :extra-paths ["test"]
                        :main-opts ["-m" "cljs-test-runner.main"]
