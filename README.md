@@ -42,7 +42,7 @@ Available at [clojars](https://clojars.org/ont-app/vocabulary).
 [![Clojars Project](https://img.shields.io/clojars/v/ont-app/vocabulary.svg)](https://clojars.org/ont-app/vocabulary)
 
 
-```
+```clj
  (defproject .....
   :dependencies 
   [...
@@ -60,7 +60,7 @@ Or in a `deps.edn` file:
 ## A brief synopis
 
 
-```
+```clj
 (ns ...
  (:require
    [ont-app.vocabulary.core :as voc] 
@@ -68,22 +68,22 @@ Or in a `deps.edn` file:
 
 ```
 
-```
+```clj
 > (voc/uri-for :rdfs/subClassOf)
 "http://www.w3.org/2000/01/rdf-schema#subClassOf"
 ```
 
-```
+```clj
 > (voc/keyword-for "http://www.w3.org/2000/01/rdf-schema#subClassOf")
 :rdfs/subClassOf
 ```
 
-```
+```clj
 > (voc/qname-for :rdfs/subClassOf
 "rdfs:subClassOf"
 ```
 
-```
+```clj
 > (voc/keyword-for "rdfs:subClassOf")
 :rdfs/subClassOf
 ```
@@ -128,7 +128,7 @@ e.g. `#voc/lstr "gaol@en-GB"` and `#voc/lstr "jail@en-US"`.
 <a name="h2-defining-kwis"></a>
 ## Defining Keyword Identifiers (KWIs) mapped to URI namespaces
 
-```
+```clj
 (ns ...
  (:require
    ...
@@ -145,7 +145,7 @@ occurring namespace in the world of LOD.
 ### Basic namespace metadata 
 Within standard (JVM-based) clojure, the minimal specification to support ont-app/vocabulary functionality for a given namespace requires metadata specification as follows:
 
-```
+```clj
 (ns org.example
   {
     :vann/preferredNamespacePrefix "eg"
@@ -158,7 +158,7 @@ Within standard (JVM-based) clojure, the minimal specification to support ont-ap
 
 This expresses an equivalence between the clojure keyword...
 
-```
+```clj
   :eg/example-var
 ```
 ... and the URI ...
@@ -175,7 +175,7 @@ first-class objects, and so there is no `ns` object to which we can
 attach metadata. So _ont-app/vocabulary_ provides this idiom to
 achieve the same effect in both clj and cljs environments:
 
-```
+```clj
 (voc/put-ns-meta!
  'org.example
   {
@@ -197,7 +197,7 @@ On the JVM, You also have the option of assigning the `vann` metadata
 described above to a [Clojure
 Var](https://clojure.org/reference/vars).
 
-```
+```clj
 (def 
   ^{
       :vann/preferredNamespacePrefix "myVar"
@@ -208,7 +208,7 @@ Var](https://clojure.org/reference/vars).
 
 This metadata is attached to the var.
 
-```
+```clj
 (meta #'my.namespace/my-var)
 ->
 {:vann/preferredNamespacePrefix "myVar",
@@ -229,7 +229,7 @@ All the same behaviors described herein for namespace metadata will apply.
 
 We can get the URI string associated with a keyword:
 
-```
+```clj
 > (voc/uri-for :eg/Example)
 "http://example.org/Example"
 >
@@ -256,7 +256,7 @@ as needed to match against URIs for your specific use case.
 
 We can get a keyword for a URI string...
 
-```
+```clj
 > (voc/keyword-for "http://xmlns.com/foaf/0.1/homepage")
 :foaf/homepage
 >
@@ -266,7 +266,7 @@ If the namespace does not have sufficient metadata to create a
 namespaced keyword, the keyword will be interned as an unqualified
 keyword, escaped to conform with proper keyword syntax:
 
-```
+```clj
 > (voc/keyword-for "http://example.com/my/stuff")
 :http:%2F%2Fexample.com%2Fmy%2Fstuff
 >
@@ -277,7 +277,7 @@ Characters which would choke the reader will be %-escaped. These characters diff
 There is an optional arity-2 version whose first argument is called
 when no ns could be resolved:
 
-```
+```clj
 > (voc/keyword-for (fn [u k] 
                      (log/warn "No namespace metadata found for " u) 
                      (keyword-for u))
@@ -294,7 +294,7 @@ WARN: No namespace metadata found for "http://example.com/my/stuff"
 We can get the [qname](https://en.wikipedia.org/wiki/QName) for a
 keyword, suitable for insertion into RDF or SPARQL source:
 
-```
+```clj
 > (voc/qname-for :foaf/homepage)
 "foaf:homepage"
 >
@@ -308,7 +308,7 @@ keyword, suitable for insertion into RDF or SPARQL source:
 #### `put-ns-meta!` and `get-ns-meta`
 Let's take another look at the metadata we used above to declare mappings between clojure namespaces and RDF namespaces:
 
-```
+```clj
 (voc/put-ns-meta!
  'org.example
   {
@@ -320,7 +320,7 @@ Let's take another look at the metadata we used above to declare mappings betwee
 Note that the metadata for this module includes some qualified
 keywords in this format:
 
-```
+```clj
 :<prefix>/<name>
 ```
 
@@ -335,7 +335,7 @@ semantics.
 The namespace for `vann` is also declared as _ont-app.vocabulary.vann_ in the
 `ont_app/vocabulary/core.cljc` file, with this declaration:
 
-```
+```clj
 (voc/put-ns-meta!
  'ont-app.vocabulary.vann
  {
@@ -352,7 +352,7 @@ both clojure and clojurescript.
 
 There is an inverse of _put-ns-meta!_ called _get-ns-meta_:
 
-```
+```clj
 > (voc/get-ns-metadata 'ont-app.vocabulary.foaf)
 {
  :dc/title "Friend of a Friend (FOAF) vocabulary"
@@ -375,7 +375,7 @@ vocabularies, described [below](#h4-linked-data).
 Note that these are all simple key/value declarations except the
 `:voc/appendix` declaration which is in the form
 
-```
+```clj
 :voc/appendix [[<subject> <predicate> <object>]....], 
 ```
 
@@ -391,7 +391,7 @@ readable by one of ont-app/vocabulary's siblings,
 We can get a map of all the prefixes of namespaces declared within the
 current lexical environment:
 
-```
+```clj
 > (voc/prefix-to-ns)
 {"dc" #namespace[ont-app.vocabulary.dc],
  "owl" #namespace[ont-app.vocabulary.owl],
@@ -404,7 +404,7 @@ current lexical environment:
  
 In Clojurescript, since there's no _ns_ object, the results would look like this:
 
-```
+```clj
 > (voc/prefix-to-ns)
 {"dc" ont-app.vocabulary.dc,
  "owl" ont-app.vocabulary..owl,
@@ -421,7 +421,7 @@ We can get the URI namespace associated with an `ns`
 
 In Clojure:
 
-```
+```clj
 > (voc/ns-to-namespace (find-ns 'ont-app.vocabulary.foaf))
 "http://xmlns.com/foaf/0.1/"
 >
@@ -429,7 +429,7 @@ In Clojure:
 
 In both Clojure and ClojureScript:
 
-```
+```clj
 > (voc/ns-to-namespace 'ont-app.vocabulary.foaf)
 "http://xmlns.com/foaf/0.1/"
 >
@@ -439,7 +439,7 @@ In both Clojure and ClojureScript:
 #### `namespace-to-ns`
 We can get a map from namespace URIs to their associated clojure namespaces:
 
-```
+```clj
 > (voc/namespace-to-ns)
 {
  "http://www.w3.org/2002/07/owl#"
@@ -460,7 +460,7 @@ With the usual allowance for clojurescript described above.
 <a name="h4-ns-to-prefix"></a>
 #### `ns-to-prefix`
 We can get the prefix associated with an `ns`:
-```
+```clj
 > (voc/ns-to-prefix (voc/cljc-find-ns 'org.naturallexicon.lod.foaf))
 "foaf"
 >
@@ -472,7 +472,7 @@ For performance reasons, these metadata values are all cached. If
 you're making changes to the metadata and it's not 'taking', you may
 need to clear the caches:
 
-```
+```clj
 > (voc/clear-caches!)
 ```
 
@@ -488,7 +488,7 @@ qnames.
 <a name="h4-sparql-prefixes-for"></a>
 #### `sparql-prefixes-for`
 We can infer the PREFIX declarations appropriate to a SPARQL query:
-```
+```clj
 > (voc/sparql-prefixes-for
              "Select * Where{?s foaf:homepage ?homepage}")
 ("PREFIX foaf: <http://xmlns.com/foaf/0.1/>")
@@ -499,7 +499,7 @@ We can infer the PREFIX declarations appropriate to a SPARQL query:
 #### `prepend-prefix-declarations`
 Or we can just go ahead and prepend the prefixes...
 
-```
+```clj
 > (voc/prepend-prefix-declarations
                "Select * Where {?s foaf:homepage ?homepage}")
 "PREFIX foaf: <http://xmlns.com/foaf/0.1/>
@@ -585,7 +585,7 @@ escaped.
 
 To enable this language tag, we must require the namespace:
 
-```
+```clj
 (require ...
   [ont-app.vocabulary.lstr :refer [lang]]
   )
@@ -598,7 +598,7 @@ clojure. The value above for example would be written: `#voc/lstr
 
 The reader encodes an instance of type LangStr (it is autoiconic):
 
-```
+```clj
 > (def brit-jail #voc/lstr "gaol@en-GB")
 brit-jail
 > brit-jail
@@ -610,7 +610,7 @@ ont_app.vocabulary.lstr.LangStr
 
 Rendered as a string, the language tag is dropped
 
-```
+```clj
 > (str #voc/lstr "gaol@en-GB")
 "gaol"
 >
@@ -618,7 +618,7 @@ Rendered as a string, the language tag is dropped
 
 We get the language tag with `lang`:
 
-```
+```clj
 > (lang #voc/lstr "gaol@en-GB")
 "en-GB"
 >
