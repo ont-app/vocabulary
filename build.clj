@@ -5,7 +5,7 @@
 
 (def lib 'ont-app/vocabulary)
 
-(def version "0.2.0")
+(def version "0.2.1-SNAPSHOT")
 
 (defn test "Run the tests." [opts]
   (bb/run-tests opts))
