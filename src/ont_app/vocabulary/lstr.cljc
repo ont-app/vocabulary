@@ -30,8 +30,8 @@
 ;; for clj...
 #?(:clj
    (defmethod print-method LangStr
-     [literal ^java.io.Writer w]
-     (.write w (str "#voc/lstr \"" literal "@" (.lang literal) "\""))))
+     [^LangStr literal ^java.io.Writer w]
+     (.write w (pr-str (tagged-literal 'voc/lstr  (str literal "@" (.lang literal)))))))
 
 #?(:clj
    (defmethod print-dup LangStr [o ^java.io.Writer w]
