@@ -1,6 +1,10 @@
 # Change Log
 All notable changes to this project will be documented in this file. This change log follows the conventions of [keepachangelog.com](http://keepachangelog.com/).
 
+v 0.2.1
+- Tweaks to README
+- Refinement on print-method implementation for LangStr
+
 v 0.2.0
 - Moving from lein to deps.edn
 - Adding shadow-cljs.edn file defining a `:node-test` build
