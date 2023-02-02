@@ -1,11 +1,30 @@
 (ns build
   (:refer-clojure :exclude [test])
   (:require [clojure.tools.build.api :as b] ; for b/git-count-revs
-            [org.corfield.build :as bb]))
+            [org.corfield.build :as bb]
+            [clojure.spec.alpha :as spec]
+            [clojure.tools.deps.specs :as deps-specs]
+            ))
 
 (def lib 'ont-app/vocabulary)
 
-(def version "0.2.1")
+(def version "0.2.2-SNAPSHOT")
+
+(defn validate-deps
+  "Throws an `ex-info` of type `::invalid-deps`, or returns `opts` unchanged"
+  [opts]
+  (println "Validating deps.edn...")
+  (let [deps (-> "deps.edn" (slurp) (read-string))
+        ]
+    (when (not (spec/valid? ::deps-specs/deps-map deps))
+      (throw (ex-info "Invalid deps.edn"
+                        {:type ::invalid-deps.edn
+                         ::spec/problems (-> (spec/explain-data ::deps-specs/deps-map deps)
+                                             ::spec/problems
+                                             )
+                         })))
+    (println "deps.edn conforms to clojure.tools.deps.specs")
+    opts))
 
 (defn test "Run the tests." [opts]
   (bb/run-tests opts))
