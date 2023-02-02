@@ -579,6 +579,7 @@ NOTE: this is a string because the actual re-pattern will differ per clj/cljs.
   ([on-no-ns uri]
    {:pre [(string? uri)]
     }
+   #dbg
    (if-let [prefix-re-match  (re-matches
                               (re-pattern
                                (str (prefix-re-str) "(.*)"))
@@ -592,7 +593,7 @@ NOTE: this is a string because the actual re-pattern will differ per clj/cljs.
            _namespace (and namespace-re-match (namespace-re-match 1))
            _value (and namespace-re-match (namespace-re-match 2))
            ]
-       (if (not _value)
+       (if (empty? _value)
          ;; there's nothing but prefix
          (on-no-ns uri (-> uri
                            decode-uri-string
