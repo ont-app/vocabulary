@@ -579,7 +579,6 @@ NOTE: this is a string because the actual re-pattern will differ per clj/cljs.
   ([on-no-ns uri]
    {:pre [(string? uri)]
     }
-   #dbg
    (if-let [prefix-re-match  (re-matches
                               (re-pattern
                                (str (prefix-re-str) "(.*)"))
