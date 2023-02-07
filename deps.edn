@@ -28,6 +28,7 @@
                    :deps {
                           io.github.seancorfield/build-clj {:git/tag "v0.8.2"
                                                             :git/sha "0ffdb4c"}
+                          org.clojure/tools.deps {:mvn/version "0.16.1264"}
                           }
                    :ns-default build
                    }
