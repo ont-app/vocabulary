@@ -17,6 +17,7 @@
 (def ^:private prefix-to-ns-cache (atom nil))
 (def ^:private namespace-to-ns-cache (atom nil))
 (def ^:private prefix-re-str-cache (atom nil))
+(def ^:private namespace-re-cache (atom nil))
 
 (defn clear-caches! 
   "Side-effects: resets all caches in voc/ to nil
@@ -25,7 +26,8 @@ NOTE: call this when you may have imported new namespace metadata
   []
   (reset! prefix-re-str-cache nil)
   (reset! namespace-to-ns-cache nil)
-  (reset! prefix-to-ns-cache nil))
+  (reset! prefix-to-ns-cache nil)
+  (reset! namespace-re-cache nil))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; FUN WITH READER MACROS
@@ -476,14 +478,17 @@ Where
   declared with LOD metadata. Groups for namespace and value.
 "
   []
-  (let [namespace< (fn [a b] ;; match longer first
-                     (> (count a)
-                        (count b)))
-        ]
-    (re-pattern (str "^("
-                     (s/join "|" (sort namespace<
-                                       (keys (namespace-to-ns))))
-                     ")(.*)"))))
+  (or @namespace-re-cache
+      (let [namespace< (fn [a b] ;; match longer first
+                         (> (count a)
+                            (count b)))
+            ]
+        (reset! namespace-re-cache
+                (re-pattern (str "^("
+                                 (s/join "|" (sort namespace<
+                                                   (keys (namespace-to-ns))))
+                                 ")(.*)")))
+        @namespace-re-cache)))
 
 (def invalid-qname-name
   "fn [qname-name] -> truthy if `qname-name` is not valid
@@ -578,6 +583,7 @@ NOTE: this is a string because the actual re-pattern will differ per clj/cljs.
    (keyword-for default-on-no-ns uri))
   ([on-no-ns uri]
    {:pre [(string? uri)]
+    :post [(keyword? %)]
     }
    (if-let [prefix-re-match  (re-matches
                               (re-pattern
