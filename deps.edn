@@ -26,9 +26,10 @@
            ;; for help: clojure -A:deps -T:build help/doc
            :build {
                    :deps {
-                          io.github.seancorfield/build-clj {:git/tag "v0.8.2"
-                                                            :git/sha "0ffdb4c"}
-                          org.clojure/tools.deps {:mvn/version "0.16.1264"}
+                          io.github.seancorfield/build-clj {:git/tag "v0.9.2" ;;""v0.8.2"
+                                                            :git/sha "9c9f078" ;;"0ffdb4c"
+                                                            }
+                          org.clojure/tools.deps {:mvn/version "0.18.1335" #_"0.16.1264"}
                           }
                    :ns-default build
                    }
@@ -49,7 +50,7 @@
            ;; SHADOW-CLJS SUPPORT
            ;; Alias referenced in shadow-cljs.edn
            :shadow {
-                    :extra-deps {thheller/shadow-cljs {:mvn/version "2.20.7"}}
+                    :extra-deps {thheller/shadow-cljs {:mvn/version "2.22.10" #_"2.20.7"}}
                     :extra-paths ["test"]
                     }
            } ;; aliases
