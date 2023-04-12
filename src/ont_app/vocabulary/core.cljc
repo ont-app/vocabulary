@@ -209,6 +209,7 @@ Where
 ;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; ;;; NO READER MACROS BEYOND THIS POINT
 ;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Exception: defmethod uri-str-for java.io.File, which is with its siblings below
 
 ;; ;; SCHEMA
 
@@ -401,6 +402,34 @@ Where
                        ::kw kw
                        }))
       )))
+
+(defmulti uri-str-for
+  "Returns a proper URI string for some value, dispatched on type."
+  type)
+
+ #?(:clj
+    (defmethod uri-str-for java.io.File
+      [file-obj]
+      {:post [#(re-matches ordinary-iri-str-re %)]
+       }
+      (let [s (str file-obj)
+            ]
+        (if (re-matches ordinary-iri-str-re s)
+          s
+          (str "file:/" s)))))
+
+(defmethod uri-str-for :default
+  [x]
+  (let [s (str x)]
+    (if (or (re-matches ordinary-iri-str-re s)
+            (re-matches exceptional-iri-str-re s))
+      s
+      (throw (ex-info (str "No uri-str for " x)
+                      {:type ::no-uri-str
+                       ::x x
+                       ::x-type (type x)
+                       })))))
+
   
 (defn uri-for
   "Returns `iri`  for `kw` based on metadata attached to `ns` Alias of `iri-for` or `on-no-prefix (kw) if the keyword is not namespaced.
@@ -598,7 +627,7 @@ NOTE: this is a string because the actual re-pattern will differ per clj/cljs.
            _namespace (and namespace-re-match (namespace-re-match 1))
            _value (and namespace-re-match (namespace-re-match 2))
            ]
-       (if (not _value)
+       (if (empty? _value)
          ;; there's nothing but prefix
          (on-no-ns uri (-> uri
                            decode-uri-string
