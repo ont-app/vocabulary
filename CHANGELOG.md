@@ -1,6 +1,9 @@
 # Change Log
 All notable changes to this project will be documented in this file. This change log follows the conventions of [keepachangelog.com](http://keepachangelog.com/).
 
+v 0.2.2
+  - Adding uri-str-for to infer URI strings
+  - Tweak to uri-for
 v 0.2.1
 - Tweaks to README
 - Refinement on print-method implementation for LangStr

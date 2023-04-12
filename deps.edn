@@ -56,3 +56,7 @@
            } ;; aliases
  }
 
+;; NVD notes
+;; CVE-2023-0247 is flagged for clojurescript-1.11.60.jar, but seems to pertain to a go repo
+;; CVE-2022-45688 jackson-core-2.8.7.jar. Excluding this breaks tests.
+;; linked to https://github.com/stleary/JSON-java/issues/708
