@@ -8,7 +8,7 @@
 
 (def lib 'ont-app/vocabulary)
 
-(def version "0.2.2-SNAPSHOT")
+(def version "0.2.2")
 
 (defn validate-deps
   "Throws an `ex-info` of type `::invalid-deps`, or returns `opts` unchanged"
