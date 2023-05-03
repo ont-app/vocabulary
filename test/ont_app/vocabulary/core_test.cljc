@@ -1,15 +1,17 @@
 (ns ont-app.vocabulary.core-test
   (:require
+   [clojure.spec.alpha :as spec]
+   [ont-app.vocabulary.core :as voc :refer [Resource resource-class]]
+   [ont-app.vocabulary.lstr :as lstr]
+   [ont-app.vocabulary.format :as fmt]
+   ;; platform-specific...
+   #?(:clj [clojure.core :refer [read-string]]
+      :cljs [cljs.reader :refer [read-string]])
+   #?(:clj [clojure.repl :refer [apropos]])
    #?(:clj [clojure.test :as test :refer :all]
       :cljs [cljs.test :as test :refer-macros [testing is deftest]]
       )
-   #?(:clj [clojure.core :refer [read-string]]
-      :cljs [cljs.reader :refer [read-string]])
-   #?(:clj [ont-app.vocabulary.core :as voc :refer :all]
-      :cljs [ont-app.vocabulary.core :as voc]
-      )
-   [ont-app.vocabulary.lstr :as lstr]
-   [ont-app.vocabulary.format :as fmt]
+   #?(:clj [clojure.reflect :refer [reflect]])
    )
   )
 
@@ -20,12 +22,11 @@
   :voc/mapsTo 'ont-app.vocabulary.core ;; <- part of the test
   })
 
+;; FUN WITH READER MACROS
 
 #?(:cljs
   (cljs.reader/register-tag-parser! "lstr" lstr/read-LangStr))
    
-;; FUN WITH READER MACROS
-
 (deftest platform-specific-tests
   (testing "namespace access"
     (let [get-sym #?(:cljs identity
@@ -245,7 +246,43 @@
          (voc/keyword-for "https://w3id.org/schematransform/ExampleShape#BShape")))
   )
 
+(defrecord Employee [name eid]
+  Resource
+  (resource-class [_] ::employee-urn))
 
+(defmethod voc/as-uri-string ::employee-urn
+  [this]
+  (str "urn:acme:employee:" (:eid this)))
 
+(derive ::employee-urn :voc/KwiInferredFromUriString)
 
+(voc/put-ns-meta! 'resource-protocol-and-methods
+                  {:vann/preferredNamespacePrefix "tmp"
+                   :vann/preferredNamespaceUri "file://tmp/"
+                   })
 
+(deftest issue-26-resource-protocol-and-methods
+  (is (= "http://www.w3.org/2000/01/rdf-schema#comment" (voc/as-uri-string :rdfs/comment)))
+  ;; (is (= nil (voc/as-kwi "rdfs:comment")))
+  (let [e (->Employee "George" 42)
+        ]
+    (is (= ::employee-urn (voc/resource-class e)))
+    (is (= "urn:acme:employee:42" (voc/as-uri-string e)))
+    (is (= :urn:acme:employee:42 (voc/as-kwi e)))
+    (is (= "<urn:acme:employee:42>" (voc/as-qname e))))
+  #?(:clj
+     (let [f (clojure.java.io/file "/tmp/test-resource-protocol.txt")
+           ]
+       (is (= "file://tmp/test-resource-protocol.txt" (voc/as-uri-string f)))
+       (is (= :tmp/test-resource-protocol.txt (voc/as-kwi f)))
+       (is (= "tmp:test-resource-protocol.txt" (voc/as-qname f))))
+     ))
+
+(deftest issue-27-backslashes-in-qnames
+  (let [uri-string "http://www.w3.org/2000/01/rdf-schema#blah/blah"
+        kwi (voc/as-kwi uri-string)
+        qname (voc/as-qname uri-string)
+        ]
+    (is (= :rdfs/blah%2Fblah kwi))
+    (is (= "rdfs:blah\\/blah" (voc/as-qname uri-string)))
+    (is (= uri-string (voc/as-uri-string (voc/as-qname uri-string))))))

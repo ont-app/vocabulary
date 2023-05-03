@@ -6,35 +6,43 @@ RDF-style language-tagged literals.
 This library should work under both clojure and clojurescript.
 
 ## Contents
-- [Installation](#h2-installation)
-- [A brief synopsis](#h2-a-brief-synopsis)
-- [Motivation](#h2-motivation)
+- [Installation](#installation)
+- [A brief synopsis](#a-brief-synopsis)
+- [Motivation](#motivation)
+- [The `Resource` protocol](#the-resource-protocol)
+  - [`resource-class`](#resource-class)
+  - [Existing `Resource` extensions](#existing-resource-extensions)
+  - [X-inferred-from-Y resource classes](#x-inferred-from-y-resource-classes)
 - [Defining keyword Identifiers (KWIs) mapped to URI namespaces](#h2-defining-kwis)
-  - [Basic namespace metadata](#h3-basic-metadata)
-  - [Adding vann metadata to a Clojure Var](h3-adding-vann-metadata-to-a-clojure-var)
-  - [Working with KWIs](#h3-working-with-kwis)
-    - [`uri-for`](#h4-iri-for)
-      - [URI syntax](#uri-syntax)
-    - [`keyword-for`](#h4-keyword-for)
-    - [`qname-for`](#h4-qname-for)
-  - [Accessing-namespace-metadata](#h3-accessing-namespace-metadata)
-    - [`put-ns-meta!` and `get-ns-meta`](#h4-put-ns-meta)
-    - [`prefix-to-ns`](#h4-prefix-to-ns)
-    - [`ns-to-namespace`](#h4-ns-to-namespace)
-    - [`namespace-to-ns`](#h4-namespace-to-ns)
-    - [`ns-to-prefix`](#h4-ns-to-prefix)
-    - [`clear-caches!`](#h4-clear-caches)
-  - [Support for SPARQL queries](#h3-support-for-sparql)
-    - [`sparql-prefixes-for`](#h4-sparql-prefixes-for)
-    - [`prepend-prefix-declarations`](#h4-prepend-prefix-declarations)
-  - [Common Linked Data namespaces](#h3-linked-data)
-    - [Imported with_ont-app.vocabulary.core](#h4-imported-with-voc)
-    - [Imported with ont-app.vocabulary.wikidata](#h4-imported-with-wd)
-    - [Imported with ont-app.vocabulary.linguistics](#h4-imported-with-ling)
-- [Language-tagged strings](#h2-language-tagged-strings)
-- [License](#h2-license)
+  - [Basic namespace metadata](#basic-namespace-metadata)
+  - [Adding vann metadata to a Clojure Var](adding-vann-metadata-to-a-clojure-var)
+  - [Working with URI strings, KWIs, and qnames](#working-with-kwis-etc)
+    - [Higher-level methods](#higher-level-methods)
+      - [`as-uri-string`](#as-uri-string)
+      - [`as-kwi`](#as-kwi)
+      - [`as-qname`](#as-qname)
+    - [Lower-level functions](#lower-level-functions)
+      - [`uri-for`](#uri-for)
+        - [URI syntax](#uri-syntax)
+      - [`keyword-for`](#keyword-for)
+      - [`qname-for`](#qname-for)
+  - [Accessing-namespace-metadata](#accessing-namespace-metadata)
+    - [`put-ns-meta!` and `get-ns-meta`](#put-ns-meta)
+    - [`prefix-to-ns`](#prefix-to-ns)
+    - [`ns-to-namespace`](#ns-to-namespace)
+    - [`namespace-to-ns`](#namespace-to-ns)
+    - [`ns-to-prefix`](#ns-to-prefix)
+    - [`clear-caches!`](#clear-caches)
+  - [Support for SPARQL queries](#support-for-sparql-queries)
+    - [`sparql-prefixes-for`](#sparql-prefixes-for)
+    - [`prepend-prefix-declarations`](#prepend-prefix-declarations)
+  - [Common Linked Data namespaces](#linked-data)
+    - [Imported with_ont-app.vocabulary.core](#imported-with-voc)
+    - [Imported with ont-app.vocabulary.wikidata](#imported-with-wd)
+    - [Imported with ont-app.vocabulary.linguistics](#imported-with-ling)
+- [Language-tagged strings](#language-tagged-strings)
+- [License](#license)
 
-<a name="h2-installation"></a>
 ## Installation
 
 Available at [clojars](https://clojars.org/ont-app/vocabulary).
@@ -55,10 +63,8 @@ Or in a `deps.edn` file:
 
 `{:deps {ont-app/vocabulary {:mvn/version "RELEASE"}}}`
 
-
-<a name="h2-a-brief-synopsis"></a>
-## A brief synopis
-
+<a name=a-brief-synopsis></a>
+## A brief synopsis
 
 ```clj
 (ns ...
@@ -69,26 +75,42 @@ Or in a `deps.edn` file:
 ```
 
 ```clj
-> (voc/uri-for :rdfs/subClassOf)
+> (voc/as-kwi "http://www.w3.org/2000/01/rdf-schema#subClassOf")
+:rdfs/subClassOf
+```
+
+```clj
+> (voc/as-uri-string :rdfs/subClassOf)
 "http://www.w3.org/2000/01/rdf-schema#subClassOf"
 ```
 
 ```clj
-> (voc/keyword-for "http://www.w3.org/2000/01/rdf-schema#subClassOf")
-:rdfs/subClassOf
-```
-
-```clj
-> (voc/qname-for :rdfs/subClassOf
+> (voc/as-qname :rdfs/subClassOf
 "rdfs:subClassOf"
 ```
 
-```clj
-> (voc/keyword-for "rdfs:subClassOf")
-:rdfs/subClassOf
+This works off of metadata assigned to namespaces or vars:
+
+```
+> (voc/put-ns-metadata! 'tmp
+   {:vann/preferredNamespacePrefix "tmp"
+    :vann/preferredNamespaceUri "file://tmp/"
+    })
+
+> (def my-temp-file (clojure.java.io/file "/tmp/my-file.txt"))
+
+> (voc/as-uri-string  my-temp-file)
+"file://tmp/my-file.txt"
+
+> (voc/as-kwi my-temp-file)
+:tmp/myfile.txt
+
+> (voc/as-qname my-temp-file)
+"tmp:myfile.txt"
 ```
 
-<a name="h2-motivation"></a>
+These methods are dispatched on a `resource-class` method in the `Resource` protocol descussed [below](#the-resource-protocol).
+
 ## Motivation
 Clojure provides for the definition of
 [keywords](https://clojure.org/reference/data_structures#Keywords),
@@ -125,6 +147,100 @@ vs. `"jail"@en-US`. This library defines a custom reader tag
 `voc/lstr` for declaring similar language-tagged strings,
 e.g. `#voc/lstr "gaol@en-GB"` and `#voc/lstr "jail@en-US"`.
 
+## The `Resource` protocol
+
+The most straightforward way to work with this library is to work with
+the `Resource` protocol, which requires a single `resource-class`
+method.
+
+### `resource-class`
+
+This method maps a Resource to a dispatch value for the following multimethods:
+
+- `as-uri-string`
+  - returns string for a standard URI
+- `as-kwi`
+  - returns a KeyWord Identifier (KWI) equivalent to the corresponding URI
+- `as-qname`
+  - returns a qname equivalent for the corresponding URI, or if necessary a value in angle brackets which can be embedded in turtle or a SPARQL query. The default for this method can derive the qname from the KWI.
+
+Here's a toy example:
+
+```clj
+> (ns com.example.acme.employees
+   {:vann/preferredNamespacePrefix "acme-empl"
+    :vann/preferredNamespaceUri "http://rdf.example.com/acme/employees"
+    }
+    (:require
+     ...
+     [ont-app.vocabulary.core :as voc :refer [Resource resource-class]]
+     ...
+     ))
+
+> (defrecord Employee [name employee-id]
+    Resource
+    (resource-class [_] ::EmployeeId))
+
+> (defmethod voc/as-uri-string ::EmployeeId
+    [this]
+    (str "http://rdf.example.com/acme/employees/id=" (:employee-id this)))
+
+> (derive ::EmployeeId :voc/KwiInferredFromUriString)
+
+> (def smith (->Employee "George Smith" 42))
+{:name "George Smith", :employee-id 42}
+
+> (voc/as-uri-string smith)
+"http://rdf.example.com/acme/employees/id=42"
+
+> (voc/as-kwi smith)
+:acme-empl/id=42
+
+> (voc/as-qname smith)
+"acme-empl:id=42"
+```
+
+See [below](#implicit-resource-classes) for an explanation of `(derive ::EmployeeUrn
+:voc/KwiInferredFromUriString)`
+
+### Existing Resource extensions
+
+The following existing classes have declared `Resource` extensions as follows:
+
+| Resource | maps to resource class|
+| --- | --- |
+| _java.lang.String_ <br/> javascript string | `:voc/UriString` <br/> `:voc/Qname` <br/> `:voc/NonUriString` |
+| _clojure.lang.Keyword_ <br/> _cljs.core/Keyword_ | `:voc/Kwi`<br/>`:voc/QualifiedNonKwi`<br/>`:voc/UnqualifiedKeyword` |
+| _java.io.File_ | `:voc/LocalFile` |
+
+Of the resource class tags defined above, there are "as-X" methods
+defined for the following:
+
+- `:voc/UriString`
+- `:voc/Qname`
+- `:voc/Kwi`
+- `:voc/LocalFile`
+
+<a name=x-inferred-from-y-resource-classes>
+### "X inferred from Y" resource classes
+
+Methods dispatched on the following resource class tags are also defined:
+
+- `:voc/KwiInferredFromUriString`
+  - Derives the KWI based on the `as-uri-string` method, and vann metadata
+- `:voc/UriStringInferredFromKwi`
+  - Derives the URI string based on the `as-kwi` method, and vann metadata
+
+Recall how this was used in the example above:
+
+```clj
+> (defmethod voc/as-uri-string ::EmployeeId
+    [this]
+    (str "http://rdf.example.com/acme/employees/id=" (:employee-id this)))
+
+> (derive ::EmployeeId :voc/KwiInferredFromUriString)
+```
+
 <a name="h2-defining-kwis"></a>
 ## Defining Keyword Identifiers (KWIs) mapped to URI namespaces
 
@@ -141,7 +257,6 @@ namespace, and also [a number of other `ns`
 declarations](#h4-imported-with-voc), each dedicated to a commonly
 occurring namespace in the world of LOD.
 
-<a name="h3-basic-metadata"></a>
 ### Basic namespace metadata 
 Within standard (JVM-based) clojure, the minimal specification to support ont-app/vocabulary functionality for a given namespace requires metadata specification as follows:
 
@@ -168,7 +283,7 @@ This expresses an equivalence between the clojure keyword...
 
 The `vann` prefix refers to [an existing public
 vocabulary](http://vocab.org/vann/) which will be explained in more detail
-[below](#h3-accessing-namespace-metadata).
+[below](#accessing-namespace-metadata).
 
 Unfortunately, Clojurescript does not implement namespaces as
 first-class objects, and so there is no `ns` object to which we can
@@ -190,7 +305,6 @@ with [_create-ns_](https://clojuredocs.org/clojure.core/create-ns). In
 Clojurescript, this updates a dedicated map from _org.example_ to
 'pseudo-metadata' in a global atom called _cljs-ns-metadata_.
 
-<a name="h3-adding-vann-metadata-to-a-clojure-var"></a>
 ### Adding `vann` metadata to a Clojure Var
 
 On the JVM, You also have the option of assigning the `vann` metadata
@@ -221,11 +335,39 @@ This metadata is attached to the var.
 All the same behaviors described herein for namespace metadata will apply.
 
 
-<a name="h3-working-with-kwis"></a>
-### Working with KWIs
+<a name="working-with-kwis-etc"></a>
+### Working with URI strings, KWIs, and qnames
 
-<a name="h4-iri-for"></a>
-#### `uri-for`
+#### Higher-level methods
+
+Starting with version 0.3, most of your interaction will typically be
+through the methods in this section.
+
+##### `as-uri-string`
+
+This is a method dispatched on `resource-class`, mapping instances of
+the resource class to a URI string.
+
+##### `as-kwi`
+
+This is a method dispatched on `resource-class`, mapping instances of
+the resource class to a KeyWord Identifier (KWI). This will be a
+qualfied keyword whose namespace is the prefix declared in `vann`
+metadata.
+
+##### `as-qname`
+
+This is a method dispatched on `resource-class`, mapping instances of
+the resource class to a string embeddable in many RDF formats. Where
+possible this will use the prefixes declared in `vann` metadata, but
+on occasion it may fall back on a URI enclosed in angle brackets.
+
+#### Lower-level functions
+
+The functions below provide lower-level supporting logic to the
+methods described above.
+
+##### `uri-for`
 
 We can get the URI string associated with a keyword:
 
@@ -240,7 +382,7 @@ any UTF-8 characters can be used, these are actually
 [IRIs](https://en.wikipedia.org/wiki/Internationalized_Resource_Identifier). The
 function _iri-for_ function is also defined as an alias of _uri-for_.
 
-##### URI syntax
+###### URI syntax
 
 There are two dynamic variables defined to recognize and partially
 parse URI strings under _ont-app/vocabulary_.
@@ -251,8 +393,7 @@ parse URI strings under _ont-app/vocabulary_.
 These can be [rebound](https://clojuredocs.org/clojure.core/binding)
 as needed to match against URIs for your specific use case.
 
-<a name="h4-keyword-for"></a>
-#### `keyword-for`
+##### `keyword-for`
 
 We can get a keyword for a URI string...
 
@@ -288,8 +429,7 @@ WARN: No namespace metadata found for "http://example.com/my/stuff"
 >          
 ```
 
-<a name="h4-qname-for"></a>
-#### `qname-for`
+##### `qname-for`
 
 We can get the [qname](https://en.wikipedia.org/wiki/QName) for a
 keyword, suitable for insertion into RDF or SPARQL source:
@@ -300,11 +440,9 @@ keyword, suitable for insertion into RDF or SPARQL source:
 >
 ```
 
-
-<a name="h3-accessing-namespace-metadata"></a>
 ### Accessing namespace metadata
 
-<a name="h4-put-ns-meta"></a>
+<a name="put-ns-meta"></a>
 #### `put-ns-meta!` and `get-ns-meta`
 Let's take another look at the metadata we used above to declare mappings between clojure namespaces and RDF namespaces:
 
@@ -386,7 +524,6 @@ for download at the URLs given. This vector-of-triples format is
 readable by one of ont-app/vocabulary's siblings,
 [ont-app/igraph](https://github.com/ont-app/igraph).
 
-<a name="h4-prefix-to-ns"></a>
 #### `prefix-to-ns`
 We can get a map of all the prefixes of namespaces declared within the
 current lexical environment:
@@ -415,7 +552,6 @@ In Clojurescript, since there's no _ns_ object, the results would look like this
  >
 ```
 
-<a name="h4-ns-to-namespace"></a>
 #### `ns-to-namespace`
 We can get the URI namespace associated with an `ns`
 
@@ -435,7 +571,6 @@ In both Clojure and ClojureScript:
 >
 ```
 
-<a name="h4-namespace-to-ns"></a>
 #### `namespace-to-ns`
 We can get a map from namespace URIs to their associated clojure namespaces:
 
@@ -457,7 +592,6 @@ We can get a map from namespace URIs to their associated clojure namespaces:
 
 With the usual allowance for clojurescript described above.
 
-<a name="h4-ns-to-prefix"></a>
 #### `ns-to-prefix`
 We can get the prefix associated with an `ns`:
 ```clj
@@ -466,7 +600,7 @@ We can get the prefix associated with an `ns`:
 >
 ```
 
-<a name="h4-clear-caches"></a>
+<a name="clear-caches"></a>
 #### `clear-caches!`
 For performance reasons, these metadata values are all cached. If
 you're making changes to the metadata and it's not 'taking', you may
@@ -476,7 +610,6 @@ need to clear the caches:
 > (voc/clear-caches!)
 ```
 
-<a name="h3-support-for-sparql"></a>
 ### Support for SPARQL queries
 
 RDF is explicitly constructed from URIs, and there is an intimate
@@ -485,7 +618,6 @@ queries and RDF namespaces. `ont-app/vocabulary` provides facilities
 for extracting SPARQL prefix declarations from queries containing
 qnames.
 
-<a name="h4-sparql-prefixes-for"></a>
 #### `sparql-prefixes-for`
 We can infer the PREFIX declarations appropriate to a SPARQL query:
 ```clj
@@ -495,7 +627,6 @@ We can infer the PREFIX declarations appropriate to a SPARQL query:
 >
 ```
 
-<a name="h4-prepend-prefix-declarations"></a>
 #### `prepend-prefix-declarations`
 Or we can just go ahead and prepend the prefixes...
 
@@ -507,7 +638,6 @@ Select * Where{?s foaf:homepage ?homepage}"
 >
 ```
 
-<a name="h3-linked-data"></a>
 ### Common Linked Data namespaces
 
 Part of the vision of the `ont-app` project is to provide a medium for
@@ -525,7 +655,7 @@ in the Linked Data community. Ont-app/vocabulary includes declarations
 of their associated namespaces, packaged within the core module, a
 module dedicated to wikidata, and another dedicated to linguistics. 
 
-<a name="h4-imported-with-voc"></a>
+<a name="imported-with-voc"></a>
 #### Imported with _ont-app.vocabulary.core_
 
 Requiring the `ont-app.vocabulary.core` module also loads `ns`
@@ -547,7 +677,7 @@ Open Data prefixes:
 | [skos](https://www.w3.org/2009/08/skos-reference/skos.html) | http://www.w3.org/2004/02/skos/core# |for thesaurus-type taxonomies |
 | [schema.org](https://schema.org/) | https://schema.org/ |  mostly commercial topics, with web-page metadata and search-engine indexes in mind |
 
-<a name="h4-imported-with-wd"></a>
+<a name="imported-with-wd"></a>
 ### Imported with _ont-app.vocabulary.wikidata_
 
 Requiring the `ont-app.vocabulary.wikidata` module imports
@@ -575,7 +705,6 @@ The `ont-app.vocabulary.linguistics` module declares namespaces for:
 There are also a set of namespaces particular to my Natural Lexicon
 project, which are still under development.
     
-<a name="h2-language-tagged-strings"></a>
 ## Language-tagged strings
 
 RDF entails use of language-tagged strings (e.g. `"gaol"@en-GB`) when
@@ -628,7 +757,7 @@ We get the language tag with `lang`:
 <a name="h2-license"></a>
 ## License
 
-Copyright © 2019-22 Eric D. Scott
+Copyright © 2019-23 Eric D. Scott
 
 Distributed under the Eclipse Public License either version 1.0 or (at
 your option) any later version.

@@ -1,6 +1,7 @@
 (ns ont-app.vocabulary.core
   (:require
-   [clojure.string :as s]
+   [clojure.spec.alpha :as spec]
+   [clojure.string :refer [join]]
    [ont-app.vocabulary.format :as fmt
     :refer
     [decode-kw-ns
@@ -13,6 +14,31 @@
    ;;#?(:cljs [cljs.reader :as edn])
 
 ))
+
+;;;;;;;;;
+;; SPEX
+;;;;;;;;;
+
+(declare match-uri-str-spec)
+(declare match-qname-spec)
+
+(spec/def :voc/uri-str-spec (fn [x] (match-uri-str-spec x)))
+(spec/def :vann/preferredNamespaceUri :voc/uri-str-spec)
+(spec/def :vann/preferredNamespacePrefix string?)
+(spec/def :voc/triple (spec/coll-of (spec/or :uri string? :kwi keyword?) :kind vector?))
+(spec/def :voc/appendix (spec/coll-of :voc/triple :kind vector?))
+(spec/def :voc/ns-meta-spec
+  (spec/keys :req [:vann/preferredNamespacePrefix
+                   :vann/preferredNamespaceUri
+                   ]
+             :opt [:voc/appendix
+                   ]
+             ))
+(spec/def :voc/qname-spec (fn [s] (match-qname-spec s)))
+
+;;;;;;;;;;
+;; Caches
+;;;;;;;;;;
 
 (def ^:private prefix-to-ns-cache (atom nil))
 (def ^:private namespace-to-ns-cache (atom nil))
@@ -28,6 +54,14 @@ NOTE: call this when you may have imported new namespace metadata
   (reset! namespace-to-ns-cache nil)
   (reset! prefix-to-ns-cache nil)
   (reset! namespace-re-cache nil))
+
+;;;;;;;;;;;;;;;;;;;;;;
+;; Resource protocol
+;;;;;;;;;;;;;;;;;;;;;;
+
+(defprotocol Resource
+  "Declare a `resource-class` to dispatch `as-kwi` `as-uri-string` `as-qname` methods"
+  (resource-class [this]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; FUN WITH READER MACROS
@@ -49,9 +83,9 @@ NOTE: call this when you may have imported new namespace metadata
      (atom {})))
 
 (defn put-ns-meta!
-  "Side-effect: ensures that subsequent calls to (cljc-get-ns-meta `_ns` return `m`
+  "Side-effect: ensures that subsequent calls to (cljc-get-ns-meta `ns'` return `m`
   Where
-  - `_ns`  is an ns(clj only) or the name of a namespace, possibly declared for the sole purpose of holding vocabulary metadata (e.g. rdf, foaf, etc)
+  - `ns'`  is an ns(clj only) or the name of a namespace, possibly declared for the sole purpose of holding vocabulary metadata (e.g. rdf, foaf, etc)
   - `m` := {`key` `value`, ...}, metadata (clj) or 'pseudo-metadata' (cljs)
   - `key` is a keyword containing vocabulary metadata, e.g.
     `::vann/preferredNamespacePrefix`
@@ -60,24 +94,25 @@ NOTE: call this when you may have imported new namespace metadata
   See also declarations for ont-app.vocabulary.rdf, ont-app.vocabulary.foaf, etc.
   for examples of namespaces declared solely to hold vocabulary metadata.
   "
-  ([_ns m]
+  ([ns' m]
+   (spec/assert :voc/ns-meta-spec m)
    #?(:cljs
       (swap! cljs-ns-metadata
-             assoc _ns m)
+             assoc ns' m)
       :clj
       (alter-meta!
-       (if (symbol? _ns)
-         (if-let [found (find-ns _ns)]
+       (if (symbol? ns')
+         (if-let [found (find-ns ns')]
            found
            ;; else no proper namespace found
-           (or (try (eval `(var ~_ns))
+           (or (try (eval `(var ~ns'))
                     (catch Exception _))
-               (create-ns _ns)))
+               (create-ns ns')))
                              
          ;; else not a symbol
          (let []
            (assert (= (type (find-ns 'user)) clojure.lang.Namespace))
-           _ns))
+           ns'))
        merge m))
    (clear-caches!))
 
@@ -86,23 +121,23 @@ NOTE: call this when you may have imported new namespace metadata
       :clj (put-ns-meta! *ns* m))))
 
 (defn get-ns-meta
-  "Returns `metadata` assigned to ns named `_ns`
+  "Returns `metadata` assigned to ns named `ns'`
   Where
-  - `_ns` names a namespace or a 'dummy' namespace whose sole purpose is to hold metadata.
+  - `ns'` names a namespace or a 'dummy' namespace whose sole purpose is to hold metadata.
   - `metadata` := {`key` `value`, ...}
   - `key` is a keyword containing vocabulary metadata, e.g. :vann/preferredNamespacePrefix
   "
-  ([_ns]
+  ([ns']
    #?(:cljs
       (do
-        (assert (symbol? _ns))
-        (get @cljs-ns-metadata _ns))
+        (assert (symbol? ns'))
+        (get @cljs-ns-metadata ns'))
       :clj
-      (if (symbol? _ns)
-        (if-let [it (find-ns _ns)]
+      (if (symbol? ns')
+        (if-let [it (find-ns ns')]
           (meta it))
          ;; else not a symbol
-        (meta _ns))))
+        (meta ns'))))
 
   ([]
    #?(:cljs (throw (ex-info "Cannot infer namespace at runtime in cljs"
@@ -133,7 +168,7 @@ as some symbol other than the preferred prefix.
      :cljs *alias-map*))
 
 (defn cljc-find-ns 
-  "Returns `ns-name-or-obj` for `_ns`, or nil.
+  "Returns `ns-name-or-obj` for `ns'`, or nil.
 Where 
   - `ns-name-or-obj` may either be a namespace (in clj) 
     or the name of a namespace (in cljs)
@@ -141,10 +176,10 @@ Where
 NOTE: Implementations involving cljs must use cljs-put/get-ns-meta to declare
   ns metadata.
 "
-  [_ns]
-  #?(:clj (find-ns _ns)
-     :cljs (if (contains? @cljs-ns-metadata _ns)
-             _ns)
+  [ns']
+  #?(:clj (find-ns ns')
+     :cljs (if (contains? @cljs-ns-metadata ns')
+             ns')
      ))
 
 (defn cljc-all-ns 
@@ -159,10 +194,11 @@ Where
 
 (declare prefix-re-str)
 (defn cljc-find-prefixes 
-  "Returns #{`prefix`...} for `s`
+  "Returns #{`prefix`...} for `s` matching `re-str`
 Where
   - `prefix` is a prefix found in `s`, for which some (meta ns) has a 
      :vann/preferredNamespacePrefix declaration
+  - `re-str` is a regex string
   - `s` is a string, typically a SPARQL query body for which we want to 
     infer prefix declarations.
 "
@@ -206,12 +242,63 @@ Where
   #?(:clj ns-map
      :cljs (fn [not-a-real-ns] {})))
 
-;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; ;;; NO READER MACROS BEYOND THIS POINT
-;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Exception: defmethod uri-str-for java.io.File, which is with its siblings below
+;; Extensions to Resource protocol ...
 
-;; ;; SCHEMA
+(declare prefixed-ns)
+(extend-protocol Resource
+  #?(:clj java.lang.String :cljs string)
+  (resource-class [this]
+    (cond
+      (spec/valid? :voc/uri-str-spec this)
+      :voc/UriString
+
+      (spec/valid? :voc/qname-spec this)
+      :voc/Qname
+
+      :else
+      :voc/NonUriString))
+
+  #?(:clj clojure.lang.Keyword :cljs cljs.core/Keyword)
+  (resource-class [this]
+    (let [prefix (namespace this)
+          kw-name (name this)
+          ]
+      (if prefix
+        (let [ns' (or (cljc-find-ns (symbol prefix))
+                      (prefixed-ns prefix))
+              ]
+          (if ns' :voc/Kwi
+              ;; else
+              :voc/QualifiedNonKwi))
+        ;; else no prefix
+        :voc/UnqualifiedKeyword)))
+  )
+
+#?(:clj
+  (extend-type java.io.File
+    Resource
+    (resource-class [_] :voc/LocalFile)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Differing regexes and escaping semantics
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(def unescaped-slash-re
+  "Matches a string preceded by a backslash escape"
+  #?(:clj #"[^\\][\/]"
+     :cljs #"[^\\][/]"))
+
+(defn escape-slash
+  "Replaces a slash in `s` with a backslash-escaped slash"
+  [s]
+  #?(:clj (clojure.string/replace s #"/" "\\\\/")
+     :cljs (clojure.string/replace s #"/" "\\/")))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; NO READER MACROS BEYOND THIS POINT
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; SCHEMA
 
 (put-ns-meta!
  'ont-app.vocabulary.core
@@ -240,13 +327,18 @@ dcat:mediaType relation for some dcat:downloadURL.
 (defn on-duplicate-prefix
   "Throws an error if a prefix is bound to more than one namespace.
   Reduces into `prefix` argument
-  NOTE: Can be overridden with `with-redefs`."
-  [prefixes prefix _ns]
-  (throw (ex-info (str "Prefix `" prefix "` is being associated with both " (prefixes prefix) " and " _ns)
+  - Where
+    - `prefixes` := {`prefix` `ns`, ...}
+    - `prefix` := is a string naming the `vann:preferredNamespaceUri` for `ns'`
+    - `ns'` refers to a namespace
+  NOTE: Can be overridden with `with-redefs`.
+  "
+  [prefixes prefix ns']
+  (throw (ex-info (str "Prefix `" prefix "` is being associated with both " (prefixes prefix) " and " ns')
                   {:type ::DuplicatePrefix
                    :prefixes prefixes
                    :prefix prefix
-                   :ns _ns})))
+                   :ns ns'})))
 
 (defn vann-annotated-objects 
   "Returns `[obj, ...]
@@ -269,10 +361,11 @@ Where:
 
 (defn collect-prefixes 
   "Returns {`prefix` `namespace` ...} s.t. `next-ns` is included
-Where
+  Where
+  - `acc` := {`prefix` `namespace` ...}
+  - `next-ns` is typically an element in a reduction sequence of ns's
   - `prefix` is a prefix declared in the metadata of `next-ns`
   - `namespace` is a URI namespace declared for `prefix` in metadata of `next-ns`
-  - `next-ns` is typically an element in a reduction sequence of ns's 
 "
   [acc next-ns]
   {:pre [(map? acc)]
@@ -309,13 +402,13 @@ Where
   "Returns `iri` for `ns`
 Where
   - `iri` is an iri declared with :vann/preferredNamespaceUri in the metadata for 
-    `ns`, or nil
-  - `ns` is an instance of clojure.lang.Namespace (in clj) or a symbol-name for ns (cljs)
+    `ns'`, or nil
+  - `ns'` is an instance of clojure.lang.Namespace (in clj) or a symbol-name for ns (cljs)
 "
-  [_ns]
+  [ns']
   (or
-   (:vann/preferredNamespaceUri (get-ns-meta _ns))
-   (-> _ns
+   (:vann/preferredNamespaceUri (get-ns-meta ns'))
+   (-> ns'
        (get-ns-meta)
        :voc/mapsTo
        (get-ns-meta)
@@ -330,11 +423,11 @@ Where
 "
   []
   (when-not @namespace-to-ns-cache
-    (let [collect-mapping (fn [acc _ns]
+    (let [collect-mapping (fn [acc ns']
                             (if-let [namespace (:vann/preferredNamespaceUri
-                                                (get-ns-meta _ns))
+                                                (get-ns-meta ns'))
                                      ]
-                              (assoc acc namespace _ns)
+                              (assoc acc namespace ns')
                               ;;else
                               acc))
           
@@ -345,7 +438,7 @@ Where
 
 (defn prefixed-ns 
   "Returns nil or the ns whose `prefix` was declared in metadata with
-  :vann/preferredNamespacePrefix
+  `:vann/preferredNamespacePrefix`
 Where
   - `prefix` is a string, typically parsed from a keyword.
 "
@@ -365,6 +458,12 @@ Where
   "A regex matching an IRI string which doesn't match the usual http//-ish scheme, such as urn:"
   #"^(urn:|arn:).*"
   )
+
+(defn- match-uri-str-spec
+  "Truthy when `s` matches spec `:voc/uri-str-spec`"
+  [s]
+  (or (re-matches ordinary-iri-str-re s)
+      (re-matches exceptional-iri-str-re s)))
 
 (defn kwi-missing-namespace-if-not-urn-or-arn
   "Returns the name-stiring of `kw`, or throws ::NoIRIForKw if `kw` is incorrectly missing a namespace"
@@ -392,8 +491,7 @@ Where
    }
   (let [kw-name (name kw)
         ]
-    (if (or (re-matches ordinary-iri-str-re kw-name)
-            (re-matches exceptional-iri-str-re kw-name))
+    (if (spec/valid? :voc/uri-str-spec kw-name)
       (-> kw-name
           decode-kw-name
           encode-uri-string)
@@ -402,43 +500,15 @@ Where
                        ::kw kw
                        }))
       )))
-
-(defmulti uri-str-for
-  "Returns a proper URI string for some value, dispatched on type."
-  type)
-
- #?(:clj
-    (defmethod uri-str-for java.io.File
-      [file-obj]
-      {:post [#(re-matches ordinary-iri-str-re %)]
-       }
-      (let [s (str file-obj)
-            ]
-        (if (re-matches ordinary-iri-str-re s)
-          s
-          (str "file:/" s)))))
-
-(defmethod uri-str-for :default
-  [x]
-  (let [s (str x)]
-    (if (or (re-matches ordinary-iri-str-re s)
-            (re-matches exceptional-iri-str-re s))
-      s
-      (throw (ex-info (str "No uri-str for " x)
-                      {:type ::no-uri-str
-                       ::x x
-                       ::x-type (type x)
-                       })))))
-
   
 (defn uri-for
   "Returns `iri`  for `kw` based on metadata attached to `ns` Alias of `iri-for` or `on-no-prefix (kw) if the keyword is not namespaced.
 Where
-  - `iri` is of the form `namespace``value`
   - `kw` is a keyword of the form `prefix`:`value`
-  - `ns` is an instance of clojure.lang.ns
   - `on-no-kwi-ns` := fn [kw] -> uri, for cases where `kw` is not namespaced
     default is `default-on-no-kwi-ns`
+  - `iri` is of the form `namespace``value`
+  - `ns` is an instance of clojure.lang.ns
   - `prefix` is declared with :vann/preferredNamespacePrefix in metadata of `ns`
   - `namespace` is typically of the form http://...., declared with 
     `:vann/preferredNamespaceUri` in metadata of `ns`
@@ -476,26 +546,26 @@ Where
 (def iri-for "Alias of uri-for" uri-for)
 
 (defn ns-to-prefix 
-  "Returns the prefix associated with `_ns`
+  "Returns the prefix associated with `ns'`
 Where
-  - `_ns` is a clojure namespace, which may have :vann/preferredNamespacePrefix
+  - `ns'` is a clojure namespace, which may have :vann/preferredNamespacePrefix
   declaration in its metadata.   
 "
-  [_ns]
+  [ns']
   (or 
-   (:vann/preferredNamespacePrefix (get-ns-meta _ns))
-   (-> _ns
+   (:vann/preferredNamespacePrefix (get-ns-meta ns'))
+   (-> ns'
        (get-ns-meta)
        :voc/mapsTo
        (get-ns-meta)
        :vann/preferredNamespacePrefix)
-   (str (ns-name _ns))))
+   (str (ns-name ns'))))
 
 (defn prefix-to-namespace-uri
   "returns `namespace` URI associated with `prefix`
   Where:
-  - `namespace` is a string declared for some `ns` with vann/preferredNamespaceUri
   - `prefix` is a string declared for `ns` with vann/preferredNamespacePrefix
+  - `namespace` is a string declared for some `ns` with vann/preferredNamespaceUri
   "
   [prefix]
   (->> prefix
@@ -514,16 +584,10 @@ Where
             ]
         (reset! namespace-re-cache
                 (re-pattern (str "^("
-                                 (s/join "|" (sort namespace<
+                                 (join "|" (sort namespace<
                                                    (keys (namespace-to-ns))))
                                  ")(.*)")))
         @namespace-re-cache)))
-
-(def invalid-qname-name
-  "fn [qname-name] -> truthy if `qname-name` is not valid
-  Where
-  - `qname-name` is a string"
-  (partial re-find #"/" ))
 
 (defn qname-for 
   "Returns the 'qname' URI for `kw`, or <...>'d full URI if no valid qname
@@ -537,7 +601,8 @@ Where
          ]
    }
   (let [prefix (namespace kw)
-        kw-name (name kw)]
+        kw-name (name kw)
+        ]
     (if (#{"https:" "http:" "file:"
            "https%3A" "http%3A" "file%3A"
            } prefix)
@@ -547,7 +612,7 @@ Where
                          (-> kw-name decode-kw-name encode-uri-string))]
         (if-let [rem (re-matches (namespace-re) uri-str)]
           (let [[_ namespace-uri kw-name] rem]
-            (if (not (invalid-qname-name kw-name))
+            (if (not (spec/valid? :voc/qname-spec kw-name))
               (str
                (->> namespace-uri
                     (get (namespace-to-ns))
@@ -558,21 +623,28 @@ Where
           (str "<" uri-str ">")))
       ;; else this is not scheme-based URI
       (if prefix
-        (let [_ns (or (cljc-find-ns (symbol prefix))
+        (let [ns' (or (cljc-find-ns (symbol prefix))
                       (prefixed-ns prefix))
               ]
-          (when-not _ns
+          (when-not ns'
             (throw (ex-info (str "Could not resolve prefix " prefix)
                             {:type ::CouldNotResolvePrefix
                              ::kw kw
                              ::prefix prefix
                              })))
-          (if (invalid-qname-name kw-name) ;; invalid as qname
-            (str "<" (prefix-to-namespace-uri prefix) kw-name ">")
-            ;;else valid as qname
-            (str (ns-to-prefix _ns)
-                 ":"
-                 (-> kw-name decode-kw-name encode-uri-string))))
+          (let [qname (str (ns-to-prefix ns')
+                           ":"
+                           (-> kw-name decode-kw-name encode-uri-string
+                               (escape-slash)
+                               )
+                           )
+
+                ]
+            (if (not (spec/valid? :voc/qname-spec qname))
+              (str "<" (prefix-to-namespace-uri prefix) kw-name ">")
+              ;;else valid as qname
+              qname)
+            ))
         ;; else no namespace in keyword
         (str "<" (-> kw-name decode-kw-name encode-uri-string) ">")))))
 
@@ -585,9 +657,20 @@ NOTE: this is a string because the actual re-pattern will differ per clj/cljs.
   (when-not @prefix-re-str-cache
     (reset! prefix-re-str-cache
             (str "\\b(" ;; word boundary
-                 (s/join "|" (keys (prefix-to-ns)))
+                 (join "|" (keys (prefix-to-ns)))
                  "):")))
   @prefix-re-str-cache)
+
+(defn qname-re []
+  "Returns a regex s.t. 'my-ns:my-name' will parse to ['my-ns:my-name' 'my-ns' 'my-name']"
+  (re-pattern (str (prefix-re-str) "(.*)$")))
+
+(defn- match-qname-spec
+  "Truthy when `s` conforms to spec :voc/qname-spec."
+  [s]
+  (if-let [[_ ns' name'] (re-matches (qname-re) s)]
+    (not (re-find unescaped-slash-re name'))))
+
 
 (defn default-on-no-ns
   "Returns the kwi normally appropriate for `_keyword` in cases where no ns can be matched, as is the case with say http://.....
@@ -614,13 +697,13 @@ NOTE: this is a string because the actual re-pattern will differ per clj/cljs.
    {:pre [(string? uri)]
     :post [(keyword? %)]
     }
-   (if-let [prefix-re-match  (re-matches
-                              (re-pattern
-                               (str (prefix-re-str) "(.*)"))
-                              uri)]
+   (if-let [prefix-re-match  (re-matches (qname-re) uri)]
      ;; ... this is a qname...
-     (let [[_ prefix _name] prefix-re-match]
-       (keyword prefix (-> _name decode-uri-string encode-kw-name)))
+     (let [[_ prefix _name] prefix-re-match
+           remove-backslash (fn [s] (clojure.string/replace s #"\\" ""))
+           ]
+       (spec/assert :voc/qname-spec uri)
+       (keyword prefix (-> _name remove-backslash decode-uri-string encode-kw-name)))
      ;;else this isn't a qname. Maybe it's a full URI we have a prefix for...
      ;; namespace re match returns [s namepace value] or nil
      (let [namespace-re-match  (re-matches (namespace-re) uri)
@@ -667,11 +750,96 @@ Where
   "Returns `sparql-string`, prepended with appropriate PREFIX decls.
 "
   [sparql-string]
-  (s/join "\n" (conj (vec (sparql-prefixes-for sparql-string))
+  (join "\n" (conj (vec (sparql-prefixes-for sparql-string))
                      sparql-string)))
 
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Methods keyed to Resource protocol resource-class
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defmulti as-kwi
+  "Returns keyword identifier for instance of a resource class"
+  resource-class)
+
+(derive :voc/LocalFile :voc/KwiInferredFromUriString)
+
+(defmethod as-kwi :voc/Kwi
+  [this]
+  this)
+
+(defmethod as-kwi :voc/Qname
+  [this]
+  (keyword-for this))
+
+(declare as-uri-string)
+(defmethod as-kwi :voc/KwiInferredFromUriString
+  [this]
+  (keyword-for (as-uri-string this))
+  )
+
+(defmethod as-kwi :voc/UriString
+  [this]
+  (keyword-for this))
+
+(defmethod as-kwi :default
+  [this]
+  (throw (ex-info (str "No `as-kwi` method for " this)
+                  {:type ::no-as-kwi-method
+                   ::this this
+                   ::resource-class (resource-class this)
+                   })))
+
+(defmulti as-uri-string
+  "Returns URI string for instance of a resource class"
+  resource-class)
+
+(defmethod as-uri-string :voc/UriString
+  [this]
+  this
+  )
+
+(defmethod as-uri-string :voc/UriStringInferredFromKwi
+  [this]
+  (uri-for (as-kwi this))
+  )
+
+(defmethod as-uri-string :voc/Kwi
+  [this]
+  (uri-for this))
+
+(defmethod as-uri-string :voc/LocalFile
+  [this]
+  (let [s (str this)]
+    (as-uri-string
+     (if (re-matches ordinary-iri-str-re s)
+       s
+       (spec/conform :voc/uri-str-spec (str "file:/" s))))))
+
+(defmethod as-uri-string :default
+  [this]
+  (throw (ex-info (str "No `as-uri-string` method for " this)
+                  {:type ::no-as-kwi-method
+                   ::this this
+                   ::resource-class (resource-class this)
+                   })))
+
+(defmulti as-qname
+  "Returns a qname for instance of resource class"
+  resource-class)
+
+(defmethod as-uri-string :voc/Qname
+  [this]
+  (uri-for (keyword-for this)))
+
+(defmethod as-qname :default
+  [this]
+  (qname-for (as-kwi this)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; ;;; NAMESPACE DECLARATIONS
 ;; ;;; These are commonly used RDF namespaces.
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (put-ns-meta!
  'clojure.core
@@ -849,7 +1017,19 @@ Where
      :foaf/homepage "https://www.w3.org/2001/XMLSchema"
      })
 
+;;;;;;;;;;;;;;;
 ;; deprecated
+;;;;;;;;;;;;;;;
+
 (def ^:deprecated cljc-put-ns-meta! "Deprecated. Use put-ns-meta!" put-ns-meta!)
 (def ^:deprecated cljc-get-ns-meta "Deprecated. Use get-ns-meta" get-ns-meta)
 
+^:deprecated
+(defmulti uri-str-for
+  "Deprecated. Use Resource protocol and `as-uri-string` instead."
+  type)
+
+^:deprecated
+(defmethod uri-str-for :default
+  [x]
+  (as-uri-string x))

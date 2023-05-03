@@ -1,5 +1,5 @@
 (ns ont-app.vocabulary.format
-  "Logic to handle all the various escpapes and en/decoding required for URIs
+  "Logic to handle all the various escapes and en/decoding required for URIs
   and keywords"
   (:require
    [clojure.string :as s]
@@ -55,8 +55,7 @@
                                  sacc)
                                (catch Throwable _
                                  (conj sacc c))))
-        forward-slash (char 47)
-        ;;colon (char 58)
+        forward-slash (char 47) ;; clojure docs say no but we get away with it
         test-breakers (reduce collect-test-breaker
                               #{forward-slash}
                               (map char (range max-char)))
@@ -68,7 +67,7 @@
     ))))
 
 (def invert-escape-map
-  "fn [{`escaped-char` `escape-str`, ...}] ->{`escape-str` `escaped-char-str`, ...}"
+  "fn [{`escaped-char` `escape-str`, ...}] -> {`escape-str` `escaped-char-str`, ...}"
   #(reduce-kv (fn [macc c v] (assoc macc v (str c))) {} %))
 
 (defn escapes-re
@@ -254,7 +253,7 @@
    ;; copy of kw-escapes.edn
    {\  "%E2%80%80", \　 "%E3%80%80", \space "%20", \@ "%40", \` "%60", \  "%E1%9A%80", \  "%E2%80%81", \  "%E2%80%82", \" "%22", \  "%E2%80%83", \  "%E2%80%84", \  "%E2%80%85", \  "%E2%80%86", \  "%E2%80%88", \( "%28", \  "%E2%80%A8", \tab "%9", \  "%E2%80%89", \) "%29", \  "%E2%80%A9", \newline "%A", \  "%E2%80%8A", \ "%B", \formfeed "%C", \, "%2C", \return "%D", \᠎ "%E1%A0%8E", \; "%3B", \[ "%5B", \{ "%7B", \ "%1C", \\ "%5C", \ "%1D", \] "%5D", \} "%7D", \ "%1E", \^ "%5E", \~ "%7E", \ "%1F", \  "%E2%81%9F"}
    ;; clojurescript-specific escapes for chars 
-   {(char 47) "%2F" ;; forward slash
+   {(char 47) "%2F" ;; forward slash. Clojure spec'n says invalid but we get away with it
     ;; (char 58) "%3A" ;; colon
     })) 
 
@@ -328,16 +327,3 @@
   (-> kw-name
       (s/replace #"^\+n\+" "")
       (s/replace kw-escapes-re (fn [esc] (kw-escapes-inverted esc)))))
-
-#_(defn encoded-kw-name->http-kw
-    "Returns `http-kw` for `http-str. Doesn't seem to be used anywhere; consider deleting.`
-  Where:
-  - `http-kw` is a keyword whose namespace matches the http scheme (with escaped ':')
-  - `http-str` is a string encoded for a keyword matching a standard http-type scheme
-  "
-  [http-str]
-  (let [[_ scheme path] (re-matches #"^(http[s]?|file):%2F(.*)" http-str)
-        ]
-    (if (and scheme path)
-      (keyword (str scheme "%3A") path)
-      (keyword http-str))))
