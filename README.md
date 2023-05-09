@@ -212,8 +212,7 @@ defined for the following:
 - `:voc/Kwi`
 - `:voc/LocalFile`
 
-<a name=x-inferred-from-y-resource-classes>
-### _X_ inferred from _Y_ resource classes
+### X inferred from Y resource classes
 
 Methods dispatched on the following resource class tags are also defined:
 
