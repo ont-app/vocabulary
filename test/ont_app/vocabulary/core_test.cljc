@@ -12,9 +12,9 @@
       :cljs [cljs.test :as test :refer-macros [testing is deftest]]
       )
    #?(:clj [clojure.reflect :refer [reflect]])
-   )
-  )
+   ))
 
+(spec/check-asserts true)
 
 (voc/put-ns-meta!
  'ont-app.vocabulary.core-test
@@ -22,7 +22,9 @@
   :voc/mapsTo 'ont-app.vocabulary.core ;; <- part of the test
   })
 
-;; FUN WITH READER MACROS
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; FUN WITH READER MACROS
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 #?(:cljs
   (cljs.reader/register-tag-parser! "lstr" lstr/read-LangStr))
@@ -58,8 +60,6 @@
          (if (not (contains? fmt/kw-escapes (char c)))
            (is (= true (fmt/kw-test c))))))))
 
-
-
 #?(:clj
    (deftest
      ^{:vann/preferredNamespacePrefix "issue21"
@@ -74,8 +74,7 @@
             (voc/keyword-for "http://rdf.naturallexicon.com/issue21/uri-for")))
      (is (= #{"PREFIX issue21: <http://rdf.naturallexicon.com/issue21/>"}
          (into #{} (voc/sparql-prefixes-for
-                    "Select * Where{?s issue21:testing ?whatever}"))))
-     ))
+                    "Select * Where{?s issue21:testing ?whatever}"))))))
 
 
 ;; NO READER MACROS BELOW THIS POINT
@@ -136,8 +135,7 @@
     (is (= "PREFIX foaf: <http://xmlns.com/foaf/0.1/>\nSelect * Where{?s foaf:homepage ?homepage}"
            (voc/prepend-prefix-declarations
             "Select * Where{?s foaf:homepage ?homepage}")
-           ))
-     ))
+           ))))
 
 (deftest encode-and-decode-kw-names
   (testing "keywords should not choke the reader. URI strings  should be parsable as URIs"
@@ -166,8 +164,7 @@
            (voc/iri-for (voc/keyword-for "http://xmlns.com/foaf/0.1/Subtopic/x"))
            ))
     (is (= :foaf/blah%2F
-           (voc/keyword-for "http://xmlns.com/foaf/0.1/blah/")))
-    ))
+           (voc/keyword-for "http://xmlns.com/foaf/0.1/blah/")))))
 
 (deftest maps-to-test
   (testing ":voc/mapsTo ns metadata should resolve prefixes properly"
@@ -177,8 +174,7 @@
            ))
     (is (= "voc:blah"
            (voc/qname-for ::blah)
-           ))
-    ))
+           ))))
 
 
 (deftest language-tagged-strings
@@ -193,8 +189,7 @@
              ))
       (is (= "asdf" (str x) ))
       (is (= "en" (lstr/lang x) ))
-      (is (= x (lstr/read-LangStr "asdf@en")))
-      )))
+      (is (= x (lstr/read-LangStr "asdf@en"))))))
 
 (deftest issue-12-language-tagged-strings-in-cljs-source
   (testing "read lstr tag"
@@ -205,8 +200,7 @@
       (is (= (lstr/lang x) "en"))
       (is (= x y))
       (is (= #{x} (into #{} [x y]))) ;; identical hashes
-      (is (= ont_app.vocabulary.lstr.LangStr (type x)))
-      )))
+      (is (= ont_app.vocabulary.lstr.LangStr (type x))))))
 
 (deftest issue-15-lstr-should-accommodate-newlines
   (testing "lstr newlines"
@@ -219,8 +213,7 @@
 (voc/put-ns-meta! 'issue-19-urns-should-be-accommodated
                   {:vann/preferredNamespacePrefix "test-urn"
                    :vann/preferredNamespaceUri "urn:testing:issue:"
-                   }
-                  )
+                   })
 (deftest
   issue-19-urns-should-be-accommodated
   (is (= "test-urn:19"
@@ -236,15 +229,12 @@
        #"Could not find IRI for :urx:blah:blah:blah"
        (voc/uri-for (voc/keyword-for "urx:blah:blah:blah"))))
   (is (= "urx:blah:blah:blah"
-         (binding [voc/exceptional-iri-str-re #"^(urn:|arn:|urx).*"]
-           (voc/uri-for (voc/keyword-for "urx:blah:blah:blah")))))
-
-  )
+         (binding [voc/*exceptional-iri-str-re* #"^(urn:|arn:|urx).*"]
+           (voc/uri-for (voc/keyword-for "urx:blah:blah:blah"))))))
 
 (deftest issue-20-validity-of-full-uri-keywords
   (is (= :https:%2F%2Fw3id.org%2Fschematransform%2FExampleShape#BShape
-         (voc/keyword-for "https://w3id.org/schematransform/ExampleShape#BShape")))
-  )
+         (voc/keyword-for "https://w3id.org/schematransform/ExampleShape#BShape"))))
 
 (defrecord Employee [name eid]
   Resource
@@ -262,10 +252,9 @@
                    })
 
 (deftest issue-26-resource-protocol-and-methods
-  (is (= "http://www.w3.org/2000/01/rdf-schema#comment" (voc/as-uri-string :rdfs/comment)))
-  ;; (is (= nil (voc/as-kwi "rdfs:comment")))
-  (let [e (->Employee "George" 42)
-        ]
+  (is (= "http://www.w3.org/2000/01/rdf-schema#comment"
+         (voc/as-uri-string :rdfs/comment)))
+  (let [e (->Employee "George" 42)]
     (is (= ::employee-urn (voc/resource-class e)))
     (is (= "urn:acme:employee:42" (voc/as-uri-string e)))
     (is (= :urn:acme:employee:42 (voc/as-kwi e)))
@@ -275,8 +264,7 @@
            ]
        (is (= "file://tmp/test-resource-protocol.txt" (voc/as-uri-string f)))
        (is (= :tmp/test-resource-protocol.txt (voc/as-kwi f)))
-       (is (= "tmp:test-resource-protocol.txt" (voc/as-qname f))))
-     ))
+       (is (= "tmp:test-resource-protocol.txt" (voc/as-qname f))))))
 
 (deftest issue-27-backslashes-in-qnames
   (let [uri-string "http://www.w3.org/2000/01/rdf-schema#blah/blah"

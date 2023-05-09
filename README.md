@@ -13,9 +13,9 @@ This library should work under both clojure and clojurescript.
   - [`resource-class`](#resource-class)
   - [Existing `Resource` extensions](#existing-resource-extensions)
   - [X-inferred-from-Y resource classes](#x-inferred-from-y-resource-classes)
-- [Defining keyword Identifiers (KWIs) mapped to URI namespaces](#h2-defining-kwis)
+- [Defining keyword Identifiers (KWIs) mapped to URI namespaces](#defining-kwis)
   - [Basic namespace metadata](#basic-namespace-metadata)
-  - [Adding vann metadata to a Clojure Var](adding-vann-metadata-to-a-clojure-var)
+  - [Adding vann metadata to a Clojure Var](#adding-vann-metadata-to-a-clojure-var)
   - [Working with URI strings, KWIs, and qnames](#working-with-kwis-etc)
     - [Higher-level methods](#higher-level-methods)
       - [`as-uri-string`](#as-uri-string)
@@ -36,7 +36,7 @@ This library should work under both clojure and clojurescript.
   - [Support for SPARQL queries](#support-for-sparql-queries)
     - [`sparql-prefixes-for`](#sparql-prefixes-for)
     - [`prepend-prefix-declarations`](#prepend-prefix-declarations)
-  - [Common Linked Data namespaces](#linked-data)
+  - [Common Linked Data namespaces](#common-linked-data-namespces)
     - [Imported with_ont-app.vocabulary.core](#imported-with-voc)
     - [Imported with ont-app.vocabulary.wikidata](#imported-with-wd)
     - [Imported with ont-app.vocabulary.linguistics](#imported-with-ling)
@@ -47,21 +47,7 @@ This library should work under both clojure and clojurescript.
 
 Available at [clojars](https://clojars.org/ont-app/vocabulary).
 
-[![Clojars Project](https://img.shields.io/clojars/v/ont-app/vocabulary.svg)](https://clojars.org/ont-app/vocabulary)
-
-
-```clj
- (defproject .....
-  :dependencies 
-  [...
-   [ont-app/vocabulary "<this version>"]
-   ...
-   ])
-```   
-
-Or in a `deps.edn` file:
-
-`{:deps {ont-app/vocabulary {:mvn/version "RELEASE"}}}`
+For which see the declarations for your favorite build tool.
 
 <a name=a-brief-synopsis></a>
 ## A brief synopsis
@@ -109,7 +95,8 @@ This works off of metadata assigned to namespaces or vars:
 "tmp:myfile.txt"
 ```
 
-These methods are dispatched on a `resource-class` method in the `Resource` protocol descussed [below](#the-resource-protocol).
+These methods are dispatched on a `resource-class` method in the
+`Resource` protocol discussed [below](#the-resource-protocol).
 
 ## Motivation
 Clojure provides for the definition of
@@ -131,8 +118,8 @@ vars](https://clojure.org/reference/vars) with the same effect.
 
 There is support for a similar arrangement within
 [Clojurescript](https://clojurescript.org/), though some things are
-done a little differently given the fact that Clojurescript does not
-implement metadata in the same way.
+done a little differently given that Clojurescript does not implement
+metadata in the same way.
 
 These mappings set the stage for using Keyword Identifiers (KWIs)
 mappable between Clojure code and the wider world through a
@@ -140,7 +127,7 @@ correspondence with URIs.
 
 Another construct from RDF that may have application more generally in
 graph-based data is that of a [language-tagged
-literal](#h2-language-tagged-strings), which tags strings of natural
+literal](#language-tagged-strings), which tags strings of natural
 language with their associated language. For example we could use such
 tags to express the differing orthographies of `"gaol"@en-GB`
 vs. `"jail"@en-US`. This library defines a custom reader tag
@@ -160,9 +147,12 @@ This method maps a Resource to a dispatch value for the following multimethods:
 - `as-uri-string`
   - returns string for a standard URI
 - `as-kwi`
-  - returns a KeyWord Identifier (KWI) equivalent to the corresponding URI
+  - returns a KeyWord Identifier equivalent to the corresponding URI
 - `as-qname`
-  - returns a qname equivalent for the corresponding URI, or if necessary a value in angle brackets which can be embedded in turtle or a SPARQL query. The default for this method can derive the qname from the KWI.
+  - returns a [qname](https://en.wikipedia.org/wiki/QName) equivalent
+    for the corresponding URI, or if necessary a value in angle
+    brackets which can be embedded in turtle or a SPARQL query. The
+    default for this method can derive the qname from the KWI.
 
 Here's a toy example:
 
@@ -200,8 +190,9 @@ Here's a toy example:
 "acme-empl:id=42"
 ```
 
-See [below](#implicit-resource-classes) for an explanation of `(derive ::EmployeeUrn
-:voc/KwiInferredFromUriString)`
+See [below](#x-inferred-from-y-resource-classes) for an explanation of
+`(derive ::EmployeeUrn :voc/KwiInferredFromUriString)`
+
 
 ### Existing Resource extensions
 
@@ -222,7 +213,7 @@ defined for the following:
 - `:voc/LocalFile`
 
 <a name=x-inferred-from-y-resource-classes>
-### "X inferred from Y" resource classes
+### _X_ inferred from _Y_ resource classes
 
 Methods dispatched on the following resource class tags are also defined:
 
@@ -241,7 +232,7 @@ Recall how this was used in the example above:
 > (derive ::EmployeeId :voc/KwiInferredFromUriString)
 ```
 
-<a name="h2-defining-kwis"></a>
+<a name="defining-kwis"></a>
 ## Defining Keyword Identifiers (KWIs) mapped to URI namespaces
 
 ```clj
@@ -254,7 +245,7 @@ Recall how this was used in the example above:
 
 This will load function definitions interned in the vocabulary.core
 namespace, and also [a number of other `ns`
-declarations](#h4-imported-with-voc), each dedicated to a commonly
+declarations](#imported-with-voc), each dedicated to a commonly
 occurring namespace in the world of LOD.
 
 ### Basic namespace metadata 
@@ -508,7 +499,7 @@ There is an inverse of _put-ns-meta!_ called _get-ns-meta_:
 
 These are much richer descriptions than the minimal example in the
 previous section, with metadata encoded using several different public
-vocabularies, described [below](#h4-linked-data).
+vocabularies, described [below](#linked-data).
 
 Note that these are all simple key/value declarations except the
 `:voc/appendix` declaration which is in the form
@@ -683,7 +674,7 @@ Open Data prefixes:
 Requiring the `ont-app.vocabulary.wikidata` module imports
 declarations for the [several namespaces](https://www.mediawiki.org/wiki/Wikibase/Indexing/RDF_Dump_Format#Full_list_of_prefixes)
 pertinent to the
-[Wikidata](#https://www.wikidata.org/wiki/Wikidata:Main_Page) database.
+[Wikidata](https://www.wikidata.org/wiki/Wikidata:Main_Page) database.
 
 It also defines the value for [Wikidata's public SPARQL
 endpoint](https://query.wikidata.org/bigdata/namespace/wdq/sparql) as
@@ -691,7 +682,7 @@ this constant:
 
 `ont-app.vocabulary.wikidata/sparql-endpoint`
 
-<a name="h4-imported-with-ling"></a>
+<a name="imported-with-ling"></a>
 ### Imported with _ont-app.vocabulary.linguistics_ 
 
 The `ont-app.vocabulary.linguistics` module declares namespaces for:
