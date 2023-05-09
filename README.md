@@ -47,6 +47,8 @@ This library should work under both clojure and clojurescript.
 
 Available at [clojars](https://clojars.org/ont-app/vocabulary).
 
+[![Clojars Project](https://img.shields.io/clojars/v/ont-app/vocabulary.svg)](https://clojars.org/ont-app/vocabulary)
+
 For which see the declarations for your favorite build tool.
 
 <a name=a-brief-synopsis></a>
