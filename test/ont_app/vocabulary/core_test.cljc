@@ -1,8 +1,9 @@
 (ns ont-app.vocabulary.core-test
   (:require
    [clojure.spec.alpha :as spec]
-   [ont-app.vocabulary.core :as voc :refer [Resource resource-class]]
+   [ont-app.vocabulary.core :as voc :refer [resource-type]]
    [ont-app.vocabulary.lstr :as lstr]
+   [ont-app.vocabulary.dstr :as dstr]
    [ont-app.vocabulary.format :as fmt]
    ;; platform-specific...
    #?(:clj [clojure.core :refer [read-string]]
@@ -13,6 +14,7 @@
       )
    #?(:clj [clojure.reflect :refer [reflect]])
    ))
+
 
 (spec/check-asserts true)
 
@@ -26,9 +28,10 @@
 ;;;; FUN WITH READER MACROS
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-#?(:cljs
-  (cljs.reader/register-tag-parser! "lstr" lstr/read-LangStr))
-   
+(def ^:dynamic *in-cider-cljs-repl*
+  "There's a funny bug with reader macros that only happens in cider/cljs. Set this to true to keep the repl from barfing on you."
+  false)
+
 (deftest platform-specific-tests
   (testing "namespace access"
     (let [get-sym #?(:cljs identity
@@ -51,6 +54,15 @@
   #?(:clj (.lang x)
      :cljs (.-lang x)))
 
+(defn- cljc-data-s
+  [^ont_app.vocabulary.dstr.DatatypeStr x]
+  #?(:clj (.s x)
+     :cljs (.-s x)))
+
+(defn- cljc-datatype
+  [^ont_app.vocabulary.dstr.DatatypeStr x]
+  #?(:clj (.datatype x)
+     :cljs (.-datatype x)))
 
 #?(:cljs
    (deftest test-kw-escape-coverage
@@ -105,7 +117,6 @@
     (is (= "foaf:homepage"
            (voc/qname-for :foaf/homepage)
            ))
-    ;; 
     (is (= :foaf/homepage
            (voc/keyword-for "http://xmlns.com/foaf/0.1/homepage")
            ))
@@ -176,7 +187,6 @@
            (voc/qname-for ::blah)
            ))))
 
-
 (deftest language-tagged-strings
   (testing "langstr dispatch"
     (let [x (lstr/read-LangStr "asdf@en")]
@@ -209,7 +219,6 @@
       (is (= (str x)
              "line1\nline2")))))
 
-
 (voc/put-ns-meta! 'issue-19-urns-should-be-accommodated
                   {:vann/preferredNamespacePrefix "test-urn"
                    :vann/preferredNamespaceUri "urn:testing:issue:"
@@ -236,9 +245,10 @@
   (is (= :https:%2F%2Fw3id.org%2Fschematransform%2FExampleShape#BShape
          (voc/keyword-for "https://w3id.org/schematransform/ExampleShape#BShape"))))
 
-(defrecord Employee [name eid]
-  Resource
-  (resource-class [_] ::employee-urn))
+(defrecord Employee [name eid])
+
+(defmethod resource-type [::voc/resource-type-context Employee]
+  [_] ::employee-urn)
 
 (defmethod voc/as-uri-string ::employee-urn
   [this]
@@ -249,13 +259,14 @@
 (voc/put-ns-meta! 'resource-protocol-and-methods
                   {:vann/preferredNamespacePrefix "tmp"
                    :vann/preferredNamespaceUri "file://tmp/"
+                   :dc/description "Used to test issue 26."
                    })
 
 (deftest issue-26-resource-protocol-and-methods
   (is (= "http://www.w3.org/2000/01/rdf-schema#comment"
          (voc/as-uri-string :rdfs/comment)))
   (let [e (->Employee "George" 42)]
-    (is (= ::employee-urn (voc/resource-class e)))
+    (is (= ::employee-urn (voc/resource-type e)))
     (is (= "urn:acme:employee:42" (voc/as-uri-string e)))
     (is (= :urn:acme:employee:42 (voc/as-kwi e)))
     (is (= "<urn:acme:employee:42>" (voc/as-qname e))))
@@ -274,3 +285,103 @@
     (is (= :rdfs/blah%2Fblah kwi))
     (is (= "rdfs:blah\\/blah" (voc/as-qname uri-string)))
     (is (= uri-string (voc/as-uri-string (voc/as-qname uri-string))))))
+
+
+(deftest issue-29-resource=
+  (is (voc/resource=  "rdfs:subClassOf"
+                      :rdfs/subClassOf))
+
+  (is (not (voc/resource= "rdfs:subClassOf"
+                          :rdfs/subPropertyOf))))
+
+(deftest issue-31-invalid-keywords-when-only-prefix-is-provided
+  (is (= :http:%2F%2Fwww.w3.org%2F2000%2F01%2Frdf-schema#
+         (voc/as-kwi "rdfs:")))
+  (is (spec/valid? :voc/kwi-spec (voc/as-kwi "rdfs:")))
+  (is (= (voc/resource-type (voc/as-kwi "rdfs:"))
+         :voc/Kwi)))
+
+(defn tag-round-trip
+  "True when (tag (untag val)) == val"
+  [val]
+  (= (voc/untag (voc/tag val)) val))
+
+(deftest datatype-tagged-strings
+  (testing "datatype str dispatch"
+    (let [x (dstr/read-DatatypeStr "1000^^unit:Meter")]
+      (is (= ont_app.vocabulary.dstr.DatatypeStr (type x) ))
+      (is (= "1000"
+             (cljc-data-s x)
+             ))
+      (is (= "unit:Meter"
+             (cljc-datatype x)
+             ))
+      (is (= "1000" (str x) ))
+      (is (= "unit:Meter" (dstr/datatype x) ))
+      (is (= x (dstr/read-DatatypeStr "1000^^unit:Meter")))))
+
+  (testing "tag/untag"
+    ;;(is (= true (voc/untag (voc/tag true))))
+    (is (tag-round-trip true))
+    (is (tag-round-trip true))
+    (is (tag-round-trip 1))
+    (is (tag-round-trip (short 1)))
+    (is (tag-round-trip "yowsa"))
+    (is (tag-round-trip 0.0))
+    (is (tag-round-trip (float 0.0)))
+    (is (tag-round-trip (byte 0)))
+    (is (tag-round-trip #inst "2000"))
+    (is (= (dstr/->DatatypeStr (str 1) (voc/as-qname :unit/Meter))
+           (voc/tag 1 :unit/Meter)))
+    (when (not *in-cider-cljs-repl*)
+      (is (= (voc/untag (voc/tag 1 :unit/Meter) identity)
+             #voc/dstr "1^^unit:Meter")))
+    ))
+
+#?(:clj
+(defn describe-api ;; todo: move this into a utilities lib
+  "Returns [`member`, ...] for `obj`, for public members of `obj`, sorted by :name,  possibly filtering on `name-re`
+  - Where
+    - `obj` is an object subject to reflection
+    - `name-re` is a regular expression to match against (:name `member`)
+    - `member` := m, s.t. (keys m) = #{:name, :parameter-types, :return-type}
+  "
+  ([obj]
+   (let [collect-public-member (fn [acc member]
+                                (if (not
+                                     (empty?
+                                      (clojure.set/intersection #{:public}
+                                                                (:flags member))))
+                                  (conj acc (select-keys member
+                                                         [:name
+                                                          :parameter-types
+                                                          :return-type]))
+                                  ;;else member is not public
+                                  acc))]
+     (sort (fn compare-names [this that] (compare (:name this) (:name that)))
+           (reduce collect-public-member [] (:members (reflect obj))))))
+  ([obj name-re]
+   (filter (fn [member]
+             (re-matches name-re (str (:name member))))
+           (describe-api obj)))))
+
+;;;;;;;;;;;;;
+;; BONE-YARD
+;;;;;;;;;;;;;
+
+;; Made moot by issue 34
+;; #?(:clj
+;;    (deftest
+;;      ^{`voc/resource-type (fn [_] :issue-30)} ;; metadata is bound to the test name won't work under cljs
+;;      clj-issue-30-extend-via-metadata
+;;      (is (= (voc/resource-type #'clj-issue-30-extend-via-metadata)
+;;             :issue-30))))
+
+;; Made moot by issue 34
+;; (deftest issue-30-extend-via-metadata
+;;   ;; see also clj-issue-30-extend-via-metadata which binds to a var (clj only)
+;;   (let [my-thing ^{`voc/resource-type (fn [_] :issue-30)} {:name :issue-30-test}
+;;         ]
+;;     (is (= :issue-30
+;;            (voc/resource-type my-thing)))))
+

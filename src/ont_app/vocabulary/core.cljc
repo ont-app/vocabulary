@@ -8,6 +8,10 @@
                                               encode-kw-name
                                               encode-uri-string]]
    [ont-app.vocabulary.lstr :as lstr]
+   [ont-app.vocabulary.dstr :as dstr]
+   #?(:clj [clojure.instant :refer [read-instant-date]])
+   #?(:cljs [clojure.reader :as cljs-reader :refer [read-string]])
+   #?(:cljs [goog.date.DateTime :as DateTime])
    ))
 
 ;;;;;;;;;
@@ -56,21 +60,40 @@ NOTE: call this when you may have imported new namespace metadata
   (reset! prefix-to-ns-cache nil)
   (reset! namespace-re-cache nil))
 
-;;;;;;;;;;;;;;;;;;;;;;
-;; Resource protocol
-;;;;;;;;;;;;;;;;;;;;;;
+(def resource-type-context
+  "Atom naming the operative resource-type context. Informs `resource-type-dispatch`."
+  (atom ::resource-type-context))
 
-(defprotocol Resource
-  "Declare a `resource-class` to dispatch `as-kwi` `as-uri-string` `as-qname` methods"
-  (resource-class [this]))
+(defn resource-type-dispatch
+  "Returns [@resoruce-type-context (type this)]
+  - Where
+    - `this` is something which we may want to render as a URI or related construct.
+  "
+  [this]
+  (tap> {:type ::resource-type-dispatch
+         ::this this
+         ::resource-type-context @resource-type-context})
+  [@resource-type-context (type this)])
+
+(defmulti resource-type
+  "- Signature [this] -> `resource-type`, informed by @`resource-type-context`
+  - Where
+    - `this` is something renderable as a URI, KWI, qname, or some other resource ID.
+    - `resource-type` names a resource type on which `as-uri-string`, `as-kwi`, `as-qname` or other methods might be dispatched.
+    - @`resource-type-context` names a context. Default is ::resource-type-context.
+  - NOTE: `resource-type-dispatch` := [this] -> [@resource-type-context (type this)]
+  "
+  resource-type-dispatch)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; FUN WITH READER MACROS
 ;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 #?(:cljs
-   (cljs.reader/register-tag-parser! "lstr" lstr/read-LangStr)
-   )
+   (do
+     (cljs.reader/register-tag-parser! "lstr" lstr/read-LangStr-cljs)
+     (cljs.reader/register-tag-parser! "dstr" dstr/read-DatatypeStr-cljs)
+   ))
 
 #?(:cljs (enable-console-print!))
 
@@ -237,48 +260,51 @@ Where
   #?(:clj ns-map
      :cljs (fn [not-a-real-ns] {})))
 
-;;;; Extensions to Resource protocol ...
-
+;;;;;;;;;;;;;;;;;;
+;; resource types
+;;;;;;;;;;;;;;;;;;
 (declare prefixed-ns)
-(extend-protocol Resource
-  #?(:clj java.lang.String :cljs string)
-  (resource-class [this]
-    (cond
-      (spec/valid? :voc/uri-str-spec this)
-      :voc/UriString
 
-      (spec/valid? :voc/qname-spec this)
-      :voc/Qname
+(defmethod resource-type [::resource-type-context #?(:clj java.lang.String :cljs (type ""))]
+  [this]
+  (cond
+    (spec/valid? :voc/uri-str-spec this)
+    :voc/UriString
 
-      :else
-      :voc/NonUriString))
+    (spec/valid? :voc/qname-spec this)
+    :voc/Qname
 
-  #?(:clj clojure.lang.Keyword :cljs cljs.core/Keyword)
-  (resource-class [this]
-    (let [prefix (namespace this)
-          kw-name (name this)
-          ]
-      (if prefix
-        (let [ns' (or (cljc-find-ns (symbol prefix))
-                      (prefixed-ns prefix))
-              ]
-          (if ns' :voc/Kwi
-              ;; else
-              :voc/QualifiedNonKwi))
-        ;; else no prefix
+    :else
+    :voc/NonUriString))
+
+(defmethod resource-type [::resource-type-context
+                          #?(:clj clojure.lang.Keyword :cljs cljs.core/Keyword)]
+  [this]
+  (let [prefix (namespace this)
+        kw-name (name this)
+        ]
+    (if prefix
+      (let [ns' (or (cljc-find-ns (symbol prefix))
+                    (prefixed-ns prefix))
+            ]
+        (if ns' :voc/Kwi
+            ;; else
+            :voc/QualifiedNonKwi))
+      ;; else no prefix
+      (if (spec/valid? :voc/uri-str-spec kw-name)
+        :voc/Kwi
         :voc/UnqualifiedKeyword))))
 
 #?(:clj
-  (extend-type java.io.File
-    Resource
-    (resource-class [_] :voc/LocalFile)))
-
+   (defmethod resource-type [::resource-type-context java.io.File]
+     [_]
+     :voc/LocalFile))
        
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Differing escaping semantics
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(def unescaped-slash-re
+(def ^{:private true} unescaped-slash-re
   "Matches a string preceded by a backslash escape"
   #?(:clj #"[^\\][\/]"
      :cljs #"[^\\][/]"))
@@ -288,6 +314,21 @@ Where
   [s]
   #?(:clj (clojure.string/replace s #"/" "\\\\/")
      :cljs (clojure.string/replace s #"/" "\\/")))
+;;;;;;;;;;;;;;;;;;;;
+;; Parsing instants
+;;;;;;;;;;;;;;;;;;;;
+
+(defn cljc-to-date
+  "returns a string rendering of a date for xsd:dateTime."
+  [s]
+  #?(:clj (.toInstant s)
+     :cljs (.toISOString (js/Date. s))))
+
+(defn cljc-read-date
+  "Reads a date object from xsd:datetime."
+  [date]
+  #?(:clj (read-instant-date date)
+     :cljs (js/Date. date)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; NO READER MACROS BEYOND THIS POINT
@@ -426,7 +467,7 @@ dcat:mediaType relation for some dcat:downloadURL."]])
   {:pre [(string? prefix)]
    }
   (or (get (prefix-to-ns) prefix)
-      (get (cljc-ns-aliases) (symbol prefix))))
+      #_(get (cljc-ns-aliases) (symbol prefix))))
 
 (def ordinary-iri-str-re
   "A regex matching a standard IRI string."
@@ -450,10 +491,11 @@ dcat:mediaType relation for some dcat:downloadURL."]])
              kw-name (name k)]
          (or 
           (and prefix
+               (seq kw-name) ;; empty name is not a valid keyword
                (or (cljc-find-ns (symbol prefix))
                    (prefixed-ns prefix)
                    ))
-          (re-matches *exceptional-iri-str-re* kw-name)))))
+          (spec/valid? :voc/uri-str-spec kw-name)))))
 
 
 (defn kwi-missing-namespace-if-not-urn-or-arn
@@ -500,8 +542,8 @@ dcat:mediaType relation for some dcat:downloadURL."]])
     - `namespace` is typically of the form http://...., declared with 
       `:vann/preferredNamespaceUri` in metadata of `ns`"
   ([kw]
-   (uri-for default-on-no-kwi-ns kw)
-   )
+   (uri-for default-on-no-kwi-ns kw))
+
   ([on-no-kwi-ns kw]
    {:pre [(keyword? kw)]
     }
@@ -633,7 +675,14 @@ dcat:mediaType relation for some dcat:downloadURL."]])
 
 (defn qname-re []
   "Returns a regex s.t. 'my-ns:my-name' will parse to ['my-ns:my-name' 'my-ns' 'my-name']"
-  (re-pattern (str (prefix-re-str) "(.*)$")))
+  (let [name-pattern (str "("            ;; start group
+                          ""             ;; either nothing
+                          "|"            ;; or
+                          "[^#:].*"      ;; doesn't start with invalid char
+                          ")"            ;; end group
+                          "$"            ;; end of string
+                          )]
+    (re-pattern (str (prefix-re-str) name-pattern))))
 
 (defn- match-qname-spec
   "Truthy when `s` conforms to spec :voc/qname-spec."
@@ -725,9 +774,11 @@ dcat:mediaType relation for some dcat:downloadURL."]])
                      sparql-string)))
 
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Methods keyed to Resource protocol resource-class
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Methods keyed to resource-type
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(declare as-uri-string)
 
 (defmulti as-kwi
   "Returns keyword identifier for an instance of Resource.
@@ -735,7 +786,7 @@ dcat:mediaType relation for some dcat:downloadURL."]])
   - Where:
     - `this` is an instance of RESOURCE
     - `kwi` conforms to :voc/kwi-spec"
-  resource-class)
+  resource-type)
 
 (defmethod as-kwi :voc/Kwi
   [this]
@@ -744,10 +795,9 @@ dcat:mediaType relation for some dcat:downloadURL."]])
 
 (defmethod as-kwi :voc/Qname
   [this]
-  {:post [(spec/assert :voc/kwi-spec %)]}    
-  (keyword-for this))
+  {:post [(spec/assert :voc/kwi-spec %)]}
+  (keyword-for (as-uri-string this)))
 
-(declare as-uri-string)
 (defmethod as-kwi :voc/KwiInferredFromUriString
   [this]
   {:post [(spec/assert :voc/kwi-spec %)]}    
@@ -758,6 +808,7 @@ dcat:mediaType relation for some dcat:downloadURL."]])
 
 (defmethod as-kwi :voc/UriString
   [this]
+  {:post [(spec/assert :voc/kwi-spec %)]}
   (keyword-for this))
 
 (defmethod as-kwi :default
@@ -765,7 +816,7 @@ dcat:mediaType relation for some dcat:downloadURL."]])
   (throw (ex-info (str "No `as-kwi` method for " this)
                   {:type ::no-as-kwi-method
                    ::this this
-                   ::resource-class (resource-class this)
+                   ::resource-type (resource-type this)
                    })))
 
 (defmulti as-uri-string
@@ -774,19 +825,17 @@ dcat:mediaType relation for some dcat:downloadURL."]])
   - Where
     - `this` is a Resource
     - `uri-string` conforms to `:voc/uri-str-spec`"
-  resource-class)
+  resource-type)
 
 (defmethod as-uri-string :voc/UriString
   [this]
   {:post [(spec/assert :voc/uri-str-spec %)]}
-  this
-  )
+  this)
 
 (defmethod as-uri-string :voc/UriStringInferredFromKwi
   [this]
   {:post [(spec/assert :voc/uri-str-spec %)]}  
-  (uri-for (as-kwi this))
-  )
+  (uri-for (as-kwi this)))
 
 (defmethod as-uri-string :voc/Kwi
   [this]
@@ -812,7 +861,7 @@ dcat:mediaType relation for some dcat:downloadURL."]])
   (throw (ex-info (str "No `as-uri-string` method for " this)
                   {:type ::no-as-kwi-method
                    ::this this
-                   ::resource-class (resource-class this)
+                   ::resource-type (resource-type this)
                    })))
 
 (defmulti as-qname
@@ -821,17 +870,117 @@ dcat:mediaType relation for some dcat:downloadURL."]])
   - Where
     - `this` is an instance of `Resource`
     - `qname` conforms to `:voc/qname-spec`"
-  resource-class)
+  resource-type)
 
 (defmethod as-qname :voc/Qname
   [this]
-  {:post [(spec/assert :voc/uri-str-spec %)]}    
+  {:post [(spec/assert :voc/qname-spec %)]}
   this)
 
 (defmethod as-qname :default
   [this]
   {:post [(spec/assert :voc/qname-spec %)]}      
   (qname-for (as-kwi this)))
+
+(defmulti resource=
+  "Truthy when two different resource identifiers refer to the same resource
+  - Signature: [this that] -> truthy
+  - Where
+    - `this` is a Resource
+    - `that` is a Resource
+  "
+  (fn [this that] [(resource-type this) (resource-type that)]))
+
+(defmethod resource= :default
+  [this that]
+  (= (as-uri-string this) (as-uri-string that)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Typed Literal support
+;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defn tag-dispatch
+  "Returns `tag` for `obj` with optional `tag-spec`
+  - Where
+    - `obj` is something to be tagged
+    - `tag-spec` is a resource, or (@lstr/default-tags (type `obj`))
+    - `tag` := (as-kwi `tag-spec`)
+  "
+  ([obj]
+   (if-let [tag-spec (@dstr/default-tags (type obj))]
+     (tag-dispatch obj tag-spec)
+     ;; else no entry in default tags
+     (throw (ex-info (str "No tag found for type " (type obj) " of `obj`")
+                     {:type ::no-tag-found
+                      ::obj obj
+                      ::obj-type (type obj)
+                      ::tag-keys (keys @dstr/default-tags)}))))
+  ([obj tag-spec]
+   (as-kwi tag-spec)))
+
+(defmulti tag
+  "Signature [`obj` & maybe `tag-spec`] -> `dstr`
+  - Where
+    - `obj` is something to be tagged
+    - `tag-spec` is a resource, or (@lstr/default-tags (type `obj`))
+    - `dstr` :~ #voc/dstr `obj`^^`tag`
+    - `tag` := (as-kwi `tag-spec`)
+  "
+  tag-dispatch)
+
+(defmethod tag :xsd/dateTime
+  [obj & _]
+  (dstr/->DatatypeStr (-> obj cljc-to-date str)
+                      "xsd:dateTime"))
+
+(defmethod tag :default
+  ([obj]
+   (tag obj (@dstr/default-tags (type obj))))
+  ([obj tag]
+   (dstr/->DatatypeStr (str obj) (as-qname tag))))
+
+(defn untag-dispatch
+  "Returns (as-kwi `tag`) for `dstr`
+  - Where
+    - `dstr` :~ #voc/dstr `obj`^^`tag`
+    - `tag` := (as-qname `tag-spec`)
+    "
+  [dstr & _]
+  (as-kwi (dstr/datatype dstr)))
+
+(defmulti untag
+  "Signature: [`dstr` & maybe `on-not-found-fn`?]
+  - returns: clojure value appropriate to (as-kwi `tag`)
+  - Where
+    - `dstr` :~ #voc/dstr `obj`^^`tag`
+    - `on-not-found-fn` := fn [dstr] -> clojure value or error.
+       - Default is `error-on-no-untag-found`.
+  "
+  untag-dispatch)
+
+(defmethod untag :xsd/Boolean  [obj] {:post [(boolean? %)]} (read-string (str obj)))
+(defmethod untag :xsd/dateTime [obj] (cljc-read-date (str obj)))
+(defmethod untag :xsd/long     [obj] (read-string (str obj)))
+(defmethod untag :xsd/int      [obj] (read-string (str obj)))
+(defmethod untag :xsd/integer  [obj] (read-string (str obj)))
+(defmethod untag :xsd/double   [obj] (read-string (str obj)))
+(defmethod untag :xsd/string   [obj] (str obj))
+(defmethod untag :xsd/short    [obj] (short (read-string (str obj))))
+(defmethod untag :xsd/float    [obj] (float (read-string (str obj))))
+(defmethod untag :xsd/byte     [obj] (byte (read-string (str obj))))
+
+(defn error-on-no-untag-found
+  "Default response to a case where no `untag` method was found."
+  [dstr]
+  (throw (ex-info (str "No untag method found for " dstr "^^" (dstr/datatype dstr))
+                  {:type ::no-untag-method-found
+                   ::dstr dstr})))
+
+(defmethod untag :default
+   ([dstr]
+    (untag dstr error-on-no-untag-found))
+   ([dstr on-not-found]
+    (on-not-found dstr)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; ;;; NAMESPACE DECLARATIONS
@@ -1014,6 +1163,18 @@ dcat:mediaType relation for some dcat:downloadURL."]])
      :foaf/homepage "https://www.w3.org/2001/XMLSchema"
      })
 
+(put-ns-meta! 'qudt
+   {:vann/preferredNamespacePrefix "qudt"
+    :vann/preferredNamespaceUri "http://qudt.org/schema/qudt/"
+    :doc "Quantities, Units, Dimenstions and Datatypes vocabulary. Main vocabulary."
+    })
+
+(put-ns-meta! 'unit
+   {:vann/preferredNamespacePrefix "unit"
+    :vann/preferredNamespaceUri "http://qudt.org/vocab/unit#"
+    :doc "Quantities, Units, Dimenstions and Datatypes vocabulary (units module)."
+    })
+
 ;;;;;;;;;;;;;;;
 ;; deprecated
 ;;;;;;;;;;;;;;;
@@ -1030,3 +1191,14 @@ dcat:mediaType relation for some dcat:downloadURL."]])
 (defmethod uri-str-for :default
   [x]
   (as-uri-string x))
+
+^:deprecated
+(def exceptional-iri-str-re
+  "deprecated alias for dynamic var *exceptional-iri-str-re*"
+  *exceptional-iri-str-re*)
+
+^:deprecated
+(defprotocol Resource
+  "Deprecated. Use resource-type multimethod instead."
+  :extend-via-metadata true
+  (resource-class [this]))

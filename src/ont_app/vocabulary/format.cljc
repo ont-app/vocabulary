@@ -37,11 +37,11 @@
 #?(:clj
    (defn get-escapes
   "Returns {`test-breaker` `escaped`, ...} for `char-test` and `escape-fn`
-  Where
-  - `test-breaker` is a char that breaks `char-test`
-  - `escaped` is a string escaping `c`
-  - `char-test` := fn [c] -> true if the char does not need escaping
-  - `escape-fn` := fn [c] -> `escaped`
+  - Where
+    - `test-breaker` is a char that breaks `char-test`
+    - `escaped` is a string escaping `c`
+    - `char-test` := fn [c] -> true if the char does not need escaping
+    - `escape-fn` := fn [c] -> `escaped`
   "
   ([char-test escape-fn]
    (get-escapes char-test escape-fn identity))

@@ -1,13 +1,20 @@
 # Change Log
 All notable changes to this project will be documented in this file. This change log follows the conventions of [keepachangelog.com](http://keepachangelog.com/).
 
+v 0.4.0
+  - Adding support for #voc/dstr tag for typed literals (issue 33)
+  - Adding resource= function
+  - BREAKING: Resource protocol -> resource-class multimethod (issue 34)
+
 v 0.3.0
   - Adding `Resource` protocol with method `resource-class`
   - Addding methods `as-uri-string`, `as-kwi`, `as-qname` dispatched on `resource-class`
   - Adding and enforcing specs for uri strings, kwis, qnames, and namespace metadata
+
 v 0.2.2
   - Adding uri-str-for to infer URI strings
   - Tweak to uri-for
+
 v 0.2.1
 - Tweaks to README
 - Refinement on print-method implementation for LangStr

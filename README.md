@@ -9,23 +9,15 @@ This library should work under both clojure and clojurescript.
 - [Installation](#installation)
 - [A brief synopsis](#a-brief-synopsis)
 - [Motivation](#motivation)
-- [The `Resource` protocol](#the-resource-protocol)
-  - [`resource-class`](#resource-class)
-  - [Existing `Resource` extensions](#existing-resource-extensions)
-  - [X-inferred-from-Y resource classes](#x-inferred-from-y-resource-classes)
 - [Defining keyword Identifiers (KWIs) mapped to URI namespaces](#defining-kwis)
   - [Basic namespace metadata](#basic-namespace-metadata)
   - [Adding vann metadata to a Clojure Var](#adding-vann-metadata-to-a-clojure-var)
   - [Working with URI strings, KWIs, and qnames](#working-with-kwis-etc)
-    - [Higher-level methods](#higher-level-methods)
-      - [`as-uri-string`](#as-uri-string)
-      - [`as-kwi`](#as-kwi)
-      - [`as-qname`](#as-qname)
-    - [Lower-level functions](#lower-level-functions)
-      - [`uri-for`](#uri-for)
-        - [URI syntax](#uri-syntax)
-      - [`keyword-for`](#keyword-for)
-      - [`qname-for`](#qname-for)
+    - [`as-uri-string`](#as-uri-string)
+      - [URI syntax](#uri-syntax)
+    - [`as-kwi`](#as-kwi)
+    - [`as-qname`](#as-qname)
+    - [`resource=`](#resource-equal)
   - [Accessing-namespace-metadata](#accessing-namespace-metadata)
     - [`put-ns-meta!` and `get-ns-meta`](#put-ns-meta)
     - [`prefix-to-ns`](#prefix-to-ns)
@@ -33,14 +25,23 @@ This library should work under both clojure and clojurescript.
     - [`namespace-to-ns`](#namespace-to-ns)
     - [`ns-to-prefix`](#ns-to-prefix)
     - [`clear-caches!`](#clear-caches)
-  - [Support for SPARQL queries](#support-for-sparql-queries)
-    - [`sparql-prefixes-for`](#sparql-prefixes-for)
-    - [`prepend-prefix-declarations`](#prepend-prefix-declarations)
-  - [Common Linked Data namespaces](#common-linked-data-namespces)
-    - [Imported with_ont-app.vocabulary.core](#imported-with-voc)
-    - [Imported with ont-app.vocabulary.wikidata](#imported-with-wd)
-    - [Imported with ont-app.vocabulary.linguistics](#imported-with-ling)
+- [Resource types](#resource-types)
+  - [The `resource-type` multimethod](#the-resource-type-multimetod)
+    - [The `resource-type-context` atom](#the-resource-type-context-atom)
+  - [Existing resource types](#existing-resource-types)
+  - [X-inferred-from-Y resource types](#x-inferred-from-y)
 - [Language-tagged strings](#language-tagged-strings)
+- [Typed Literals](#typed-literals)
+  - [The `tag` multimethod](#the-tag-multimethod)
+  - [The `untag` multimethod](#the-untag-multimethod)
+- [Common Linked Data namespaces](#common-linked-data-namespces)
+  - [Imported with_ont-app.vocabulary.core](#imported-with-voc)
+  - [Imported with ont-app.vocabulary.wikidata](#imported-with-wd)
+  - [Imported with ont-app.vocabulary.linguistics](#imported-with-ling)
+- [Support for SPARQL queries](#support-for-sparql-queries)
+  - [`sparql-prefixes-for`](#sparql-prefixes-for)
+  - [`prepend-prefix-declarations`](#prepend-prefix-declarations)
+
 - [License](#license)
 
 ## Installation
@@ -57,8 +58,7 @@ For which see the declarations for your favorite build tool.
 ```clj
 (ns ...
  (:require
-   [ont-app.vocabulary.core :as voc] 
-   ))
+   [ont-app.vocabulary.core :as voc]))
 
 ```
 
@@ -75,6 +75,11 @@ For which see the declarations for your favorite build tool.
 ```clj
 > (voc/as-qname :rdfs/subClassOf
 "rdfs:subClassOf"
+```
+
+```clj
+> (voc/resource= :rdfs/subClassOf "http://www.w3.org/2000/01/rdf-schema#subClassOf")
+true
 ```
 
 This works off of metadata assigned to namespaces or vars:
@@ -97,8 +102,16 @@ This works off of metadata assigned to namespaces or vars:
 "tmp:myfile.txt"
 ```
 
-These methods are dispatched on a `resource-class` method in the
-`Resource` protocol discussed [below](#the-resource-protocol).
+These methods are dispatched on a `resource-type` method in the
+discussed [below](#the-resource-type-method).
+
+RDF-style language tags and typed literals are also supported ...
+
+```
+(def my-thing {:name #{"my thing@en" "meine Sache@de "mi cosa@es" "我的东西@zh"}
+               :height "2.3^^unit:Meter})
+
+```
 
 ## Motivation
 Clojure provides for the definition of
@@ -136,102 +149,10 @@ vs. `"jail"@en-US`. This library defines a custom reader tag
 `voc/lstr` for declaring similar language-tagged strings,
 e.g. `#voc/lstr "gaol@en-GB"` and `#voc/lstr "jail@en-US"`.
 
-## The `Resource` protocol
+There is a similar arrangement for [typed
+literals](https://www.w3.org/TR/rdf11-concepts/#section-Datatypes)
+using the #voc/dstr tag, e.g. `#voc/dstr "1^^unit:Meter"`.
 
-The most straightforward way to work with this library is to work with
-the `Resource` protocol, which requires a single `resource-class`
-method.
-
-### `resource-class`
-
-This method maps a Resource to a dispatch value for the following multimethods:
-
-- `as-uri-string`
-  - returns string for a standard URI
-- `as-kwi`
-  - returns a KeyWord Identifier equivalent to the corresponding URI
-- `as-qname`
-  - returns a [qname](https://en.wikipedia.org/wiki/QName) equivalent
-    for the corresponding URI, or if necessary a value in angle
-    brackets which can be embedded in turtle or a SPARQL query. The
-    default for this method can derive the qname from the KWI.
-
-Here's a toy example:
-
-```clj
-> (ns com.example.acme.employees
-   {:vann/preferredNamespacePrefix "acme-empl"
-    :vann/preferredNamespaceUri "http://rdf.example.com/acme/employees"
-    }
-    (:require
-     ...
-     [ont-app.vocabulary.core :as voc :refer [Resource resource-class]]
-     ...
-     ))
-
-> (defrecord Employee [name employee-id]
-    Resource
-    (resource-class [_] ::EmployeeId))
-
-> (defmethod voc/as-uri-string ::EmployeeId
-    [this]
-    (str "http://rdf.example.com/acme/employees/id=" (:employee-id this)))
-
-> (derive ::EmployeeId :voc/KwiInferredFromUriString)
-
-> (def smith (->Employee "George Smith" 42))
-{:name "George Smith", :employee-id 42}
-
-> (voc/as-uri-string smith)
-"http://rdf.example.com/acme/employees/id=42"
-
-> (voc/as-kwi smith)
-:acme-empl/id=42
-
-> (voc/as-qname smith)
-"acme-empl:id=42"
-```
-
-See [below](#x-inferred-from-y-resource-classes) for an explanation of
-`(derive ::EmployeeUrn :voc/KwiInferredFromUriString)`
-
-
-### Existing Resource extensions
-
-The following existing classes have declared `Resource` extensions as follows:
-
-| Resource | maps to resource class|
-| --- | --- |
-| _java.lang.String_ <br/> javascript string | `:voc/UriString` <br/> `:voc/Qname` <br/> `:voc/NonUriString` |
-| _clojure.lang.Keyword_ <br/> _cljs.core/Keyword_ | `:voc/Kwi`<br/>`:voc/QualifiedNonKwi`<br/>`:voc/UnqualifiedKeyword` |
-| _java.io.File_ | `:voc/LocalFile` |
-
-Of the resource class tags defined above, there are "as-X" methods
-defined for the following:
-
-- `:voc/UriString`
-- `:voc/Qname`
-- `:voc/Kwi`
-- `:voc/LocalFile`
-
-### X inferred from Y resource classes
-
-Methods dispatched on the following resource class tags are also defined:
-
-- `:voc/KwiInferredFromUriString`
-  - Derives the KWI based on the `as-uri-string` method, and vann metadata
-- `:voc/UriStringInferredFromKwi`
-  - Derives the URI string based on the `as-kwi` method, and vann metadata
-
-Recall how this was used in the example above:
-
-```clj
-> (defmethod voc/as-uri-string ::EmployeeId
-    [this]
-    (str "http://rdf.example.com/acme/employees/id=" (:employee-id this)))
-
-> (derive ::EmployeeId :voc/KwiInferredFromUriString)
-```
 
 <a name="defining-kwis"></a>
 ## Defining Keyword Identifiers (KWIs) mapped to URI namespaces
@@ -250,7 +171,9 @@ declarations](#imported-with-voc), each dedicated to a commonly
 occurring namespace in the world of LOD.
 
 ### Basic namespace metadata 
-Within standard (JVM-based) clojure, the minimal specification to support ont-app/vocabulary functionality for a given namespace requires metadata specification as follows:
+Within standard (JVM-based) clojure, the minimal specification to
+support ont-app/vocabulary functionality for a given namespace
+requires metadata specification as follows:
 
 ```clj
 (ns org.example
@@ -330,107 +253,41 @@ All the same behaviors described herein for namespace metadata will apply.
 <a name="working-with-kwis-etc"></a>
 ### Working with URI strings, KWIs, and qnames
 
-#### Higher-level methods
+Resources for which the [`resource-type`](#resource-type) can be
+derived can be rendered as URI strings, KWIs, and qnames using the
+functions described below.
 
-Starting with version 0.3, most of your interaction will typically be
-through the methods in this section.
+#### `as-uri-string`
 
-##### `as-uri-string`
+This maps instances of the resource type to a URI string.
 
-This is a method dispatched on `resource-class`, mapping instances of
-the resource class to a URI string.
-
-##### `as-kwi`
-
-This is a method dispatched on `resource-class`, mapping instances of
-the resource class to a KeyWord Identifier (KWI). This will be a
-qualfied keyword whose namespace is the prefix declared in `vann`
-metadata.
-
-##### `as-qname`
-
-This is a method dispatched on `resource-class`, mapping instances of
-the resource class to a string embeddable in many RDF formats. Where
-possible this will use the prefixes declared in `vann` metadata, but
-on occasion it may fall back on a URI enclosed in angle brackets.
-
-#### Lower-level functions
-
-The functions below provide lower-level supporting logic to the
-methods described above.
-
-##### `uri-for`
-
-We can get the URI string associated with a keyword:
-
-```clj
-> (voc/uri-for :eg/Example)
-"http://example.org/Example"
->
-```
-
-This function is called `uri-for` to reflect common usage, but because
-any UTF-8 characters can be used, these are actually
-[IRIs](https://en.wikipedia.org/wiki/Internationalized_Resource_Identifier). The
-function _iri-for_ function is also defined as an alias of _uri-for_.
-
-###### URI syntax
+##### URI syntax
 
 There are two dynamic variables defined to recognize and partially
 parse URI strings under _ont-app/vocabulary_.
 
 - `voc/ordinary-iri-str-re` by default is defined as `"^(http:|https:|file:).*"`
-- `voc/exceptional-iri-str-re` by default is defined as `#"^(urn:|arn:).*"`
+- `voc/*exceptional-iri-str-re*` by default is defined as `#"^(urn:|arn:).*"`
+  - A dynamic variable. Can be rebound to recognize other patterns as needed
 
-These can be [rebound](https://clojuredocs.org/clojure.core/binding)
-as needed to match against URIs for your specific use case.
+#### `as-kwi`
 
-##### `keyword-for`
+Maps  instances of the resource type to a KeyWord Identifier (KWI). This will be a
+qualfied keyword whose namespace is the prefix declared in `vann` metadata.
 
-We can get a keyword for a URI string...
+#### `as-qname`
 
-```clj
-> (voc/keyword-for "http://xmlns.com/foaf/0.1/homepage")
-:foaf/homepage
->
-```
+Maps instances of the resource type to a
+[qname](https://en.wikipedia.org/wiki/QName) string embeddable in many
+RDF formats. Where possible this will use the prefixes declared in
+`vann` metadata, but failing that it will fall back on a URI enclosed
+in angle brackets.
 
-If the namespace does not have sufficient metadata to create a
-namespaced keyword, the keyword will be interned as an unqualified
-keyword, escaped to conform with proper keyword syntax:
+<a name="resource-equal"></a>
+#### `resource=`
 
-```clj
-> (voc/keyword-for "http://example.com/my/stuff")
-:http:%2F%2Fexample.com%2Fmy%2Fstuff
->
-```
-
-Characters which would choke the reader will be %-escaped. These characters differ depending on whether we're using the jvm or cljs platforms.
-
-There is an optional arity-2 version whose first argument is called
-when no ns could be resolved:
-
-```clj
-> (voc/keyword-for (fn [u k] 
-                     (log/warn "No namespace metadata found for " u) 
-                     (keyword-for u))
-                  "http://example.com/my/stuff)
-
-WARN: No namespace metadata found for "http://example.com/my/stuff"
-:http:%2F%2Fexample.com%2Fmy%2Fstuff
->          
-```
-
-##### `qname-for`
-
-We can get the [qname](https://en.wikipedia.org/wiki/QName) for a
-keyword, suitable for insertion into RDF or SPARQL source:
-
-```clj
-> (voc/qname-for :foaf/homepage)
-"foaf:homepage"
->
-```
+Returns a truthy value when two different resources map to the same
+URI, regardless of datatype.
 
 ### Accessing namespace metadata
 
@@ -602,35 +459,110 @@ need to clear the caches:
 > (voc/clear-caches!)
 ```
 
-### Support for SPARQL queries
+## Resource types
 
-RDF is explicitly constructed from URIs, and there is an intimate
-relationship between [SPARQL](https://en.wikipedia.org/wiki/SPARQL)
-queries and RDF namespaces. `ont-app/vocabulary` provides facilities
-for extracting SPARQL prefix declarations from queries containing
-qnames.
+The `as-uri-string`, `as-kwi`, `as-qname` and `resource=` methods are
+each despatched on the `resource-type` multimethod, which in turn can
+be associated with named context layers.
 
-#### `sparql-prefixes-for`
-We can infer the PREFIX declarations appropriate to a SPARQL query:
+### The `resource-type` multimethod
+
+Each of the methods described above are dispatched on a method
+`(resource-type <value>) -> [ <context> <datatype>]`.
+
+The operative context is specified in the @voc/resource-type-context
+atom described below.
+
+#### The `resource-type-context` atom
+
+Different application domains may need to make different distinctions
+between resource types (for example RDF requires that we recognize
+blank nodes). The `voc/resource-type-context` holds the operative
+resource type context on which to dispatch resource types.
+
+The default for this is `::voc/resource-type-context`.
+
+Here's a toy example:
+
 ```clj
-> (voc/sparql-prefixes-for
-             "Select * Where{?s foaf:homepage ?homepage}")
-("PREFIX foaf: <http://xmlns.com/foaf/0.1/>")
->
+> (ns com.example.acme.employees
+   {:vann/preferredNamespacePrefix "acme-empl"
+    :vann/preferredNamespaceUri "http://rdf.example.com/acme/employees"
+    }
+    (:require
+     ...
+     [ont-app.vocabulary.core :as voc]
+     ...
+     ))
+
+> (defrecord Employee [name employee-id])
+
+> (defmethod voc/resource-type [::voc/resource-type-context Employee]
+  [_] ::EmployeeId)
+
+> (defmethod voc/as-uri-string ::EmployeeId
+    [this]
+    (str "http://rdf.example.com/acme/employees/id=" (:employee-id this)))
+
+> (defmethod voc/as-kwi ::EmployeeId
+  [this]
+  (voc/as-kwi (voc/as-uri-string this)))
+
+> (def smith (->Employee "George Smith" 42))
+{:name "George Smith", :employee-id 42}
+
+> (voc/as-uri-string smith)
+"http://rdf.example.com/acme/employees/id=42"
+
+> (voc/as-kwi smith)
+:acme-empl/id=42
+
+> (voc/as-qname smith)
+"acme-empl:id=42"
+
+> (voc/resource= :acme-empl/id=42 "http://rdf.example.com/acme/employees/id=42")
+true
+```
+### Existing resource types
+
+The following existing classes have declared `Resource` extensions as follows:
+
+| Resource | maps to resource type|
+| --- | --- |
+| _java.lang.String_ <br/> javascript string | `:voc/UriString` <br/> `:voc/Qname` <br/> `:voc/NonUriString` |
+| _clojure.lang.Keyword_ <br/> _cljs.core/Keyword_ | `:voc/Kwi`<br/>`:voc/QualifiedNonKwi`<br/>`:voc/UnqualifiedKeyword` |
+| _java.io.File_ | `:voc/LocalFile` |
+
+Of the resource class tags defined above, there are "as-X" methods
+defined for the following:
+
+- `:voc/UriString`
+- `:voc/Qname`
+- `:voc/Kwi`
+- `:voc/LocalFile`
+
+
+<a name=x-inferred-from-y></a>
+### X inferred from Y resource types
+
+Methods dispatched on the following resource class tags are also defined:
+
+- `:voc/KwiInferredFromUriString`
+  - Derives the KWI based on the `as-uri-string` method, and vann metadata
+- `:voc/UriStringInferredFromKwi`
+  - Derives the URI string based on the `as-kwi` method, and vann metadata
+
+So in the the example above we could have done this:
+
+```clj
+> (defmethod voc/as-uri-string ::EmployeeId
+    [this]
+    (str "http://rdf.example.com/acme/employees/id=" (:employee-id this)))
+
+> (derive ::EmployeeId :voc/KwiInferredFromUriString)
 ```
 
-#### `prepend-prefix-declarations`
-Or we can just go ahead and prepend the prefixes...
-
-```clj
-> (voc/prepend-prefix-declarations
-               "Select * Where {?s foaf:homepage ?homepage}")
-"PREFIX foaf: <http://xmlns.com/foaf/0.1/>
-Select * Where{?s foaf:homepage ?homepage}"
->
-```
-
-### Common Linked Data namespaces
+## Common Linked Data namespaces
 
 Part of the vision of the `ont-app` project is to provide a medium for
 expressing what adherents to Domain-driven Design and Behavior-driven
@@ -648,7 +580,7 @@ of their associated namespaces, packaged within the core module, a
 module dedicated to wikidata, and another dedicated to linguistics. 
 
 <a name="imported-with-voc"></a>
-#### Imported with _ont-app.vocabulary.core_
+### Imported with _ont-app.vocabulary.core_
 
 Requiring the `ont-app.vocabulary.core` module also loads `ns`
 declarations dedicated to some of the most commonly used RDF/Linked
@@ -668,6 +600,8 @@ Open Data prefixes:
 | [foaf](http://xmlns.com/foaf/spec/) | http://xmlns.com/foaf/spec/ | the 'Friend of a Friend' vocabulary |
 | [skos](https://www.w3.org/2009/08/skos-reference/skos.html) | http://www.w3.org/2004/02/skos/core# |for thesaurus-type taxonomies |
 | [schema.org](https://schema.org/) | https://schema.org/ |  mostly commercial topics, with web-page metadata and search-engine indexes in mind |
+| [qudt](http://qudt.org) | http://qudt.org/schema/qudt/| Units, Dimensions and Datatypes vocabulary. |
+| [unit](http://qudt.org) | http://qudt.org/vocab/unit#| Units module of the QUDT vocabulary. |
 
 <a name="imported-with-wd"></a>
 ### Imported with _ont-app.vocabulary.wikidata_
@@ -745,6 +679,137 @@ We get the language tag with `lang`:
 >
 ```
 
+## Typed literals
+
+RDF has a regime for representing [tagged
+datatpes](https://www.w3.org/TR/rdf11-concepts/#section-Datatypes)
+analogous to language tags, e.g. `1^^xsd:integer`. The
+`ont-app.vocabulary.dstr` module provides support for a similar
+approach in clojure using `#voc/dstr`...
+
+```clj
+> (voc/tag 42)
+#voc/dstr "42^^xsd:long"
+> (type #voc/dstr "42^^xsd:long")
+ont_app.vocabulary.dstr.DatatypeStr
+> (str #voc/dstr "42^^xsd:long")
+"42"
+> (dstr/datatype #voc/dstr "42^^xsd:long")
+"xsd:long"
+> (voc/as-uri-string (dstr/datatype #voc/dstr "42^^xsd:long"))
+"http://www.w3.org/2001/XMLSchema#long"
+> (voc/untag #voc/dstr "42^^xsd:long")
+42
+> (voc/tag (short 42))
+#voc/dstr "42^^xsd:short"
+> (untag #voc/dstr "42^^xsd:short")
+42
+> (type *1)
+java.lang.Short
+```
+
+### The `tag` multimethod
+
+This takes one or two arguments.
+
+With a second argument we can explicitly specify the datatype
+resource. The datatype spec will be translated with `voc/as-qname`...
+
+```clj
+> (voc/tag 1 :qudt/Meter)
+#voc/dstr "1^^qudt:Meter"
+```
+
+We can omit the second argument if the type of the object is
+registered in `dstr/default-tags` ...
+
+```clj
+> dstr/default-tags
+#<Atom@793bab96:
+  {java.lang.Long "xsd:long",
+   java.lang.Double "xsd:double",
+   java.lang.Boolean "xsd:Boolean",
+   java.util.Date "xsd:dateTime",
+   java.lang.String "xsd:string",
+   java.lang.Short "xsd:short",
+   java.lang.Byte "xsd:byte",
+   java.lang.Float "xsd:float"}>
+
+> (voc/tag #inst "2000")
+#voc/dstr "2000-01-01T00:00:00Z^^xsd:dateTime"
+```
+
+Here's a definition of the method for `:xsd/dateTime`:
+
+```clj
+(defmethod tag :xsd/dateTime
+  [obj & _]
+  (dstr/->DatatypeStr (-> obj (.toInstant) str)
+                      "xsd:dateTime"))
+```
+
+### The `untag` multimethod
+
+This is the inverse of the `tag` method.
+
+Typically we provide a single DatatypeStr instance, returning a native clojure instance...
+```clj
+> (voc/untag #voc/dstr "2000-01-01T00:00:00Z^^xsd:dateTime")
+#inst "2000-01-01T00:00:00.000-00:00"
+```
+
+... with the operative defmethod...
+
+```clj
+(defmethod untag :xsd/dateTime
+  [obj]
+  (clojure.instant/read-instant-date (str obj)))
+```
+
+There is an optional second argument to handle cases where there is no
+untag method for the datatype in question.
+
+With one argument we'll get an error...
+
+```clj
+> (voc/untag #voc/dstr "1^^qudt:Meter")
+Execution error (ExceptionInfo) ... No untag method found for 1^^qudt:Meter
+```
+
+... so let's just return the original value...
+
+```clj
+> (voc/untag #voc/dstr "1^^qudt:Meter" identity)
+#voc/dstr "1^^qudt:Meter"
+```
+
+## Support for SPARQL queries
+
+RDF is explicitly constructed from URIs, and there is an intimate
+relationship between [SPARQL](https://en.wikipedia.org/wiki/SPARQL)
+queries and RDF namespaces. `ont-app/vocabulary` provides facilities
+for extracting SPARQL prefix declarations from queries containing
+qnames.
+
+### `sparql-prefixes-for`
+We can infer the PREFIX declarations appropriate to a SPARQL query:
+```clj
+> (voc/sparql-prefixes-for
+             "Select * Where{?s foaf:homepage ?homepage}")
+("PREFIX foaf: <http://xmlns.com/foaf/0.1/>")
+>
+```
+
+### `prepend-prefix-declarations`
+Or we can just go ahead and prepend the prefixes...
+
+```clj
+> (voc/prepend-prefix-declarations
+               "Select * Where {?s foaf:homepage ?homepage}")
+"PREFIX foaf: <http://xmlns.com/foaf/0.1/>
+Select * Where{?s foaf:homepage ?homepage}"
+>
+```
 
 <a name="h2-license"></a>
 ## License

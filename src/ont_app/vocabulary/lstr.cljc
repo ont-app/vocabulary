@@ -2,19 +2,21 @@
   {:doc "Defines LangStr type to inform #voc/lstr custom reader tag"
    :author "Eric D. Scott"
    }
-  #?(:cljs
-     (:require [cljs.compiler]))
-  )
+  (:require
+   [clojure.spec.alpha :as spec]
+   #?(:cljs [cljs.compiler])))
+
+
+;;;;;;;;
+;; spec
+;;;;;;;;;
+(declare langstring-re)
+
+(spec/def :lstr/valid-string langstring-re)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; LANGSTR
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-;; defrecord
-#_(defrecord LangStr [s lang]
-  Object
-  (toString [_] s)
-  )
 
 (deftype LangStr [s lang]
    Object
@@ -69,7 +71,7 @@
   (#?(:clj .lang
       :cljs .-lang) langStr))
 
-(def langstring-re
+(def ^:private langstring-re
   "A regex matching and destructuring valid LangStr format."
   #?(:clj #"(?s)^(.*)@([-a-zA-Z]+)"
      ;; (?s) Dot matches all (including newline)
