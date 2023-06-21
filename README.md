@@ -26,7 +26,7 @@ This library should work under both clojure and clojurescript.
     - [`ns-to-prefix`](#ns-to-prefix)
     - [`clear-caches!`](#clear-caches)
 - [Resource types](#resource-types)
-  - [The `resource-type` multimethod](#the-resource-type-multimetod)
+  - [The `resource-type` multimethod](#the-resource-type-multimethod)
     - [The `resource-type-context` atom](#the-resource-type-context-atom)
   - [Existing resource types](#existing-resource-types)
   - [X-inferred-from-Y resource types](#x-inferred-from-y)
@@ -34,7 +34,7 @@ This library should work under both clojure and clojurescript.
 - [Typed Literals](#typed-literals)
   - [The `tag` multimethod](#the-tag-multimethod)
   - [The `untag` multimethod](#the-untag-multimethod)
-- [Common Linked Data namespaces](#common-linked-data-namespces)
+- [Common Linked Data namespaces](#common-linked-data-namespaces)
   - [Imported with_ont-app.vocabulary.core](#imported-with-voc)
   - [Imported with ont-app.vocabulary.wikidata](#imported-with-wd)
   - [Imported with ont-app.vocabulary.linguistics](#imported-with-ling)
@@ -103,7 +103,7 @@ This works off of metadata assigned to namespaces or vars:
 ```
 
 These methods are dispatched on a `resource-type` method in the
-discussed [below](#the-resource-type-method).
+discussed [below](#the-resource-type-multimethod).
 
 RDF-style language tags and typed literals are also supported ...
 
