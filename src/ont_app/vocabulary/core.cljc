@@ -787,26 +787,6 @@ dcat:mediaType relation for some dcat:downloadURL."]])
   ([prefix-fn content-string]
    (map prefix-fn (cljc-find-prefixes (prefix-re-str) content-string))))
 
-
-#_(defn old-sparql-prefixes-for
-  "Returns [`prefix-string`...] for each prefix identified in `sparql-string`.
-  - Where
-    - `sparql-string` is a string of SPARQL, typically without prefixes
-    - `prefix-string` := PREFIX `prefix`: `namespace`\n
-    - `prefix` is a prefix defined for `namespace` in metadata of some ns with 
-       `:vann/preferredNamespacePrefix`
-    - `namespace` is a namespace defined in the metadata for some ns with 
-      `:vann/preferredNamespaceUri`"
-  [sparql-string]
-  (let [sparql-prefix-for (fn [prefix]
-                            (str "PREFIX "
-                                 prefix
-                                 ": <"
-                                 (prefix-to-namespace-uri prefix)
-                                 ">"))]
-    (map sparql-prefix-for (cljc-find-prefixes (prefix-re-str)
-                                               sparql-string))))
-
 (defn sparql-prefixes-for "Gets SPARQL prefixes from `sparql-string`"
   [sparql-string]
   (prefixes-for sparql-prefix-declaration sparql-string))
