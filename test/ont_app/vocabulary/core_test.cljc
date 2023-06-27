@@ -219,6 +219,25 @@
       (is (= (str x)
              "line1\nline2")))))
 
+(voc/put-ns-meta! 'example-ns
+                  {:vann/preferredNamespacePrefix "eg"
+                   :vann/preferredNamespaceUri "http://rdf.example.com/"
+                   })
+
+(deftest issue-18-ttl-prefixes
+  (let [ttl-string "eg:SomeGuy foaf:homepage eg:SomeWebPage."
+        ]
+  (is (= (into #{} (voc/turtle-prefixes-for ttl-string))
+         #{"@prefix eg: <http://rdf.example.com/>."
+           "@prefix foaf: <http://xmlns.com/foaf/0.1/>."}))
+  (let [prefixed-ttl (voc/prepend-prefix-declarations
+                      voc/turtle-prefixes-for
+                      "eg:SomeGuy foaf:homepage eg:SomeWebPage.")]
+    (is (re-matches #"(?s).*@prefix eg: <http://rdf.example.com/>.*" prefixed-ttl))
+    (is (re-matches #"(?s).*@prefix foaf: <http://xmlns.com/foaf/0.1/>.*" prefixed-ttl))
+    )
+  ))
+
 (voc/put-ns-meta! 'issue-19-urns-should-be-accommodated
                   {:vann/preferredNamespacePrefix "test-urn"
                    :vann/preferredNamespaceUri "urn:testing:issue:"
@@ -338,7 +357,7 @@
              #voc/dstr "1^^unit:Meter")))
     ))
 
-#?(:clj
+(comment
 (defn describe-api ;; todo: move this into a utilities lib
   "Returns [`member`, ...] for `obj`, for public members of `obj`, sorted by :name,  possibly filtering on `name-re`
   - Where
@@ -363,7 +382,8 @@
   ([obj name-re]
    (filter (fn [member]
              (re-matches name-re (str (:name member))))
-           (describe-api obj)))))
+           (describe-api obj))))
+);; end comment
 
 ;;;;;;;;;;;;;
 ;; BONE-YARD

@@ -11,7 +11,7 @@
 ;;;;;;;;;
 (declare datatypestring-re)
 
-(spec/def :dstr/valid-string datatypestring-re)
+(spec/def :dstr/valid-string (fn [s] (re-matches datatypestring-re s)))
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; DATATYPE STR
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -101,19 +101,30 @@
 
 ;; END READER MACROS
 
+(defn parse
+  "Returns [`datum` `datatype`] for `s`, or nil
+  - Where
+    -`s` is a string :~ `datum`^^`datatype`
+    - `datum` is a string
+    - `datatype` is is a string
+  "
+  [form]
+  (when-let [[_ datum datatype] (re-matches datatypestring-re form)]
+    [datum datatype]))
+
 (defn read-DatatypeStr
   "Returns an instance of DatatypeStr parsed from `form`
   - Where:
-  - `form` :- `str`^^`datatype`"
+  - `form` :- `datum`^^`datatype`"
   ^DatatypeStr [form]
-  (let [m (re-matches datatypestring-re form)]
-    (when (not= (count m) 3)
-      (throw (ex-info "Bad DatatypeString format"
-                      {:type ::BadDatatypestringFormat
-                       :regex datatypestring-re
-                       :form form})))
-    (let [[_ s datatype] m]
-      (DatatypeStr. s datatype))))
+  (if-let [[datum datatype] (parse form)]
+    (DatatypeStr. datum datatype)
+    ;; else no parse
+    (throw (ex-info "Bad DatatypeString format"
+                    {:type ::BadDatatypestringFormat
+                     :regex datatypestring-re
+                     :form form}))))
+
 
 (defn read-DatatypeStr-cljs
   "Returns a macro expression for read-DatatypeStr suitable for insertion and interpretation in cljs source."

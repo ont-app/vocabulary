@@ -12,7 +12,7 @@
 ;;;;;;;;;
 (declare langstring-re)
 
-(spec/def :lstr/valid-string langstring-re)
+(spec/def :lstr/valid-string (fn [s] (re-matches langstring-re s)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; LANGSTR
@@ -80,20 +80,29 @@
      ))
 ;; END READER MACROS
 
+(defn parse
+  "Returns [`datum` `type`] for `s`, or nil
+  - Where
+    -`s` is a string :~ `datum`^^`type`
+    - `datum` is a string
+    - `type` is is a string
+  "
+  [form]
+  (when-let [[_ datum datatype] (re-matches langstring-re form)]
+    [datum datatype]))
+
 (defn read-LangStr
   "Returns an instance of LangStr parsed from `form`
 Where:
 - `form` :- `str`@`lang`"
   ^LangStr [form]
-  (let [m (re-matches langstring-re form)
-        ]
-    (when (not= (count m) 3)
-      (throw (ex-info "Bad LangString fomat"
-                      {:type ::BadLangstringFormat
-                       :regex langstring-re
-                       :form form})))
-    (let [[_ s lang] m]
-      (LangStr. s lang))))
+  (if-let [[s lang] (parse form)]
+    (LangStr. s lang)
+    ;; else no parse
+    (throw (ex-info "Bad LangString fomat"
+                    {:type ::BadLangstringFormat
+                     :regex langstring-re
+                     :form form}))))
 
 (defn  read-LangStr-cljs
   "Returns a macro expression for read-LangStr suitable for insertion and interpretation in cljs source."

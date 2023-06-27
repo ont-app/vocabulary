@@ -746,7 +746,49 @@ dcat:mediaType relation for some dcat:downloadURL."]])
                         (ns-to-prefix))
                     (-> _value decode-uri-string encode-kw-name))))))))
 
-(defn sparql-prefixes-for 
+
+(defn sparql-prefix-declaration
+  "Returns PREFIX `prefix`: <`uri`>.
+  - Where
+    - `prefix` is a prefix in the metadata
+    - `uri` is the uri string associated with `prefix` in the metadata"
+  [prefix]
+  (str "PREFIX "
+       prefix
+       ": <"
+       (prefix-to-namespace-uri prefix)
+       ">"))
+
+(defn turtle-prefix-declaration
+  "Returns  @prefix `prefix`: <`uri`>.
+  - Where
+    - `prefix` is a prefix in the metadata
+    - `uri` is the uri string associated with `prefix` in the metadata
+  "
+  [prefix]
+  (str "@prefix "
+       prefix
+       ": <"
+       (prefix-to-namespace-uri prefix)
+       ">."))
+
+
+(defn prefixes-for
+  "Returns [`prefix-string`...] for each prefix identified in `content-string`.
+  - Where
+    - `content-string` is a string of SPARQL, typically without prefixes
+    - `prefix-string` := PREFIX `prefix`: `namespace`\n
+    - `prefix` is a prefix defined for `namespace` in metadata of some ns with
+       `:vann/preferredNamespacePrefix`
+    - `namespace` is a namespace defined in the metadata for some ns with
+      `:vann/preferredNamespaceUri`"
+  ([sparql-string]
+   (prefixes-for sparql-prefix-declaration sparql-string))
+  ([prefix-fn content-string]
+   (map prefix-fn (cljc-find-prefixes (prefix-re-str) content-string))))
+
+
+#_(defn old-sparql-prefixes-for
   "Returns [`prefix-string`...] for each prefix identified in `sparql-string`.
   - Where
     - `sparql-string` is a string of SPARQL, typically without prefixes
@@ -765,14 +807,28 @@ dcat:mediaType relation for some dcat:downloadURL."]])
     (map sparql-prefix-for (cljc-find-prefixes (prefix-re-str)
                                                sparql-string))))
 
-(defn prepend-prefix-declarations 
-  "Returns `sparql-string`, prepended with appropriate PREFIX decls.
-  - Where
-    - `sparql-string` is a string of SPARQL, typically without prefixes."
+(defn sparql-prefixes-for "Gets SPARQL prefixes from `sparql-string`"
   [sparql-string]
-  (join "\n" (conj (vec (sparql-prefixes-for sparql-string))
-                     sparql-string)))
+  (prefixes-for sparql-prefix-declaration sparql-string))
 
+(defn turtle-prefixes-for "Gets Turtle prefixes from `ttl-string`"
+  [ttl-string]
+  (prefixes-for turtle-prefix-declaration ttl-string))
+
+(defn prepend-prefix-declarations 
+  "Returns `content-string`, prepended with appropriate PREFIX decls.
+  - Where
+    - `content-string` is a string of SPARQL or Turtle/n3, typically without prefixes.
+       - default is SPARQL
+    - `prefixes-for` := fn [content-string] -> prefixes-string.
+      - in practice this would only be needed for `turtle-prefixes-for`
+  "
+  ([content-string] ;; default content is sparql
+   (prepend-prefix-declarations sparql-prefixes-for content-string))
+
+  ([prefixes-for-fn content-string]
+   (join "\n" (conj (vec (prefixes-for-fn content-string))
+                    content-string))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Methods keyed to resource-type
@@ -958,16 +1014,16 @@ dcat:mediaType relation for some dcat:downloadURL."]])
   "
   untag-dispatch)
 
-(defmethod untag :xsd/Boolean  [obj] {:post [(boolean? %)]} (read-string (str obj)))
-(defmethod untag :xsd/dateTime [obj] (cljc-read-date (str obj)))
-(defmethod untag :xsd/long     [obj] (read-string (str obj)))
-(defmethod untag :xsd/int      [obj] (read-string (str obj)))
-(defmethod untag :xsd/integer  [obj] (read-string (str obj)))
-(defmethod untag :xsd/double   [obj] (read-string (str obj)))
-(defmethod untag :xsd/string   [obj] (str obj))
-(defmethod untag :xsd/short    [obj] (short (read-string (str obj))))
-(defmethod untag :xsd/float    [obj] (float (read-string (str obj))))
-(defmethod untag :xsd/byte     [obj] (byte (read-string (str obj))))
+(defmethod untag :xsd/Boolean  [obj & _] {:post [(boolean? %)]} (read-string (str obj)))
+(defmethod untag :xsd/dateTime [obj & _] (cljc-read-date (str obj)))
+(defmethod untag :xsd/long     [obj & _] (read-string (str obj)))
+(defmethod untag :xsd/int      [obj & _] (read-string (str obj)))
+(defmethod untag :xsd/integer  [obj & _] (read-string (str obj)))
+(defmethod untag :xsd/double   [obj & _] (read-string (str obj)))
+(defmethod untag :xsd/string   [obj & _] (str obj))
+(defmethod untag :xsd/short    [obj & _] (short (read-string (str obj))))
+(defmethod untag :xsd/float    [obj & _] (float (read-string (str obj))))
+(defmethod untag :xsd/byte     [obj & _] (byte (read-string (str obj))))
 
 (defn error-on-no-untag-found
   "Default response to a case where no `untag` method was found."

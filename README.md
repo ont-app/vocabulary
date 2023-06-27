@@ -772,18 +772,19 @@ untag method for the datatype in question.
 With one argument we'll get an error...
 
 ```clj
-> (voc/untag #voc/dstr "1^^qudt:Meter")
-Execution error (ExceptionInfo) ... No untag method found for 1^^qudt:Meter
+> (voc/untag #voc/dstr "2.2^^qudt:Meter")
+Execution error (ExceptionInfo) ... No untag method found for 2.2^^qudt:Meter
 ```
 
-... so let's just return the original value...
+... so let's convert into feet...
 
 ```clj
-> (voc/untag #voc/dstr "1^^qudt:Meter" identity)
-#voc/dstr "1^^qudt:Meter"
+> (defn meters-to-feet [m] (* 3.280839895 m))
+> (voc/untag #voc/dstr "2.2^^qudt:Meter" #(-> % str read-string meters-to-feet))
+7.217847769000001
 ```
 
-## Support for SPARQL queries
+## Support for SPARQL queries and Turtle/n3
 
 RDF is explicitly constructed from URIs, and there is an intimate
 relationship between [SPARQL](https://en.wikipedia.org/wiki/SPARQL)
@@ -800,6 +801,15 @@ We can infer the PREFIX declarations appropriate to a SPARQL query:
 >
 ```
 
+### `turtle-prefixes-for`
+
+```clj
+> (voc/turtle-prefixes-for "eg:SomeGuy foaf:homepage eg:SomeWebPage.")
+("@prefix eg: <http://rdf.example.com/>."
+ "@prefix foaf: <http://xmlns.com/foaf/0.1/>.")
+
+```
+
 ### `prepend-prefix-declarations`
 Or we can just go ahead and prepend the prefixes...
 
@@ -809,6 +819,16 @@ Or we can just go ahead and prepend the prefixes...
 "PREFIX foaf: <http://xmlns.com/foaf/0.1/>
 Select * Where{?s foaf:homepage ?homepage}"
 >
+```
+
+SPARQL is the default.  Use `voc/turtle-prefixes-for` for turtle or n3...
+
+``` clj
+> (voc/prepend-prefix-declarations
+     voc/turtle-prefixes-for
+     "eg:SomeGuy foaf:homepage eg:SomeWebPage.")
+
+"@prefix eg: <http://rdf.example.com/>.\n@prefix foaf: <http://xmlns.com/foaf/0.1/>.\neg:SomeGuy foaf:homepage eg:SomeWebPage."
 ```
 
 <a name="h2-license"></a>
