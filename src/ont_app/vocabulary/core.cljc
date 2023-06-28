@@ -966,8 +966,13 @@ dcat:mediaType relation for some dcat:downloadURL."]])
 
 (defmethod tag :xsd/dateTime
   [obj & _]
-  (dstr/->DatatypeStr (-> obj cljc-to-date str)
-                      "xsd:dateTime"))
+  (let [obj' (if (string? obj)
+               (cljc-read-date obj)
+               obj)]
+    (dstr/->DatatypeStr (-> obj' cljc-to-date str)
+                        "xsd:dateTime")))
+
+
 
 (defmethod tag :default
   ([obj]
