@@ -27,9 +27,11 @@ This library should work under both clojure and clojurescript.
     - [`clear-caches!`](#clear-caches)
 - [Resource types](#resource-types)
   - [The `resource-type` multimethod](#the-resource-type-multimethod)
-    - [The `resource-type-context` atom](#the-resource-type-context-atom)
+    - [Resource-type contexts](#resource-type-contexts)
   - [Existing resource types](#existing-resource-types)
   - [X-inferred-from-Y resource types](#x-inferred-from-y)
+  - [Registering new resource-type contexts](#registering-new-resource-type-contexts)
+  - [Handling ambigous contexts](#handling-ambiguous-contexts)
 - [Language-tagged strings](#language-tagged-strings)
 - [Typed Literals](#typed-literals)
   - [The `tag` multimethod](#the-tag-multimethod)
@@ -470,17 +472,18 @@ be associated with named context layers.
 Each of the methods described above are dispatched on a method
 `(resource-type <value>) -> [ <context> <datatype>]`.
 
-The operative context is specified in the @voc/resource-type-context
-atom described below.
+The operative context is specified in the @voc/resource-types atom
+described below.
 
-#### The `resource-type-context` atom
+#### Resource-type contexts
 
 Different application domains may need to make different distinctions
 between resource types (for example RDF requires that we recognize
-blank nodes). The `voc/resource-type-context` holds the operative
-resource type context on which to dispatch resource types.
+blank nodes, and Jena provides special functionality for such
+nodes). The `voc/resource-type-context` holds the operative context on
+which to dispatch resource types.
 
-The default for this is `::voc/resource-type-context`.
+The default resource-type context is `::voc/resource-type-context`.
 
 Here's a toy example:
 
@@ -560,6 +563,34 @@ So in the the example above we could have done this:
     (str "http://rdf.example.com/acme/employees/id=" (:employee-id this)))
 
 > (derive ::EmployeeId :voc/KwiInferredFromUriString)
+```
+
+### Registering new resource-type contexts
+
+New layers of logic can be added with  `register-resource-type-context!`:
+
+```clj
+> (ns my-ns ...)
+> (voc/register-resource-type-context! ::resource-type-context ::voc/resource-type-context)
+```
+
+This will enable new methods in `my-ns` to be dispatched on
+`voc/resource-type [::myns/resource-type-context <some type>]`, overriding the behavior
+of `voc/resource-type [::voc/resource-type-context <some type>]`.
+
+### Handling ambiguous contexts
+
+Resource type contexts are managed in an atom called
+`@voc/resource-types`, one field of which is
+`::voc/on-ambiguity-fn`. By default this will throw an error if there
+is not a unique lineage of resource-type contexts.
+
+In such cases, you can rebind this key to perform the
+disambiguation with a function `[context1 context2 ...] -> winning-context` ...
+
+```clj
+(swap! voc/resource-types #(-> % assoc ::voc/on-ambiguity-fn
+                                        #(-> % myns/order-contexts-by-precedence first)))
 ```
 
 ## Common Linked Data namespaces

@@ -1,6 +1,10 @@
 # Change Log
 All notable changes to this project will be documented in this file. This change log follows the conventions of [keepachangelog.com](http://keepachangelog.com/).
 
+V 0.4.1
+  - Reform to the way resource type contexts are registered and inferred
+  - Tweak to the way dateTiime is tagged
+
 v 0.4.0
   - Adding support for #voc/dstr tag for typed literals (issue 33)
   - Adding resource= function

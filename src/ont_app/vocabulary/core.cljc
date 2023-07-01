@@ -60,7 +60,14 @@ NOTE: call this when you may have imported new namespace metadata
   (reset! prefix-to-ns-cache nil)
   (reset! namespace-re-cache nil))
 
-(defn ambiguous-resource-type-context-error
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Resource Type context and method def
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(declare most-specific-context)
+(declare on-ambiguous-resource-context)
+
+(defn- ambiguous-resource-type-context-error
   "Throws an error given non-unique set of resource type contexts to choose from."
   [contexts]
   (throw (ex-info (str "Ambiguous resource type context " contexts ". Redefine ::voc/on-ambiguity-fn field for @voc/resource-types.")
@@ -77,36 +84,12 @@ NOTE: call this when you may have imported new namespace metadata
          ::most-specific-context #{::resource-type-context}
          ::on-ambiguity-fn ambiguous-resource-type-context-error
          ::context-fn (fn []
-                        (let [c (::most-specific-context @resource-types)]
+                        (let [c (most-specific-context)]
                           (if (> (count c) 1)
-                            (let [f (::on-ambiguity-fn @resource-types)]
-                              (f c))
+                            (on-ambiguous-resource-context c)
                             ;; else there's no ambiguity
                             (first c))))}))
 
-(defn register-resource-type-context!
-  "Side-effect: Establishes `child` in the (hopefully singleton) set of most-specific resource type context in @resource-types.
-  - Where
-    - `child` names a resource type context on which methods may be dispatched
-    - `parent` names a resource type context on which methods may be dispatched
-    - @`resource-types` is an atom tracking state for resource type inference
-  "
-  [child parent]
-  {:pre [(isa? (-> @resource-types ::hierarchy) parent ::resource-type-context)]
-   :post [#(isa? (-> @resource-types ::hierarchy) child ::resource-type-context)
-          #(isa? (-> @resource-types ::hierarchy) child parent)]
-   }
-  (swap! resource-types (fn [m]
-                          (merge m
-                                 {::hierarchy
-                                  (-> m
-                                      ::hierarchy
-                                      (derive child parent))
-                                  ::most-specific-context
-                                  (-> m
-                                      ::most-specific-context
-                                      (disj parent)
-                                      (conj child))}))))
 
 (defn resource-type-dispatch
   "Returns [`type-context` (type this)]
@@ -126,7 +109,7 @@ NOTE: call this when you may have imported new namespace metadata
   - Where
     - `this` is something renderable as a URI, KWI, qname, or some other resource ID.
     - `resource-type` names a resource type on which `as-uri-string`, `as-kwi`, `as-qname` or other methods might be dispatched.
-    - @`resource-types` := m s.t. (keys m) = #{`::hierarchy` `::context-fn`}
+    - @`resource-types` := m s.t. (keys m) = #{`::hierarchy` `::context-fn` ...}
     - `hierarchy` is the taxonomy within which resource type contexts are stored
     - `context-fn` := fn [] -> `resource-type-context`
   - NOTE: `resource-type-dispatch` := [this] -> [`resource-type-context` (type this)]
@@ -204,7 +187,7 @@ NOTE: call this when you may have imported new namespace metadata
         (get @cljs-ns-metadata ns'))
       :clj
       (if (symbol? ns')
-        (if-let [it (find-ns ns')]
+        (when-let [it (find-ns ns')]
           (meta it))
          ;; else not a symbol
         (meta ns'))))
@@ -246,7 +229,7 @@ NOTE: Implementations involving cljs must use cljs-put/get-ns-meta to declare
   ns metadata."
   [ns']
   #?(:clj (find-ns ns')
-     :cljs (if (contains? @cljs-ns-metadata ns')
+     :cljs (when (contains? @cljs-ns-metadata ns')
              ns')
      ))
 
@@ -306,11 +289,12 @@ Where
 (def cljc-ns-map
   "mimics behavior of `ns-map` on cljs, but returns empty symbol->binding map"
   #?(:clj ns-map
-     :cljs (fn [not-a-real-ns] {})))
+     :cljs (fn [_not-a-real-ns] {})))
 
-;;;;;;;;;;;;;;;;;;
-;; resource types
-;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; platform-specific resource types
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 (declare prefixed-ns)
 
 (defmethod resource-type [::resource-type-context #?(:clj java.lang.String :cljs (type ""))]
@@ -367,13 +351,13 @@ Where
 ;; Parsing instants
 ;;;;;;;;;;;;;;;;;;;;
 
-(defn cljc-to-date
+(defn- cljc-to-date
   "returns a string rendering of a date for xsd:dateTime."
   [s]
   #?(:clj (.toInstant s)
      :cljs (.toISOString (js/Date. s))))
 
-(defn cljc-read-date
+(defn- cljc-read-date
   "Reads a date object from xsd:datetime."
   [date]
   #?(:clj (read-instant-date date)
@@ -405,14 +389,13 @@ asserted in usual key-value metadata asserted for <ns>, e.g. asserting a
 dcat:mediaType relation for some dcat:downloadURL."]])
 
 ;;;; FUNCTIONS
-(defn on-duplicate-prefix
+(defn ^:dynamic on-duplicate-prefix
   "Throws an error if a prefix is bound to more than one namespace.
   Reduces into `prefix` argument
   - Where
     - `prefixes` := {`prefix` `ns`, ...}
     - `prefix` := is a string naming the `vann:preferredNamespaceUri` for `ns'`
-    - `ns'` refers to a namespace
-  NOTE: Can be overridden with `with-redefs`."
+    - `ns'` refers to a namespace"
   [prefixes prefix ns']
   (throw (ex-info (str "Prefix `" prefix "` is being associated with both "
                        (prefixes prefix) " and " ns')
@@ -428,7 +411,7 @@ dcat:mediaType relation for some dcat:downloadURL."]])
       - these may be either namespaces or vars"
   []
   (let [has-vann-declarations? (fn [obj]
-                                 (if-let [m (get-ns-meta obj)]
+                                 (when-let [m (get-ns-meta obj)]
                                    (and (:vann/preferredNamespacePrefix m)
                                         (:vann/preferredNamespaceUri m))))]
     (filter has-vann-declarations?
@@ -438,7 +421,7 @@ dcat:mediaType relation for some dcat:downloadURL."]])
                     ;; vars ...
                     (mapcat (comp vals cljc-ns-map) (cljc-all-ns))))))
 
-(defn collect-prefixes 
+(defn- collect-prefixes 
   "Returns {`prefix` `namespace` ...} s.t. `next-ns` is included
   Where
   - `acc` := {`prefix` `namespace` ...}
@@ -515,8 +498,7 @@ dcat:mediaType relation for some dcat:downloadURL."]])
   [prefix]
   {:pre [(string? prefix)]
    }
-  (or (get (prefix-to-ns) prefix)
-      #_(get (cljc-ns-aliases) (symbol prefix))))
+  (get (prefix-to-ns) prefix))
 
 (def ordinary-iri-str-re
   "A regex matching a standard IRI string."
@@ -547,7 +529,7 @@ dcat:mediaType relation for some dcat:downloadURL."]])
           (spec/valid? :voc/uri-str-spec kw-name)))))
 
 
-(defn kwi-missing-namespace-if-not-urn-or-arn
+(defn- kwi-missing-namespace-if-not-urn-or-arn
   "Returns the name-stiring of `kw`, or throws ::NoIRIForKw if `kw` is incorrectly missing a namespace."
   [kw]
   {:pre [(keyword? kw)
@@ -560,7 +542,7 @@ dcat:mediaType relation for some dcat:downloadURL."]])
                    ::kw kw
                    }))))
 
-(defn default-on-no-kwi-ns
+(defn- default-on-no-kwi-ns
   "Returns the name-string of `kw` if its name string is a typical URI or URN, otherwise throws a :NoIRIForKw error.
   - Where:
     - `kw` is a keyword with no namespace."
@@ -679,7 +661,7 @@ dcat:mediaType relation for some dcat:downloadURL."]])
                          (-> kw-name decode-kw-name encode-uri-string))]
         (if-let [rem (re-matches (namespace-re) uri-str)]
           (let [[_ namespace-uri kw-name] rem]
-            (if (not (spec/valid? :voc/qname-spec kw-name))
+            (when (not (spec/valid? :voc/qname-spec kw-name))
               (str
                (->> namespace-uri
                     (get (namespace-to-ns))
@@ -722,8 +704,8 @@ dcat:mediaType relation for some dcat:downloadURL."]])
                  "):")))
   @prefix-re-str-cache)
 
-(defn qname-re []
-  "Returns a regex s.t. 'my-ns:my-name' will parse to ['my-ns:my-name' 'my-ns' 'my-name']"
+(defn qname-re "Returns a regex s.t. 'my-ns:my-name' will parse to ['my-ns:my-name' 'my-ns' 'my-name']"
+  []
   (let [name-pattern (str "("            ;; start group
                           ""             ;; either nothing
                           "|"            ;; or
@@ -736,14 +718,14 @@ dcat:mediaType relation for some dcat:downloadURL."]])
 (defn- match-qname-spec
   "Truthy when `s` conforms to spec :voc/qname-spec."
   [s]
-  (if-let [[_ ns' name'] (re-matches (qname-re) s)]
+  (if-let [[_ _ns' name'] (re-matches (qname-re) s)]
     (not (re-find unescaped-slash-re name'))
     ;; else it's not a standard qname
-    (if-let [[_ uri-str] (re-matches #"^[<](.*)[>]$" s)] ;; angle-brackets
+    (when-let [[_ uri-str] (re-matches #"^[<](.*)[>]$" s)] ;; angle-brackets
       (spec/valid? :voc/uri-str-spec uri-str))))
 
 
-(defn default-on-no-ns
+(defn- default-on-no-ns
   "Returns the kwi normally appropriate for `kw` in cases where no ns can be matched, as is the case with say http://...
   - Where
     - _uri is a dummy provided to conform to the expected function signature.
@@ -862,6 +844,41 @@ dcat:mediaType relation for some dcat:downloadURL."]])
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Methods keyed to resource-type
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defn- most-specific-context
+  "Dereferenced from @resource-types"
+  []
+  (::most-specific-context @resource-types))
+
+(defn- on-ambiguous-resource-context
+  "Dereferenced from @resource-types."
+  [contexts]
+  (let [f (::on-ambiguity-fn @resource-types)]
+    (f contexts)))
+
+(defn register-resource-type-context!
+  "Side-effect: Establishes `child` in the (hopefully singleton) set of most-specific resource type context in @resource-types.
+  - Where
+    - `child` names a resource type context on which methods may be dispatched
+    - `parent` names a resource type context on which methods may be dispatched
+    - @`resource-types` is an atom tracking state for resource type inference
+  "
+  [child parent]
+  {:pre [(isa? (-> @resource-types ::hierarchy) parent ::resource-type-context)]
+   :post [#(isa? (-> @resource-types ::hierarchy) child ::resource-type-context)
+          #(isa? (-> @resource-types ::hierarchy) child parent)]
+   }
+  (swap! resource-types (fn [m]
+                          (merge m
+                                 {::hierarchy
+                                  (-> m
+                                      ::hierarchy
+                                      (derive child parent))
+                                  ::most-specific-context
+                                  (-> m
+                                      ::most-specific-context
+                                      (disj parent)
+                                      (conj child))}))))
 
 (declare as-uri-string)
 
@@ -1000,7 +1017,7 @@ dcat:mediaType relation for some dcat:downloadURL."]])
                       ::obj obj
                       ::obj-type (type obj)
                       ::tag-keys (keys @dstr/default-tags)}))))
-  ([obj tag-spec]
+  ([_obj tag-spec]
    (as-kwi tag-spec)))
 
 (defmulti tag
@@ -1059,7 +1076,7 @@ dcat:mediaType relation for some dcat:downloadURL."]])
 (defmethod untag :xsd/float    [obj & _] (float (read-string (str obj))))
 (defmethod untag :xsd/byte     [obj & _] (byte (read-string (str obj))))
 
-(defn error-on-no-untag-found
+(defn- error-on-no-untag-found
   "Default response to a case where no `untag` method was found."
   [dstr]
   (throw (ex-info (str "No untag method found for " dstr "^^" (dstr/datatype dstr))
@@ -1282,13 +1299,11 @@ dcat:mediaType relation for some dcat:downloadURL."]])
   [x]
   (as-uri-string x))
 
-^:deprecated
-(def exceptional-iri-str-re
+(def ^:deprecated exceptional-iri-str-re
   "deprecated alias for dynamic var *exceptional-iri-str-re*"
   *exceptional-iri-str-re*)
 
-^:deprecated
-(defprotocol Resource
+(defprotocol ^:deprecated Resource
   "Deprecated. Use resource-type multimethod instead."
   :extend-via-metadata true
   (resource-class [this]))

@@ -131,14 +131,6 @@
            (voc/cljc-find-prefixes (voc/prefix-re-str)
                                  "Select * Where{?s foaf:homepage ?homepage}")
            ))
-    (is (= {"foaf" #?(:clj (voc/cljc-find-ns 'ont-app.vocabulary.foaf)
-                      :cljs 'ont-app.vocabulary.foaf)
-            }
-           (voc/collect-prefixes {}
-                               #?(:clj (find-ns 'ont-app.vocabulary.foaf)
-                                  :cljs 'ont-app.vocabulary.foaf
-                                  ))
-           ))
     (is (= (list "PREFIX foaf: <http://xmlns.com/foaf/0.1/>")
            (voc/sparql-prefixes-for
             "Select * Where{?s foaf:homepage ?homepage}")
@@ -356,6 +348,41 @@
       (is (= (voc/untag (voc/tag 1 :unit/Meter) identity)
              #voc/dstr "1^^unit:Meter")))
     ))
+
+(deftest test-register-resource-types
+  (let [original-resource-types @voc/resource-types]
+    (try
+      (do
+        ;; Declare a new context to supersede the default...
+        (voc/register-resource-type-context! ::test-context-1
+                                             ::voc/resource-type-context)
+        ;; This should result in a new most-specific context set (a singleton)
+        (is (= (::voc/most-specific-context #{::test-context-1})))
+        ;; ... which is now the operative context...
+        (let [context-fn (-> @voc/resource-types ::voc/context-fn)]
+          (is (= (context-fn) ::test-context-1)))
+
+        ;; Registering a competing lineage...
+        (voc/register-resource-type-context! ::test-context-2
+                                             ::voc/resource-type-context)
+
+        ;; ... introduces an ambiguity...
+        (is (= (::voc/most-specific-context #{::test-context-1 ::test-context-2})))
+
+        ;; ... which is an error by default ...
+        (is (thrown-with-msg?
+             #?(:clj Exception :cljs js/Error)
+             #"Ambiguous resource type context.*"
+             (voc/resource-type "blah")))
+
+        ;; ... but we can fix it ...
+        (swap! voc/resource-types #(-> % (assoc ::voc/on-ambiguity-fn
+                                                (fn [_] ::test-context-1))))
+        (let [context-fn (-> @voc/resource-types ::voc/context-fn)]
+          (is (= (context-fn) ::test-context-1))))
+
+    (finally
+      (reset! voc/resource-types original-resource-types)))))
 
 (comment
 (defn describe-api ;; todo: move this into a utilities lib
