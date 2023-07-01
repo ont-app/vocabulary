@@ -60,28 +60,76 @@ NOTE: call this when you may have imported new namespace metadata
   (reset! prefix-to-ns-cache nil)
   (reset! namespace-re-cache nil))
 
-(def resource-type-context
-  "Atom naming the operative resource-type context. Informs `resource-type-dispatch`."
-  (atom ::resource-type-context))
+(defn ambiguous-resource-type-context-error
+  "Throws an error given non-unique set of resource type contexts to choose from."
+  [contexts]
+  (throw (ex-info (str "Ambiguous resource type context " contexts ". Redefine ::voc/on-ambiguity-fn field for @voc/resource-types.")
+                  {
+                   :type ::ambiguous-resource-type-context
+                   ::contexts contexts})))
+
+(defonce resource-types
+  ^{:doc "m s.t. (keys m) = #{`::hierarchy` `::context-fn`}
+   - `hierarchy` is the taxonomy within which resource type contexts are stored
+   - `context-fn` := fn [] -> `resource-type-context`
+  "}
+  (atom {::hierarchy (make-hierarchy)
+         ::most-specific-context #{::resource-type-context}
+         ::on-ambiguity-fn ambiguous-resource-type-context-error
+         ::context-fn (fn []
+                        (let [c (::most-specific-context @resource-types)]
+                          (if (> (count c) 1)
+                            (let [f (::on-ambiguity-fn @resource-types)]
+                              (f c))
+                            ;; else there's no ambiguity
+                            (first c))))}))
+
+(defn register-resource-type-context!
+  "Side-effect: Establishes `child` in the (hopefully singleton) set of most-specific resource type context in @resource-types.
+  - Where
+    - `child` names a resource type context on which methods may be dispatched
+    - `parent` names a resource type context on which methods may be dispatched
+    - @`resource-types` is an atom tracking state for resource type inference
+  "
+  [child parent]
+  {:pre [(isa? (-> @resource-types ::hierarchy) parent ::resource-type-context)]
+   :post [#(isa? (-> @resource-types ::hierarchy) child ::resource-type-context)
+          #(isa? (-> @resource-types ::hierarchy) child parent)]
+   }
+  (swap! resource-types (fn [m]
+                          (merge m
+                                 {::hierarchy
+                                  (-> m
+                                      ::hierarchy
+                                      (derive child parent))
+                                  ::most-specific-context
+                                  (-> m
+                                      ::most-specific-context
+                                      (disj parent)
+                                      (conj child))}))))
 
 (defn resource-type-dispatch
-  "Returns [@resoruce-type-context (type this)]
+  "Returns [`type-context` (type this)]
   - Where
     - `this` is something which we may want to render as a URI or related construct.
+    - `type-context` is a keyword naming a context to which dispatch methods are keyed
+      - it is the value of (::context-fn @`resource-types`) := fn [] -> :`type-context`
+      - defaults to (partial `select-most-specific-descendant` `::resource-type-context`)
   "
   [this]
-  (tap> {:type ::resource-type-dispatch
-         ::this this
-         ::resource-type-context @resource-type-context})
-  [@resource-type-context (type this)])
+  (let [get-type-context (-> @resource-types ::context-fn)]
+    [(get-type-context)
+     (type this)]))
 
 (defmulti resource-type
-  "- Signature [this] -> `resource-type`, informed by @`resource-type-context`
+  "- Signature [this] -> `resource-type`, informed by @`resource-types`
   - Where
     - `this` is something renderable as a URI, KWI, qname, or some other resource ID.
     - `resource-type` names a resource type on which `as-uri-string`, `as-kwi`, `as-qname` or other methods might be dispatched.
-    - @`resource-type-context` names a context. Default is ::resource-type-context.
-  - NOTE: `resource-type-dispatch` := [this] -> [@resource-type-context (type this)]
+    - @`resource-types` := m s.t. (keys m) = #{`::hierarchy` `::context-fn`}
+    - `hierarchy` is the taxonomy within which resource type contexts are stored
+    - `context-fn` := fn [] -> `resource-type-context`
+  - NOTE: `resource-type-dispatch` := [this] -> [`resource-type-context` (type this)]
   "
   resource-type-dispatch)
 
@@ -314,6 +362,7 @@ Where
   [s]
   #?(:clj (clojure.string/replace s #"/" "\\\\/")
      :cljs (clojure.string/replace s #"/" "\\/")))
+
 ;;;;;;;;;;;;;;;;;;;;
 ;; Parsing instants
 ;;;;;;;;;;;;;;;;;;;;
