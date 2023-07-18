@@ -76,12 +76,10 @@ NOTE: call this when you may have imported new namespace metadata
                    ::contexts contexts})))
 
 (defonce resource-types
-  ^{:doc "m s.t. (keys m) = #{`::hierarchy` `::context-fn`}
-   - `hierarchy` is the taxonomy within which resource type contexts are stored
+  ^{:doc "m s.t. (keys m) = #{`::context-fn`, `::most-specific-context`, `::on-ambiguiti-fn`}
    - `context-fn` := fn [] -> `resource-type-context`
   "}
-  (atom {::hierarchy (make-hierarchy)
-         ::most-specific-context #{::resource-type-context}
+  (atom {::most-specific-context #{::resource-type-context}
          ::on-ambiguity-fn ambiguous-resource-type-context-error
          ::context-fn (fn []
                         (let [c (most-specific-context)]
@@ -109,8 +107,7 @@ NOTE: call this when you may have imported new namespace metadata
   - Where
     - `this` is something renderable as a URI, KWI, qname, or some other resource ID.
     - `resource-type` names a resource type on which `as-uri-string`, `as-kwi`, `as-qname` or other methods might be dispatched.
-    - @`resource-types` := m s.t. (keys m) = #{`::hierarchy` `::context-fn` ...}
-    - `hierarchy` is the taxonomy within which resource type contexts are stored
+    - @`resource-types` := m s.t. (keys m) = #{`::context-fn` ...}
     - `context-fn` := fn [] -> `resource-type-context`
   - NOTE: `resource-type-dispatch` := [this] -> [`resource-type-context` (type this)]
   "
@@ -864,17 +861,14 @@ dcat:mediaType relation for some dcat:downloadURL."]])
     - @`resource-types` is an atom tracking state for resource type inference
   "
   [child parent]
-  {:pre [(isa? (-> @resource-types ::hierarchy) parent ::resource-type-context)]
-   :post [#(isa? (-> @resource-types ::hierarchy) child ::resource-type-context)
-          #(isa? (-> @resource-types ::hierarchy) child parent)]
+  {:pre [(isa? parent ::resource-type-context)]
+   :post [#(isa? child ::resource-type-context)
+          #(isa? child parent)]
    }
+  (derive child parent)
   (swap! resource-types (fn [m]
                           (merge m
-                                 {::hierarchy
-                                  (-> m
-                                      ::hierarchy
-                                      (derive child parent))
-                                  ::most-specific-context
+                                 {::most-specific-context
                                   (-> m
                                       ::most-specific-context
                                       (disj parent)
