@@ -71,8 +71,7 @@ Reduces into `prefix` argument
 - Where
   - `prefixes` := {`prefix` `ns`, ...}
   - `prefix` := is a string naming the `vann:preferredNamespaceUri` for `ns'`
-  - `ns'` refers to a namespace
-NOTE: Can be overridden with `with-redefs`.</pre></div></div><div class="public anchor" id="var-ordinary-iri-str-re"><h3>ordinary-iri-str-re</h3><div class="usage"></div><div class="doc"><pre class="plaintext">A regex matching a standard IRI string.
+  - `ns'` refers to a namespace</pre></div></div><div class="public anchor" id="var-ordinary-iri-str-re"><h3>ordinary-iri-str-re</h3><div class="usage"></div><div class="doc"><pre class="plaintext">A regex matching a standard IRI string.
 </pre></div></div><div class="public anchor" id="var-prefix-re-str"><h3>prefix-re-str</h3><div class="usage"><code>(prefix-re-str)</code></div><div class="doc"><pre class="plaintext">Returns a regex string that recognizes prefixes declared in ns metadata with `:vann/preferredNamespacePrefix` keys. 
 - NOTE: this is a string because the actual re-pattern will differ per clj/cljs.</pre></div></div><div class="public anchor" id="var-prefix-to-namespace-uri"><h3>prefix-to-namespace-uri</h3><div class="usage"><code>(prefix-to-namespace-uri prefix)</code></div><div class="doc"><pre class="plaintext">returns `namespace` URI associated with `prefix`
 - Where:
@@ -121,8 +120,7 @@ for examples of namespaces declared solely to hold vocabulary metadata.</pre></d
 - Where
   - `this` is something renderable as a URI, KWI, qname, or some other resource ID.
   - `resource-type` names a resource type on which `as-uri-string`, `as-kwi`, `as-qname` or other methods might be dispatched.
-  - @`resource-types` := m s.t. (keys m) = #{`::hierarchy` `::context-fn` ...}
-  - `hierarchy` is the taxonomy within which resource type contexts are stored
+  - @`resource-types` := m s.t. (keys m) = #{`::context-fn` ...}
   - `context-fn` := fn [] -&gt; `resource-type-context`
 - NOTE: `resource-type-dispatch` := [this] -&gt; [`resource-type-context` (type this)]
 </pre></div></div><div class="public anchor" id="var-resource-type-dispatch"><h3>resource-type-dispatch</h3><div class="usage"><code>(resource-type-dispatch this)</code></div><div class="doc"><pre class="plaintext">Returns [`type-context` (type this)]
