@@ -73,11 +73,11 @@
   - Match := [_ `value` `datatype`]"
   #?(:clj (re-pattern (str "(?s)"   ;; match all including newline
                            "("      ;; start group 1
-                           ".+"    ;;   at least one of anything
+                           ".+"     ;;   at least one of anything
                            ")"      ;; end group 1
                            "\\^\\^" ;; ^^
                            "("      ;; start group 2
-                           ".+"     ;;   at least one of anything
+                           "\\S+"   ;;   at least one of any non-whitespace
                            ")"      ;; end group 2
                            "$"
                            ))
@@ -93,8 +93,9 @@
                             ")"      ;; end group 1
                             "\\^\\^" ;; ^^
                             "("      ;; start group 2
-                            ".+"     ;;   at least one char
+                            "\\S+"     ;;   at least one non-whitespace
                             ")"      ;; end group 2
+                            "$"
                             ))
      
      ))
