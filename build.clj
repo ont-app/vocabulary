@@ -59,7 +59,7 @@
       (bb/install)))
 
 (defn deploy
-  "Deploy the JAR to Clojars. Using $CLOJARS_USERNAME and $CLOJARS_PASSWORD"
+  "Deploy the JAR to Clojars. Using CLOJARS_USERNAME and CLOJARS_PASSWORD"
   [opts]
   (-> opts
       (assoc :lib lib :version version)
