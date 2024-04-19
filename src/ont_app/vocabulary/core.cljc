@@ -50,7 +50,7 @@
 (def ^:private prefix-re-str-cache (atom nil))
 (def ^:private namespace-re-cache (atom nil))
 
-(defn clear-caches! 
+(defn clear-caches!
   "Side-effects: resets all caches in voc/ to nil
 NOTE: call this when you may have imported new namespace metadata
 "
@@ -137,7 +137,7 @@ NOTE: call this when you may have imported new namespace metadata
 (defn put-ns-meta!
   "Side-effect: ensures that subsequent calls to (cljc-get-ns-meta `ns'` return `m`
   Where
-  - `ns'`  is an ns(clj only) or the name of a namespace, possibly declared for the sole purpose of holding vocabulary metadata (e.g. rdf, foaf, etc)
+  - `ns'`  is an ns (clj only) or the name of a namespace, possibly declared for the sole purpose of holding vocabulary metadata (e.g. rdf, foaf, etc)
   - `m` := {`key` `value`, ...}, metadata (clj) or 'pseudo-metadata' (cljs)
   - `key` is a keyword containing vocabulary metadata, e.g.
     `::vann/preferredNamespacePrefix`
@@ -159,7 +159,7 @@ NOTE: call this when you may have imported new namespace metadata
            (or (try (eval `(var ~ns'))
                     (catch Exception _))
                (create-ns ns')))
-                             
+
          ;; else not a symbol
          (let []
            (assert (= (type (find-ns 'user)) clojure.lang.Namespace))
@@ -168,7 +168,7 @@ NOTE: call this when you may have imported new namespace metadata
    (clear-caches!))
 
   ([m]
-   #?(:cljs (put-ns-meta! (namespace ::dummy)) 
+   #?(:cljs (put-ns-meta! (namespace ::dummy))
       :clj (put-ns-meta! *ns* m))))
 
 (defn get-ns-meta
@@ -204,7 +204,7 @@ NOTE: call this when you may have imported new namespace metadata
   "
      {}))
 
-(defn cljc-ns-aliases 
+(defn cljc-ns-aliases
   "Returns {`alias` `ns`, ...}
 Where
   - `alias` is a symbol
@@ -216,10 +216,10 @@ as some symbol other than the preferred prefix."
   #?(:clj (ns-aliases *ns*)
      :cljs *alias-map*))
 
-(defn cljc-find-ns 
+(defn cljc-find-ns
   "Returns `ns-name-or-obj` for `ns'`, or nil.
-Where 
-  - `ns-name-or-obj` may either be a namespace (in clj) 
+Where
+  - `ns-name-or-obj` may either be a namespace (in clj)
     or the name of a namespace (in cljs)
   - `_ns` is a symbol which may name a namespace.
 NOTE: Implementations involving cljs must use cljs-put/get-ns-meta to declare
@@ -230,30 +230,30 @@ NOTE: Implementations involving cljs must use cljs-put/get-ns-meta to declare
              ns')
      ))
 
-(defn cljc-all-ns 
+(defn cljc-all-ns
   "Returns (`ns-name-or-obj` ...)
 Where
-  - `ns-name-or-obj` may either be a namespace (in clj) 
+  - `ns-name-or-obj` may either be a namespace (in clj)
      or the name of a namespace (in cljs)"
   []
   #?(:clj (all-ns)
      :cljs (keys @cljs-ns-metadata)))
 
 (declare prefix-re-str)
-(defn cljc-find-prefixes 
+(defn cljc-find-prefixes
   "Returns #{`prefix`...} for `s` matching `re-str`
 Where
-  - `prefix` is a prefix found in `s`, for which some (meta ns) has a 
+  - `prefix` is a prefix found in `s`, for which some (meta ns) has a
      :vann/preferredNamespacePrefix declaration
   - `re-str` is a regex string
-  - `s` is a string, typically a SPARQL query body for which we want to 
+  - `s` is a string, typically a SPARQL query body for which we want to
     infer prefix declarations."
   [re-str s]
   {:pre [(string? re-str)
          (string? s)]
    }
   #?(:clj
-     (let [prefixes (re-matcher (re-pattern re-str) s) 
+     (let [prefixes (re-matcher (re-pattern re-str) s)
            ]
        (loop [acc #{}
               next-match (re-find prefixes)]
@@ -264,7 +264,7 @@ Where
                     (re-find prefixes))))))
      :cljs
      (let [prefix-re (re-pattern (str "^(" re-str ")(.*)"))
-           ;; ^(<spaces>(<prefix1>|<prefix2>|...):)(<unparsed>) 
+           ;; ^(<spaces>(<prefix1>|<prefix2>|...):)(<unparsed>)
            ]
        (loop [acc #{}
               input s]
@@ -328,7 +328,7 @@ Where
    (defmethod resource-type [::resource-type-context java.io.File]
      [_]
      :voc/LocalFile))
-       
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Differing escaping semantics
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -368,8 +368,8 @@ Where
 
 (put-ns-meta!
  'ont-app.vocabulary.core
- {:doc "Defines utilities and a set of namespaces for commonly used linked data 
-constructs, metadata of which specifies RDF namespaces, prefixes and other 
+ {:doc "Defines utilities and a set of namespaces for commonly used linked data
+constructs, metadata of which specifies RDF namespaces, prefixes and other
 details."
   :vann/preferredNamespacePrefix "voc"
   :vann/preferredNamespaceUri "http://rdf.naturallexicon.org/ont-app/vocabulary/"
@@ -381,8 +381,8 @@ details."
   [[:voc/appendix
     :rdf/type :rdf:Property
     :rdfs/comment "<ns> :voc/appendix <triples>
- Asserts that <triples> describe a graph that elaborates on other attributes 
-asserted in usual key-value metadata asserted for <ns>, e.g. asserting a 
+ Asserts that <triples> describe a graph that elaborates on other attributes
+asserted in usual key-value metadata asserted for <ns>, e.g. asserting a
 dcat:mediaType relation for some dcat:downloadURL."]])
 
 ;;;; FUNCTIONS
@@ -401,7 +401,7 @@ dcat:mediaType relation for some dcat:downloadURL."]])
                    :prefix prefix
                    :ns ns'})))
 
-(defn vann-annotated-objects 
+(defn vann-annotated-objects
   "Returns `[obj, ...]
   - Where:
     - `obj` bears metadata s.t. (get-ns-meta obj)  includes :vann/... annotations
@@ -418,7 +418,7 @@ dcat:mediaType relation for some dcat:downloadURL."]])
                     ;; vars ...
                     (mapcat (comp vals cljc-ns-map) (cljc-all-ns))))))
 
-(defn- collect-prefixes 
+(defn- collect-prefixes
   "Returns {`prefix` `namespace` ...} s.t. `next-ns` is included
   Where
   - `acc` := {`prefix` `namespace` ...}
@@ -439,7 +439,7 @@ dcat:mediaType relation for some dcat:downloadURL."]])
         (add-prefix acc p))
       acc)))
 
-(defn prefix-to-ns 
+(defn prefix-to-ns
   "Returns {`prefix` `ns` ...}
   - Where
     - `prefix` is declared in metadata for some `ns` with
@@ -454,11 +454,11 @@ dcat:mediaType relation for some dcat:downloadURL."]])
                     (vann-annotated-objects))))
   @prefix-to-ns-cache)
 
-(defn ns-to-namespace 
+(defn ns-to-namespace
   "Returns `iri` for `ns`
 - Where
   - `ns'` is an instance of clojure.lang.Namespace (in clj) or a symbol-name for ns (cljs)
-  - `iri` is an iri declared with :vann/preferredNamespaceUri in the metadata for 
+  - `iri` is an iri declared with :vann/preferredNamespaceUri in the metadata for
     `ns'`, or nil"
   [ns']
   (or
@@ -469,7 +469,7 @@ dcat:mediaType relation for some dcat:downloadURL."]])
        get-ns-meta
        :vann/preferredNamespaceUri)))
 
-(defn namespace-to-ns 
+(defn namespace-to-ns
   "returns {`namespace` `ns` ...} for each `ns` with :vann/preferredNamespaceUri
   declaration
   - Where
@@ -488,7 +488,7 @@ dcat:mediaType relation for some dcat:downloadURL."]])
               (reduce collect-mapping {} (vann-annotated-objects)))))
   @namespace-to-ns-cache)
 
-(defn prefixed-ns 
+(defn prefixed-ns
   "Returns nil or the ns whose `prefix` was declared in metadata with `:vann/preferredNamespacePrefix`.
   - Where
     - `prefix` is a string, typically parsed from a keyword."
@@ -500,7 +500,7 @@ dcat:mediaType relation for some dcat:downloadURL."]])
 (def ordinary-iri-str-re
   "A regex matching a standard IRI string."
   #"^(http:|https:|file:).*")
-  
+
 (def ^:dynamic *exceptional-iri-str-re*
   "A regex matching an IRI string which doesn't match the usual http//-ish scheme, such as `urn:`."
   #"^(urn:|arn:).*")
@@ -517,7 +517,7 @@ dcat:mediaType relation for some dcat:downloadURL."]])
   (and (keyword? k)
        (let [prefix (namespace k)
              kw-name (name k)]
-         (or 
+         (or
           (and prefix
                (seq kw-name) ;; empty name is not a valid keyword
                (or (cljc-find-ns (symbol prefix))
@@ -557,7 +557,7 @@ dcat:mediaType relation for some dcat:downloadURL."]])
                       {:type ::NoIRIForKw
                        ::kw kw
                        })))))
-  
+
 (defn uri-for
   "Returns `iri` for `kw` based on metadata attached to `ns` Alias of `iri-for` or `on-no-prefix (kw) if the keyword is not namespaced.
   - Where
@@ -567,7 +567,7 @@ dcat:mediaType relation for some dcat:downloadURL."]])
     - `iri` is of the form `namespace``value`
     - `ns` is an instance of clojure.lang.ns
     - `prefix` is declared with :vann/preferredNamespacePrefix in metadata of `ns`
-    - `namespace` is typically of the form http://...., declared with 
+    - `namespace` is typically of the form http://...., declared with
       `:vann/preferredNamespaceUri` in metadata of `ns`"
   ([kw]
    (uri-for default-on-no-kwi-ns kw))
@@ -592,7 +592,7 @@ dcat:mediaType relation for some dcat:downloadURL."]])
                              ::kw kw
                              ::prefix prefix
                              }))
-            
+
             (str (-> _ns (ns-to-namespace))
                  (-> kw-name decode-kw-name encode-uri-string)))))
       ;; else no prefix
@@ -600,13 +600,13 @@ dcat:mediaType relation for some dcat:downloadURL."]])
 
 (def iri-for "Alias of uri-for" uri-for)
 
-(defn ns-to-prefix 
+(defn ns-to-prefix
   "Returns the prefix associated with `ns'`
   - Where
     - `ns'` is a clojure namespace, which may have :vann/preferredNamespacePrefix
       declaration in its metadata."
   [ns']
-  (or 
+  (or
    (:vann/preferredNamespacePrefix (get-ns-meta ns'))
    (-> ns'
        (get-ns-meta)
@@ -625,7 +625,7 @@ dcat:mediaType relation for some dcat:downloadURL."]])
        (get (prefix-to-ns))
        (ns-to-namespace)))
 
-(defn namespace-re 
+(defn namespace-re
   "Returns a regex to recognize substrings matching a URI for an ns declared with LOD metadata.
   - Note: Groups for namespace and value."
   []
@@ -641,7 +641,7 @@ dcat:mediaType relation for some dcat:downloadURL."]])
                                  ")(.*)")))
         @namespace-re-cache)))
 
-(defn qname-for 
+(defn qname-for
   "Returns the 'qname' URI for `kw`, or <...>'d full URI if no valid qname could be found.
   - Throws an error if the prefix is specified, but can't be mapped to metadata.
   - Where
@@ -690,8 +690,8 @@ dcat:mediaType relation for some dcat:downloadURL."]])
         ;; else no namespace in keyword
         (str "<" (-> kw-name decode-kw-name encode-uri-string) ">")))))
 
-(defn prefix-re-str 
-  "Returns a regex string that recognizes prefixes declared in ns metadata with `:vann/preferredNamespacePrefix` keys. 
+(defn prefix-re-str
+  "Returns a regex string that recognizes prefixes declared in ns metadata with `:vann/preferredNamespacePrefix` keys.
   - NOTE: this is a string because the actual re-pattern will differ per clj/cljs."
   []
   (when-not @prefix-re-str-cache
@@ -732,7 +732,7 @@ dcat:mediaType relation for some dcat:downloadURL."]])
             kw
             (keyword (str kw))))
 
-(defn keyword-for 
+(defn keyword-for
   "Returns a keyword equivalent of `uri`, properly prefixed if Vann declarations exist in some ns in the current lexical environment.
   - Side effects per `on-no-ns`
   - Where
@@ -823,7 +823,7 @@ dcat:mediaType relation for some dcat:downloadURL."]])
   [ttl-string]
   (prefixes-for turtle-prefix-declaration ttl-string))
 
-(defn prepend-prefix-declarations 
+(defn prepend-prefix-declarations
   "Returns `content-string`, prepended with appropriate PREFIX decls.
   - Where
     - `content-string` is a string of SPARQL or Turtle/n3, typically without prefixes.
@@ -886,7 +886,7 @@ dcat:mediaType relation for some dcat:downloadURL."]])
 
 (defmethod as-kwi :voc/Kwi
   [this]
-  {:post [(spec/assert :voc/kwi-spec %)]}  
+  {:post [(spec/assert :voc/kwi-spec %)]}
   this)
 
 (defmethod as-kwi :voc/Qname
@@ -896,7 +896,7 @@ dcat:mediaType relation for some dcat:downloadURL."]])
 
 (defmethod as-kwi :voc/KwiInferredFromUriString
   [this]
-  {:post [(spec/assert :voc/kwi-spec %)]}    
+  {:post [(spec/assert :voc/kwi-spec %)]}
   (keyword-for (as-uri-string this))
   )
 
@@ -930,17 +930,17 @@ dcat:mediaType relation for some dcat:downloadURL."]])
 
 (defmethod as-uri-string :voc/UriStringInferredFromKwi
   [this]
-  {:post [(spec/assert :voc/uri-str-spec %)]}  
+  {:post [(spec/assert :voc/uri-str-spec %)]}
   (uri-for (as-kwi this)))
 
 (defmethod as-uri-string :voc/Kwi
   [this]
-  {:post [(spec/assert :voc/uri-str-spec %)]}  
+  {:post [(spec/assert :voc/uri-str-spec %)]}
   (uri-for this))
 
 (defmethod as-uri-string :voc/LocalFile
   [this]
-  {:post [(spec/assert :voc/uri-str-spec %)]}  
+  {:post [(spec/assert :voc/uri-str-spec %)]}
   (let [s (str this)]
     (as-uri-string
      (if (re-matches ordinary-iri-str-re s)
@@ -949,7 +949,7 @@ dcat:mediaType relation for some dcat:downloadURL."]])
 
 (defmethod as-uri-string :voc/Qname
   [this]
-  {:post [(spec/assert :voc/uri-str-spec %)]}    
+  {:post [(spec/assert :voc/uri-str-spec %)]}
   (uri-for (keyword-for this)))
 
 (defmethod as-uri-string :default
@@ -975,7 +975,7 @@ dcat:mediaType relation for some dcat:downloadURL."]])
 
 (defmethod as-qname :default
   [this]
-  {:post [(spec/assert :voc/qname-spec %)]}      
+  {:post [(spec/assert :voc/qname-spec %)]}
   (qname-for (as-kwi this)))
 
 (defmulti resource=
@@ -1116,7 +1116,7 @@ dcat:mediaType relation for some dcat:downloadURL."]])
   })
 
 (put-ns-meta!
- 'ont-app.vocabulary.owl  
+ 'ont-app.vocabulary.owl
     {
      :dc/title "The OWL 2 Schema vocabulary (OWL 2)"
      :dc/description
@@ -1144,7 +1144,7 @@ dcat:mediaType relation for some dcat:downloadURL."]])
                      :dcat/mediaType "text/turtle"]]
      }
     )
- 
+
 (put-ns-meta!
  'ont-app.vocabulary.vann
     {
@@ -1202,7 +1202,7 @@ dcat:mediaType relation for some dcat:downloadURL."]])
      :vann/preferredNamespaceUri "http://www.w3.org/ns/dcat#"
      }
     )
-   
+
 (put-ns-meta!
  'ont-app.vocabulary.foaf
  {
@@ -1232,7 +1232,7 @@ dcat:mediaType relation for some dcat:downloadURL."]])
      :foaf/homepage "https://www.w3.org/2009/08/skos-reference/skos.html"
      :dcat/downloadURL "https://www.w3.org/2009/08/skos-reference/skos.rdf"
      :voc/appendix [["https://www.w3.org/2009/08/skos-reference/skos.rdf"
-                     :dcat/mediaType "application/rdf+xml"]]   
+                     :dcat/mediaType "application/rdf+xml"]]
      }
     )
 
