@@ -14,6 +14,17 @@
    #?(:cljs [goog.date.DateTime :as DateTime])
    ))
 
+  (def config "Configuration map.
+  Typical keys are
+  - `::prefix-preferences`: {prefix ns-name, ...}
+    - associates a prefix to a single ns name in the event of a collision. May be
+      referenced indirectly in the function assigned to `::on-duplicate-prefix-fn`
+  - `::on-duplicate-prefix-fn` : (fn [prefixes prefix challenger-ns) -> prefixes)
+    - referenced in `collect-prefixes`
+  "
+    (atom {}))
+
+
 ;;;;;;;;;
 ;; SPEX
 ;;;;;;;;;
@@ -386,7 +397,7 @@ asserted in usual key-value metadata asserted for <ns>, e.g. asserting a
 dcat:mediaType relation for some dcat:downloadURL."]])
 
 ;;;; FUNCTIONS
-(defn ^:dynamic on-duplicate-prefix
+#_(defn ^:dynamic on-duplicate-prefix
   "Throws an error if a prefix is bound to more than one namespace.
   Reduces into `prefix` argument
   - Where
@@ -418,6 +429,55 @@ dcat:mediaType relation for some dcat:downloadURL."]])
                     ;; vars ...
                     (mapcat (comp vals cljc-ns-map) (cljc-all-ns))))))
 
+
+
+(defn error-on-duplicate-prefix
+    "Throws an error if a prefix is bound to more than one namespace.
+  Reduces into `prefix` argument
+  - Where
+    - `prefixes` := {`prefix` `ns`, ...}
+    - `prefix` := is a string naming the `vann:preferredNamespaceUri` for `ns'`
+    - `ns'` refers to a namespace"
+
+  [prefixes prefix ns']
+  (throw (ex-info (str "Prefix `" prefix "` is being associated with both "
+                       (prefixes prefix) " and " ns')
+                  {:type ::DuplicatePrefix
+                   :prefixes prefixes
+                   :prefix prefix
+                   :ns ns'})))
+
+(defn prefer-ns-name
+  "Returns `prefixes`, associating `challenger-ns` for the value associated with `prefix` in `prefixes` if (str `challenger-ns`) matches (`prefix->ns-name` `prefix`)
+  - Throws an error if `prefix` is not in `prefix->ns-name`
+  - Where
+    - `prefix->ns-name` := {`prefix` `ns-name`, ...},
+       typically = (::preferred-prefixes @config)
+    - `prefixes` := {`prefix` `ns`, ...}, accumulationg voc prefix mappings
+    - `prefix` is a string naming a voc ns prefix
+    - `challenger-ns` is a namespace whose vann metadata declares a competing value
+       for `prefix`
+  - Note: typically used as a value for (@config ::on-duplicate-prefix-fn) as a
+    `partial` closing over `prefix->ns-name`.
+  "
+  [prefix->ns-name  prefixes prefix challenger-ns]
+  (let [prefixes' (set (keys prefix->ns-name))]
+    (if (prefixes' prefix)
+      (if (= (prefix->ns-name prefix) (str challenger-ns))
+        (assoc prefixes prefix challenger-ns)
+        ;; else
+        prefixes)
+      ;; else prefix is not a key in prefix->ns-name
+      (error-on-duplicate-prefix prefixes prefix challenger-ns))))
+
+(defn use-config-prefix-preferences
+  "Use (::prefix-preferences @config) if defined, else throw an errror."
+  [prefixes prefix ns-challenger]
+  (prefer-ns-name (or (::prefix-preferences @config) {})
+                  prefixes prefix ns-challenger))
+
+(swap! config assoc ::on-duplicate-prefix-fn use-config-prefix-preferences)
+
 (defn- collect-prefixes
   "Returns {`prefix` `namespace` ...} s.t. `next-ns` is included
   Where
@@ -431,7 +491,8 @@ dcat:mediaType relation for some dcat:downloadURL."]])
   (let [nsm (get-ns-meta next-ns)
         add-prefix (fn [acc prefix]
                      (if (acc prefix)
-                       (on-duplicate-prefix acc prefix next-ns)
+                       (let [f (::on-duplicate-prefix-fn @config)]
+                         (f acc prefix next-ns))
                        (assoc acc prefix next-ns)))]
     (if-let [p (:vann/preferredNamespacePrefix nsm)]
       (if (set? p)
@@ -1301,3 +1362,8 @@ dcat:mediaType relation for some dcat:downloadURL."]])
   "Deprecated. Use resource-type multimethod instead."
   :extend-via-metadata true
   (resource-class [this]))
+
+  
+(defn ^:dynamic ^:deprecated  on-duplicate-prefix
+  [prefixes prefix ns']
+  (error-on-duplicate-prefix prefixes prefix ns'))

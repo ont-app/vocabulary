@@ -24,6 +24,7 @@
   :voc/mapsTo 'ont-app.vocabulary.core ;; <- part of the test
   })
 
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; FUN WITH READER MACROS
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -193,6 +194,10 @@
       (is (= "en" (lstr/lang x) ))
       (is (= x (lstr/read-LangStr "asdf@en"))))))
 
+;;;;;;;;;;;;
+;; ISSUE 12
+;;;;;;;;;;;;
+
 (deftest issue-12-language-tagged-strings-in-cljs-source
   (testing "read lstr tag"
     (let [x #voc/lstr "dog@en"
@@ -204,12 +209,21 @@
       (is (= #{x} (into #{} [x y]))) ;; identical hashes
       (is (= ont_app.vocabulary.lstr.LangStr (type x))))))
 
+;;;;;;;;;;;;
+;; ISSUE 15
+;;;;;;;;;;;;
+
+
 (deftest issue-15-lstr-should-accommodate-newlines
   (testing "lstr newlines"
     (let [x #voc/lstr "line1\nline2@en"
           ]
       (is (= (str x)
              "line1\nline2")))))
+
+;;;;;;;;;;;;
+;; ISSUE 18
+;;;;;;;;;;;;
 
 (voc/put-ns-meta! 'example-ns
                   {:vann/preferredNamespacePrefix "eg"
@@ -226,9 +240,11 @@
                       voc/turtle-prefixes-for
                       "eg:SomeGuy foaf:homepage eg:SomeWebPage.")]
     (is (re-matches #"(?s).*@prefix eg: <http://rdf.example.com/>.*" prefixed-ttl))
-    (is (re-matches #"(?s).*@prefix foaf: <http://xmlns.com/foaf/0.1/>.*" prefixed-ttl))
-    )
-  ))
+    (is (re-matches #"(?s).*@prefix foaf: <http://xmlns.com/foaf/0.1/>.*" prefixed-ttl)))))
+
+;;;;;;;;;;;;
+;; ISSUE 19
+;;;;;;;;;;;;
 
 (voc/put-ns-meta! 'issue-19-urns-should-be-accommodated
                   {:vann/preferredNamespacePrefix "test-urn"
@@ -252,9 +268,45 @@
          (binding [voc/*exceptional-iri-str-re* #"^(urn:|arn:|urx).*"]
            (voc/uri-for (voc/keyword-for "urx:blah:blah:blah"))))))
 
+;;;;;;;;;;;;
+;; ISSUE 20
+;;;;;;;;;;;;
+
 (deftest issue-20-validity-of-full-uri-keywords
   (is (= :https:%2F%2Fw3id.org%2Fschematransform%2FExampleShape#BShape
          (voc/keyword-for "https://w3id.org/schematransform/ExampleShape#BShape"))))
+
+;;;;;;;;;;;;
+;; ISSUE 25
+;;;;;;;;;;;;
+
+
+
+(deftest issue-25-duplicate-prefixes
+  
+  (let [previous-config @voc/config]
+    (voc/put-ns-meta! 'duplicate-prefixes-1
+                  {:vann/preferredNamespacePrefix "issue25"
+                   :vann/preferredNamespaceUri "http://example.com/issue-25/1/"
+                   })
+
+    (voc/put-ns-meta! 'duplicate-prefixes-2
+                  {:vann/preferredNamespacePrefix "issue25"
+                   :vann/preferredNamespaceUri "http://example.com/issue-25/2/"
+                   })
+    (voc/clear-caches!)
+    ;; duplicate prefixes will throw an error...
+    (is (thrown? clojure.lang.ExceptionInfo (voc/as-uri-string :issue25/blah)))
+    ;; Configure a preference....
+    (swap! voc/config
+           assoc ::voc/prefix-preferences {"issue25" "duplicate-prefixes-2"})
+    (is (= "http://example.com/issue-25/2/blah"
+           (voc/as-uri-string :issue25/blah)))
+    (reset! voc/config previous-config)))
+
+;;;;;;;;;;;;
+;; ISSUE 26
+;;;;;;;;;;;;
 
 (defrecord Employee [name eid])
 
@@ -288,14 +340,21 @@
        (is (= :tmp/test-resource-protocol.txt (voc/as-kwi f)))
        (is (= "tmp:test-resource-protocol.txt" (voc/as-qname f))))))
 
+;;;;;;;;;;;;
+;; ISSUE 27
+;;;;;;;;;;;;
+
 (deftest issue-27-backslashes-in-qnames
   (let [uri-string "http://www.w3.org/2000/01/rdf-schema#blah/blah"
         kwi (voc/as-kwi uri-string)
-        qname (voc/as-qname uri-string)
-        ]
+        qname (voc/as-qname uri-string)]
     (is (= :rdfs/blah%2Fblah kwi))
     (is (= "rdfs:blah\\/blah" (voc/as-qname uri-string)))
     (is (= uri-string (voc/as-uri-string (voc/as-qname uri-string))))))
+
+;;;;;;;;;;;;
+;; ISSUE 29
+;;;;;;;;;;;;
 
 
 (deftest issue-29-resource=
@@ -304,6 +363,10 @@
 
   (is (not (voc/resource= "rdfs:subClassOf"
                           :rdfs/subPropertyOf))))
+
+;;;;;;;;;;;;
+;; ISSUE 31
+;;;;;;;;;;;;
 
 (deftest issue-31-invalid-keywords-when-only-prefix-is-provided
   (is (= :http:%2F%2Fwww.w3.org%2F2000%2F01%2Frdf-schema#
@@ -346,8 +409,7 @@
            (voc/tag 1 :unit/Meter)))
     (when (not *in-cider-cljs-repl*)
       (is (= (voc/untag (voc/tag 1 :unit/Meter) identity)
-             #voc/dstr "1^^unit:Meter")))
-    ))
+             #voc/dstr "1^^unit:Meter")))))
 
 (deftest test-register-resource-types
   (let [original-resource-types @voc/resource-types]
@@ -411,24 +473,4 @@
              (re-matches name-re (str (:name member))))
            (describe-api obj))))
 );; end comment
-
-;;;;;;;;;;;;;
-;; BONE-YARD
-;;;;;;;;;;;;;
-
-;; Made moot by issue 34
-;; #?(:clj
-;;    (deftest
-;;      ^{`voc/resource-type (fn [_] :issue-30)} ;; metadata is bound to the test name won't work under cljs
-;;      clj-issue-30-extend-via-metadata
-;;      (is (= (voc/resource-type #'clj-issue-30-extend-via-metadata)
-;;             :issue-30))))
-
-;; Made moot by issue 34
-;; (deftest issue-30-extend-via-metadata
-;;   ;; see also clj-issue-30-extend-via-metadata which binds to a var (clj only)
-;;   (let [my-thing ^{`voc/resource-type (fn [_] :issue-30)} {:name :issue-30-test}
-;;         ]
-;;     (is (= :issue-30
-;;            (voc/resource-type my-thing)))))
 
