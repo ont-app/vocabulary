@@ -14,16 +14,25 @@
    #?(:cljs [goog.date.DateTime :as DateTime])
    ))
 
-  (def config "Configuration map.
+(def config
+  "Configuration map.
   Typical keys are
   - `::prefix-preferences`: {prefix ns-name, ...}
-    - associates a prefix to a single ns name in the event of a collision. May be
-      referenced indirectly in the function assigned to `::on-duplicate-prefix-fn`
-  - `::on-duplicate-prefix-fn` : (fn [prefixes prefix challenger-ns) -> prefixes)
+    - associates a prefix to a single ns name in the event of a collision. May
+      be referenced indirectly in the function assigned to
+      `::on-duplicate-prefix-fn`
+  - `::on-duplicate-prefix-fn` := fn[prefixes prefix challenger-ns) -> prefixes)
     - referenced in `collect-prefixes`
+  - `::resource-types` := m s.t. #{`::context-fn`, `::most-specific-context`,
+                                   `::on-ambiguity-fn`}
+  - `::context-fn` := fn [] -> `resource-type-context`
+  - `::most-specific-context` := fn [] -> a keyword naming the operative
+     resource type context, which informs the `resource-type-dispatch` function.
+     Resource type contexts should be declared in a taxonomy, typically rooted
+     in ::voc/resource-type-context (the default)
+  - `::on-ambiguity-fn` := fn [contexts] -> winning-context, or error
   "
-    (atom {}))
-
+  (atom {}))
 
 ;;;;;;;;;
 ;; SPEX
@@ -44,7 +53,10 @@
   (fn [m]
     (or (and (:vann/preferredNamespacePrefix m)
              (:vann/preferredNamespaceUri m))
-        (:voc/mapsTo m))))
+        (:voc/mapsTo m)
+        (not (or (:vann/preferredNamespacePrefix m)
+                 (:vann/preferredNamespaceUri m)
+                 (:voc/mapsTo m))))))
 
 (declare match-qname-spec)
 (spec/def :voc/qname-spec (fn [s] (match-qname-spec s)))
@@ -86,7 +98,7 @@ NOTE: call this when you may have imported new namespace metadata
                    :type ::ambiguous-resource-type-context
                    ::contexts contexts})))
 
-(defonce resource-types
+#_(defonce resource-types
   ^{:doc "m s.t. (keys m) = #{`::context-fn`, `::most-specific-context`, `::on-ambiguiti-fn`}
    - `context-fn` := fn [] -> `resource-type-context`
   "}
@@ -99,26 +111,38 @@ NOTE: call this when you may have imported new namespace metadata
                             ;; else there's no ambiguity
                             (first c))))}))
 
+#_(swap! config assoc ::resource-types
+       {::most-specific-context #{::resource-type-context}
+         ::on-ambiguity-fn ambiguous-resource-type-context-error
+         ::context-fn (fn []
+                        (let [c (most-specific-context)]
+                          (if (> (count c) 1)
+                            (on-ambiguous-resource-context c)
+                            ;; else there's no ambiguity
+                            (first c))))})
 
 (defn resource-type-dispatch
   "Returns [`type-context` (type this)]
   - Where
-    - `this` is something which we may want to render as a URI or related construct.
-    - `type-context` is a keyword naming a context to which dispatch methods are keyed
-      - it is the value of (::context-fn @`resource-types`) := fn [] -> :`type-context`
-      - defaults to (partial `select-most-specific-descendant` `::resource-type-context`)
+    - `this` is something which we may want to render as a URI or related
+       construct.
+    - `type-context` is a keyword naming a context to which dispatch methods are
+        keyed. It is the value of (-> @config ::resource-types ::context-fn)
+       - defaults to (partial `select-most-specific-descendant`
+                              `::resource-type-context`)
   "
   [this]
-  (let [get-type-context (-> @resource-types ::context-fn)]
+  (let [get-type-context (-> @config ::resource-types ::context-fn)]
     [(get-type-context)
      (type this)]))
 
 (defmulti resource-type
-  "- Signature [this] -> `resource-type`, informed by @`resource-types`
+  "- Signature [this] -> `resource-type`, informed by (-> @`context` `::resource-types`)
   - Where
     - `this` is something renderable as a URI, KWI, qname, or some other resource ID.
-    - `resource-type` names a resource type on which `as-uri-string`, `as-kwi`, `as-qname` or other methods might be dispatched.
-    - @`resource-types` := m s.t. (keys m) = #{`::context-fn` ...}
+    - `resource-type` names a resource type on which `as-uri-string`, `as-kwi`,
+       `as-qname` or other methods might be dispatched.
+    - `::resource-types` is assocated with m s.t. (keys m) = #{`::context-fn` ...}
     - `context-fn` := fn [] -> `resource-type-context`
   - NOTE: `resource-type-dispatch` := [this] -> [`resource-type-context` (type this)]
   "
@@ -162,25 +186,29 @@ NOTE: call this when you may have imported new namespace metadata
       (swap! cljs-ns-metadata
              assoc ns' m)
       :clj
-      (alter-meta!
-       (if (symbol? ns')
-         (if-let [found (find-ns ns')]
-           found
-           ;; else no proper namespace found
-           (or (try (eval `(var ~ns'))
-                    (catch Exception _))
-               (create-ns ns')))
+      (let [overwrite-ns-meta (fn [meta' m] (-> (reduce dissoc meta'
+                                                        #{:vann/preferredNamespacePrefix
+                                                          :vann/preferredNamespaceUri
+                                                          :voc/mapsTo})
+                                                (merge m)))]
+        (alter-meta!
+         (if (symbol? ns')
+           (if-let [found (find-ns ns')]
+             found
+             ;; else no proper namespace found
+             (or (try (eval `(var ~ns'))
+                      (catch Exception _))
+                 (create-ns ns')))
+           ;; else not a symbol
+           (let []
+             (assert (= (type (find-ns 'user)) clojure.lang.Namespace))
+             ns'))
+         overwrite-ns-meta m))
+      (clear-caches!)))
 
-         ;; else not a symbol
-         (let []
-           (assert (= (type (find-ns 'user)) clojure.lang.Namespace))
-           ns'))
-       merge m))
-   (clear-caches!))
-
-  ([m]
-   #?(:cljs (put-ns-meta! (namespace ::dummy))
-      :clj (put-ns-meta! *ns* m))))
+   ([m]
+    #?(:cljs (put-ns-meta! (namespace ::dummy))
+       :clj (put-ns-meta! *ns* m))))
 
 (defn get-ns-meta
   "Returns `metadata` assigned to ns named `ns'`
@@ -476,7 +504,19 @@ dcat:mediaType relation for some dcat:downloadURL."]])
   (prefer-ns-name (or (::prefix-preferences @config) {})
                   prefixes prefix ns-challenger))
 
-(swap! config assoc ::on-duplicate-prefix-fn use-config-prefix-preferences)
+(def default-config
+  {::on-duplicate-prefix-fn use-config-prefix-preferences
+   ::resource-types {::most-specific-context #{::resource-type-context}
+                     ::on-ambiguity-fn ambiguous-resource-type-context-error
+                     ::context-fn (fn []
+                                    (let [c (most-specific-context)]
+                                      (if (> (count c) 1)
+                                        (on-ambiguous-resource-context c)
+                                        ;; else there's no ambiguity
+                                        (first c))))}})
+
+(when (empty? @config)
+  (reset! config default-config))
 
 (defn- collect-prefixes
   "Returns {`prefix` `namespace` ...} s.t. `next-ns` is included
@@ -904,22 +944,24 @@ dcat:mediaType relation for some dcat:downloadURL."]])
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn- most-specific-context
-  "Dereferenced from @resource-types"
+  "Dereferenced from (::resource-types @config)"
   []
-  (::most-specific-context @resource-types))
+  (-> @config ::resource-types ::most-specific-context))
 
 (defn- on-ambiguous-resource-context
-  "Dereferenced from @resource-types."
+  "Dereferenced from (::resource-tyeps @config)"
   [contexts]
-  (let [f (::on-ambiguity-fn @resource-types)]
+  (let [f (-> @config ::resource-types ::on-ambiguity-fn)]
     (f contexts)))
 
 (defn register-resource-type-context!
-  "Side-effect: Establishes `child` in the (hopefully singleton) set of most-specific resource type context in @resource-types.
+  "Side-effect: Establishes `child` in the (hopefully singleton) set of most-specific resource type context in (@config ::resource-types).
   - Where
-    - `child` names a resource type context on which methods may be dispatched
-    - `parent` names a resource type context on which methods may be dispatched
-    - @`resource-types` is an atom tracking state for resource type inference
+    - `child` names a resource type context on which methods may be dispatched.
+    - `parent` names a resource type context on which methods may be dispatched.
+    - (@`config` `::resource-types`) := m s.t.
+       (keys m) :- #{::most-specific-context, ...}, tracking state for resource
+       type inference.
   "
   [child parent]
   {:pre [(isa? parent ::resource-type-context)]
@@ -927,13 +969,15 @@ dcat:mediaType relation for some dcat:downloadURL."]])
           #(isa? child parent)]
    }
   (derive child parent)
-  (swap! resource-types (fn [m]
-                          (merge m
-                                 {::most-specific-context
-                                  (-> m
-                                      ::most-specific-context
-                                      (disj parent)
-                                      (conj child))}))))
+  (swap! config (fn [m]
+                  (let [r-types (::resource-types m)]
+                    (assoc m ::resource-types
+                           (merge r-types
+                                  {::most-specific-context
+                                   (-> r-types
+                                       ::most-specific-context
+                                       (disj parent)
+                                       (conj child))}))))))
 
 (declare as-uri-string)
 

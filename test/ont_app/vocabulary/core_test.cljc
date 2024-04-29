@@ -280,10 +280,7 @@
 ;; ISSUE 25
 ;;;;;;;;;;;;
 
-
-
 (deftest issue-25-duplicate-prefixes
-  
   (let [previous-config @voc/config]
     (voc/put-ns-meta! 'duplicate-prefixes-1
                   {:vann/preferredNamespacePrefix "issue25"
@@ -302,6 +299,8 @@
            assoc ::voc/prefix-preferences {"issue25" "duplicate-prefixes-2"})
     (is (= "http://example.com/issue-25/2/blah"
            (voc/as-uri-string :issue25/blah)))
+    ;; undo the collision with a maps-to ...
+    (voc/put-ns-meta! 'duplicate-prefixes-2 {:voc/mapsTo 'duplicate-prefixes-1})
     (reset! voc/config previous-config)))
 
 ;;;;;;;;;;;;
@@ -412,7 +411,7 @@
              #voc/dstr "1^^unit:Meter")))))
 
 (deftest test-register-resource-types
-  (let [original-resource-types @voc/resource-types]
+  (let [original-config @voc/config ]
     (try
       (do
         ;; Declare a new context to supersede the default...
@@ -421,7 +420,7 @@
         ;; This should result in a new most-specific context set (a singleton)
         (is (= (::voc/most-specific-context #{::test-context-1})))
         ;; ... which is now the operative context...
-        (let [context-fn (-> @voc/resource-types ::voc/context-fn)]
+        (let [context-fn (-> @voc/config ::voc/resource-types ::voc/context-fn)]
           (is (= (context-fn) ::test-context-1)))
 
         ;; Registering a competing lineage...
@@ -438,13 +437,15 @@
              (voc/resource-type "blah")))
 
         ;; ... but we can fix it ...
-        (swap! voc/resource-types #(-> % (assoc ::voc/on-ambiguity-fn
-                                                (fn [_] ::test-context-1))))
-        (let [context-fn (-> @voc/resource-types ::voc/context-fn)]
+        #_(swap! voc/resource-types #(-> % (assoc ::voc/on-ambiguity-fn
+                                                  (fn [_] ::test-context-1))))
+        (swap! voc/config assoc-in [::voc/resource-types ::voc/on-ambiguity-fn]
+               (fn [_] ::test-context-1))
+        (let [context-fn (-> @voc/config ::voc/resource-types ::voc/context-fn)]
           (is (= (context-fn) ::test-context-1))))
 
     (finally
-      (reset! voc/resource-types original-resource-types)))))
+      (reset! voc/config original-config)))))
 
 (comment
 (defn describe-api ;; todo: move this into a utilities lib
