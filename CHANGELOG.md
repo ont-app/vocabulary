@@ -1,6 +1,10 @@
 # Change Log
 All notable changes to this project will be documented in this file. This change log follows the conventions of [keepachangelog.com](http://keepachangelog.com/).
 
+v 0.4.3
+  - Adding @config atom to hold all configuration
+  - BREAKING: @resource-types moved to (@config ::resource-types)
+  
 v 0.4.2
   - Removing custom hierarchy. (More trouble than it's worth).
   

@@ -14,23 +14,18 @@
    #?(:cljs [goog.date.DateTime :as DateTime])
    ))
 
+
 (def config
   "Configuration map.
   Typical keys are
-  - `::prefix-preferences`: {prefix ns-name, ...}
-    - associates a prefix to a single ns name in the event of a collision. May
-      be referenced indirectly in the function assigned to
-      `::on-duplicate-prefix-fn`
-  - `::on-duplicate-prefix-fn` := fn[prefixes prefix challenger-ns) -> prefixes)
-    - referenced in `collect-prefixes`
   - `::resource-types` := m s.t. #{`::context-fn`, `::most-specific-context`,
-                                   `::on-ambiguity-fn`}
+                                   `::on-ambiguous-context-fn`}
   - `::context-fn` := fn [] -> `resource-type-context`
   - `::most-specific-context` := fn [] -> a keyword naming the operative
      resource type context, which informs the `resource-type-dispatch` function.
      Resource type contexts should be declared in a taxonomy, typically rooted
      in ::voc/resource-type-context (the default)
-  - `::on-ambiguity-fn` := fn [contexts] -> winning-context, or error
+  - `::on-ambiguous-context-fn` := fn [contexts] -> winning-context, or error
   "
   (atom {}))
 
@@ -93,33 +88,11 @@ NOTE: call this when you may have imported new namespace metadata
 (defn- ambiguous-resource-type-context-error
   "Throws an error given non-unique set of resource type contexts to choose from."
   [contexts]
-  (throw (ex-info (str "Ambiguous resource type context " contexts ". Redefine ::voc/on-ambiguity-fn field for @voc/resource-types.")
+  (throw (ex-info (str "Ambiguous resource type context " contexts ". Redefine ::voc/on-ambiguous-context-fn field for @voc/resource-types.")
                   {
                    :type ::ambiguous-resource-type-context
                    ::contexts contexts})))
 
-#_(defonce resource-types
-  ^{:doc "m s.t. (keys m) = #{`::context-fn`, `::most-specific-context`, `::on-ambiguiti-fn`}
-   - `context-fn` := fn [] -> `resource-type-context`
-  "}
-  (atom {::most-specific-context #{::resource-type-context}
-         ::on-ambiguity-fn ambiguous-resource-type-context-error
-         ::context-fn (fn []
-                        (let [c (most-specific-context)]
-                          (if (> (count c) 1)
-                            (on-ambiguous-resource-context c)
-                            ;; else there's no ambiguity
-                            (first c))))}))
-
-#_(swap! config assoc ::resource-types
-       {::most-specific-context #{::resource-type-context}
-         ::on-ambiguity-fn ambiguous-resource-type-context-error
-         ::context-fn (fn []
-                        (let [c (most-specific-context)]
-                          (if (> (count c) 1)
-                            (on-ambiguous-resource-context c)
-                            ;; else there's no ambiguity
-                            (first c))))})
 
 (defn resource-type-dispatch
   "Returns [`type-context` (type this)]
@@ -129,11 +102,12 @@ NOTE: call this when you may have imported new namespace metadata
     - `type-context` is a keyword naming a context to which dispatch methods are
         keyed. It is the value of (-> @config ::resource-types ::context-fn)
        - defaults to (partial `select-most-specific-descendant`
-                              `::resource-type-context`)
+                              `::voc/resource-type-context`)
   "
   [this]
-  (let [get-type-context (-> @config ::resource-types ::context-fn)]
-    [(get-type-context)
+  (let [get-type-context-fn (-> @config ::resource-types ::context-fn)]
+    (assert get-type-context-fn)
+    [(get-type-context-fn)
      (type this)]))
 
 (defmulti resource-type
@@ -458,6 +432,17 @@ dcat:mediaType relation for some dcat:downloadURL."]])
                     (mapcat (comp vals cljc-ns-map) (cljc-all-ns))))))
 
 
+(defn- unique
+  "returns the only member of a singleton `coll`, or calls `on-ambiguity`"
+  ([coll]
+   (unique coll (fn [coll] (throw (ex-info "Ambiguous collection"
+                                           {:type ::ambiguous-collection
+                                            :coll coll})))))
+  ([coll on-ambiguity]
+   (if (= (count coll) 1)
+     (first coll)
+     ;; else ambiguous
+     (on-ambiguity coll))))
 
 (defn error-on-duplicate-prefix
     "Throws an error if a prefix is bound to more than one namespace.
@@ -475,39 +460,10 @@ dcat:mediaType relation for some dcat:downloadURL."]])
                    :prefix prefix
                    :ns ns'})))
 
-(defn prefer-ns-name
-  "Returns `prefixes`, associating `challenger-ns` for the value associated with `prefix` in `prefixes` if (str `challenger-ns`) matches (`prefix->ns-name` `prefix`)
-  - Throws an error if `prefix` is not in `prefix->ns-name`
-  - Where
-    - `prefix->ns-name` := {`prefix` `ns-name`, ...},
-       typically = (::preferred-prefixes @config)
-    - `prefixes` := {`prefix` `ns`, ...}, accumulationg voc prefix mappings
-    - `prefix` is a string naming a voc ns prefix
-    - `challenger-ns` is a namespace whose vann metadata declares a competing value
-       for `prefix`
-  - Note: typically used as a value for (@config ::on-duplicate-prefix-fn) as a
-    `partial` closing over `prefix->ns-name`.
-  "
-  [prefix->ns-name  prefixes prefix challenger-ns]
-  (let [prefixes' (set (keys prefix->ns-name))]
-    (if (prefixes' prefix)
-      (if (= (prefix->ns-name prefix) (str challenger-ns))
-        (assoc prefixes prefix challenger-ns)
-        ;; else
-        prefixes)
-      ;; else prefix is not a key in prefix->ns-name
-      (error-on-duplicate-prefix prefixes prefix challenger-ns))))
-
-(defn use-config-prefix-preferences
-  "Use (::prefix-preferences @config) if defined, else throw an errror."
-  [prefixes prefix ns-challenger]
-  (prefer-ns-name (or (::prefix-preferences @config) {})
-                  prefixes prefix ns-challenger))
 
 (def default-config
-  {::on-duplicate-prefix-fn use-config-prefix-preferences
-   ::resource-types {::most-specific-context #{::resource-type-context}
-                     ::on-ambiguity-fn ambiguous-resource-type-context-error
+  {::resource-types {::most-specific-context #{::resource-type-context}
+                     ::on-ambiguous-context-fn ambiguous-resource-type-context-error
                      ::context-fn (fn []
                                     (let [c (most-specific-context)]
                                       (if (> (count c) 1)
@@ -518,8 +474,8 @@ dcat:mediaType relation for some dcat:downloadURL."]])
 (when (empty? @config)
   (reset! config default-config))
 
-(defn- collect-prefixes
-  "Returns {`prefix` `namespace` ...} s.t. `next-ns` is included
+#_(defn- collect-prefixes
+  "Returns {`prefix` #{`namespace`, ...} ...} s.t. `next-ns` is included
   Where
   - `acc` := {`prefix` `namespace` ...}
   - `next-ns` is typically an element in a reduction sequence of ns's
@@ -534,6 +490,27 @@ dcat:mediaType relation for some dcat:downloadURL."]])
                        (let [f (::on-duplicate-prefix-fn @config)]
                          (f acc prefix next-ns))
                        (assoc acc prefix next-ns)))]
+    (if-let [p (:vann/preferredNamespacePrefix nsm)]
+      (if (set? p)
+        (reduce add-prefix acc p)
+        (add-prefix acc p))
+      acc)))
+(defn- collect-prefixes
+  "Returns {`prefix` #{`namespace`, ...} ...} s.t. `next-ns` is included
+  Where
+  - `acc` := {`prefix` `namespace` ...}
+  - `next-ns` is typically an element in a reduction sequence of ns's
+  - `prefix` is a prefix declared in the metadata of `next-ns`
+  - `namespace` is a URI namespace declared for `prefix` in metadata of `next-ns`"
+  [acc next-ns]
+  {:pre [(map? acc)]
+   }
+  (let [nsm (get-ns-meta next-ns)
+        add-prefix (fn [acc prefix]
+                     (if-let [ns-set (acc prefix)]
+                       (assoc acc prefix (conj ns-set next-ns))
+                       ;; else this is the first declaration of `prefix` (the norm)
+                       (assoc acc prefix #{next-ns})))]
     (if-let [p (:vann/preferredNamespacePrefix nsm)]
       (if (set? p)
         (reduce add-prefix acc p)
@@ -554,6 +531,28 @@ dcat:mediaType relation for some dcat:downloadURL."]])
                     {}
                     (vann-annotated-objects))))
   @prefix-to-ns-cache)
+
+(defmulti disambiguate-prefix-ns
+  "Signature: [kw namespaces] -> winning-ns
+  - Where
+    - `kw` is a namespaced keyword
+    - `namespaces` is a set containing a plurality of namespaces associated with
+       prefix = (namespace kw)
+    - `winning-ns` is the member of `namespaces` appropriate to `kw`
+  "
+  (fn [kw _namespaces] (namespace kw)))
+
+
+(defmethod disambiguate-prefix-ns :default
+  [kw namespaces]
+  (throw (ex-info (str "Prefix `"
+                       (namespace kw)
+                       "` is being associated with multiple namespaces" namespaces)
+
+                  {:type ::DuplicatePrefix
+                   :kw kw
+                   :namespaces namespaces
+                   :prefix (namespace kw)})))
 
 (defn ns-to-namespace
   "Returns `iri` for `ns`
@@ -580,8 +579,7 @@ dcat:mediaType relation for some dcat:downloadURL."]])
   (when-not @namespace-to-ns-cache
     (let [collect-mapping (fn [acc ns']
                             (if-let [namespace (:vann/preferredNamespaceUri
-                                                (get-ns-meta ns'))
-                                     ]
+                                                (get-ns-meta ns'))]
                               (assoc acc namespace ns')
                               ;;else
                               acc))]
@@ -590,9 +588,12 @@ dcat:mediaType relation for some dcat:downloadURL."]])
   @namespace-to-ns-cache)
 
 (defn prefixed-ns
-  "Returns nil or the ns whose `prefix` was declared in metadata with `:vann/preferredNamespacePrefix`.
+  "Returns nil or #{ns, ...} whose `prefix` was declared in metadata with `:vann/preferredNamespacePrefix`.
   - Where
-    - `prefix` is a string, typically parsed from a keyword."
+    - `prefix` is a string, typically parsed from a keyword.
+    - #{`ns` ...}` is typically a singleton set containg the namespace associated with
+      `prefix`. See also the `disambiguate-prefix-ns` method.
+  "
   [prefix]
   {:pre [(string? prefix)]
    }
@@ -659,6 +660,9 @@ dcat:mediaType relation for some dcat:downloadURL."]])
                        ::kw kw
                        })))))
 
+
+
+
 (defn uri-for
   "Returns `iri` for `kw` based on metadata attached to `ns` Alias of `iri-for` or `on-no-prefix (kw) if the keyword is not namespaced.
   - Where
@@ -686,7 +690,8 @@ dcat:mediaType relation for some dcat:downloadURL."]])
              (-> kw-name decode-kw-name encode-uri-string))
         ;; else not a standard scheme....
         (let [_ns (or (cljc-find-ns (symbol prefix))
-                      (prefixed-ns prefix))]
+                      (unique (prefixed-ns prefix)
+                              (partial disambiguate-prefix-ns kw)))]
           (if-not _ns
             (throw (ex-info (str "No URI declared for prefix '" prefix "'")
                             {:type ::NoUriDeclaredForPrefix
@@ -724,6 +729,7 @@ dcat:mediaType relation for some dcat:downloadURL."]])
   [prefix]
   (->> prefix
        (get (prefix-to-ns))
+       unique
        (ns-to-namespace)))
 
 (defn namespace-re
@@ -771,7 +777,8 @@ dcat:mediaType relation for some dcat:downloadURL."]])
       ;; else this is not scheme-based URI
       (if prefix
         (let [ns' (or (cljc-find-ns (symbol prefix))
-                      (prefixed-ns prefix))]
+                      (unique (prefixed-ns prefix)
+                              (partial disambiguate-prefix-ns kw)))]
           (when-not ns'
             (throw (ex-info (str "Could not resolve prefix " prefix)
                             {:type ::CouldNotResolvePrefix
@@ -951,7 +958,7 @@ dcat:mediaType relation for some dcat:downloadURL."]])
 (defn- on-ambiguous-resource-context
   "Dereferenced from (::resource-tyeps @config)"
   [contexts]
-  (let [f (-> @config ::resource-types ::on-ambiguity-fn)]
+  (let [f (-> @config ::resource-types ::on-ambiguous-context-fn)]
     (f contexts)))
 
 (defn register-resource-type-context!
@@ -1136,8 +1143,6 @@ dcat:mediaType relation for some dcat:downloadURL."]])
                obj)]
     (dstr/->DatatypeStr (-> obj' cljc-to-date str)
                         "xsd:dateTime")))
-
-
 
 (defmethod tag :default
   ([obj]
@@ -1407,7 +1412,15 @@ dcat:mediaType relation for some dcat:downloadURL."]])
   :extend-via-metadata true
   (resource-class [this]))
 
-  
+
 (defn ^:dynamic ^:deprecated  on-duplicate-prefix
   [prefixes prefix ns']
   (error-on-duplicate-prefix prefixes prefix ns'))
+
+
+(def ^:deprecated resource-types
+  "Deprecated. Use (@voc/config ::voc/resource-types instead)"
+  (let [err (ex-info "@Resource-types is no longer used. Use (@voc/config ::voc/resource-types) instead."
+                     {:type ::ResourcetypesAtomIsDeprecated})]
+    (atom {::context-fn (fn []
+                          (throw err))})))

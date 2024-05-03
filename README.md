@@ -255,7 +255,7 @@ All the same behaviors described herein for namespace metadata will apply.
 <a name="working-with-kwis-etc"></a>
 ### Working with URI strings, KWIs, and qnames
 
-Resources for which the [`resource-type`](#resource-type) can be
+Resources for which the [`resource-type`](#resource-types) can be
 derived can be rendered as URI strings, KWIs, and qnames using the
 functions described below.
 
@@ -472,18 +472,24 @@ be associated with named context layers.
 Each of the methods described above are dispatched on a method
 `(resource-type <value>) -> [ <context> <datatype>]`.
 
-The operative context is specified in the @voc/resource-types atom
-described below.
+The operative context is specified in the @voc/config atom described
+below.
 
 #### Resource-type contexts
 
 Different application domains may need to make different distinctions
 between resource types (for example RDF requires that we recognize
 blank nodes, and Jena provides special functionality for such
-nodes). The `voc/resource-type-context` holds the operative context on
+nodes). The value of `((-> @voc/config ::voc/resource-types
+::voc/context-fn))` specifies the operative context identifier on
 which to dispatch resource types.
 
-The default resource-type context is `::voc/resource-type-context`.
+The default resource-type context is
+`::voc/resource-type-context`. Typically other context identifiers
+will be [derived](https://clojuredocs.org/clojure.core/derive) from
+this or have it as an
+[ancestor](https://clojuredocs.org/clojure.core/ancestors), as
+discussed [below](#registering-new-resource-type-contexts).
 
 Here's a toy example:
 
@@ -578,19 +584,54 @@ This will enable new methods in `my-ns` to be dispatched on
 `voc/resource-type [::myns/resource-type-context <some type>]`, overriding the behavior
 of `voc/resource-type [::voc/resource-type-context <some type>]`.
 
+The sibling modules [ont-app/rdf](https://github.com/ont-app/rdf) and
+[ont-app/jena](https://github.com/ont-app/igraph-jena) provide
+examples of this.
+
 ### Handling ambiguous contexts
 
-Resource type contexts are managed in an atom called
-`@voc/resource-types`, one field of which is
-`::voc/on-ambiguity-fn`. By default this will throw an error if there
-is not a unique lineage of resource-type contexts.
+The system will attempt to choose the most specific resource type
+context in its taxonomy. Cases where there is not a unique lineage of
+resource-type contexts will refer to `(-> @config ::voc/resource-types
+::voc/on-ambiguous-context-fn)`, whose signature is `[context1,
+context2, ...]` -> `winning-context`. The default for this value
+simply throws an `ex-info` of :type ::voc/ambiguous-resource-type-context.
 
-In such cases, you can rebind this key to perform the
-disambiguation with a function `[context1 context2 ...] -> winning-context` ...
+In such cases, you can rebind this key to perform the disambiguation
+with a function something like:
 
 ```clj
-(swap! voc/resource-types #(-> % assoc ::voc/on-ambiguity-fn
-                                        #(-> % myns/order-contexts-by-precedence first)))
+(swap! voc/config assoc-in [::voc/resource-types ::voc/on-ambiguiity-fn]
+       #(-> % myns/order-contexts-by-precedence first)))
+```
+
+## Prefix collisions
+
+There may be cases where two namespaces lay claim to the same
+prefix. In such cases the `disambiguate-prefix-ns` method will be
+called. By default, this will throw an `ExceptionInfo` of `:type`
+`::voc/DuplicatePrefix`.
+
+A bit of research into prefixes claimed by existing public
+vocabularies can help avoid this problem. The website
+https://prefix.cc/ maintains a registry.
+
+
+If you encounter this problem, one solution to this would be to
+`voc/put-ns-meta!` to overwrite the metadata for one of the namespaces
+to specify a different prefix, but that might not always be feasible, for example in cases where someone's KWIs already presume a certain prefix.
+
+In such cases you can define your own `voc/disambiguate-prefix-ns`
+method, dispatched on (namespace `kw`)
+
+```
+(defmethod voc/disambiguate-prefix-ns "data"
+  [kw _contending-namespaces]
+  (if (#{"foo" "bar"} (name kw))
+      (find-ns 'joe.blow.data)
+      ;; else
+      (find-ns 'jane.blane.data)))
+
 ```
 
 ## Common Linked Data namespaces

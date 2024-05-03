@@ -280,28 +280,30 @@
 ;; ISSUE 25
 ;;;;;;;;;;;;
 
-(deftest issue-25-duplicate-prefixes
-  (let [previous-config @voc/config]
-    (voc/put-ns-meta! 'duplicate-prefixes-1
+(voc/put-ns-meta! 'duplicate-prefixes-1
                   {:vann/preferredNamespacePrefix "issue25"
                    :vann/preferredNamespaceUri "http://example.com/issue-25/1/"
                    })
 
-    (voc/put-ns-meta! 'duplicate-prefixes-2
+(voc/put-ns-meta! 'duplicate-prefixes-2
                   {:vann/preferredNamespacePrefix "issue25"
                    :vann/preferredNamespaceUri "http://example.com/issue-25/2/"
                    })
-    (voc/clear-caches!)
-    ;; duplicate prefixes will throw an error...
-    (is (thrown? clojure.lang.ExceptionInfo (voc/as-uri-string :issue25/blah)))
-    ;; Configure a preference....
-    (swap! voc/config
-           assoc ::voc/prefix-preferences {"issue25" "duplicate-prefixes-2"})
-    (is (= "http://example.com/issue-25/2/blah"
-           (voc/as-uri-string :issue25/blah)))
-    ;; undo the collision with a maps-to ...
-    (voc/put-ns-meta! 'duplicate-prefixes-2 {:voc/mapsTo 'duplicate-prefixes-1})
-    (reset! voc/config previous-config)))
+
+
+(defmethod voc/disambiguate-prefix-ns "issue25"
+  [kw namespaces]
+  (if (= (name kw) "blah")
+    (find-ns 'duplicate-prefixes-2)
+    (find-ns 'duplicate-prefixes-1)))
+
+
+(deftest issue-25-duplicate-prefixes
+  (voc/clear-caches!)
+  (is (= "http://example.com/issue-25/2/blah"
+         (voc/as-uri-string :issue25/blah)))
+  (is (= "http://example.com/issue-25/1/blih"
+         (voc/as-uri-string :issue25/blih))))
 
 ;;;;;;;;;;;;
 ;; ISSUE 26
@@ -437,9 +439,7 @@
              (voc/resource-type "blah")))
 
         ;; ... but we can fix it ...
-        #_(swap! voc/resource-types #(-> % (assoc ::voc/on-ambiguity-fn
-                                                  (fn [_] ::test-context-1))))
-        (swap! voc/config assoc-in [::voc/resource-types ::voc/on-ambiguity-fn]
+        (swap! voc/config assoc-in [::voc/resource-types ::voc/on-ambiguous-context-fn]
                (fn [_] ::test-context-1))
         (let [context-fn (-> @voc/config ::voc/resource-types ::voc/context-fn)]
           (is (= (context-fn) ::test-context-1))))
@@ -474,4 +474,3 @@
              (re-matches name-re (str (:name member))))
            (describe-api obj))))
 );; end comment
-
