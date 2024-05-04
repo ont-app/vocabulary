@@ -4,6 +4,7 @@ All notable changes to this project will be documented in this file. This change
 v 0.4.3
   - Adding @config atom to hold all configuration
   - BREAKING: @resource-types moved to (@config ::resource-types)
+  - BREAKING: @exceptional-iri-str-re moved to (@config ::special-uri-str-re)
   
 v 0.4.2
   - Removing custom hierarchy. (More trouble than it's worth).

@@ -264,9 +264,11 @@
        #?(:clj Exception :cljs js/Error)
        #"Could not find IRI for :urx:blah:blah:blah"
        (voc/uri-for (voc/keyword-for "urx:blah:blah:blah"))))
-  (is (= "urx:blah:blah:blah"
-         (binding [voc/*exceptional-iri-str-re* #"^(urn:|arn:|urx).*"]
-           (voc/uri-for (voc/keyword-for "urx:blah:blah:blah"))))))
+  (let [old-config @voc/config]
+    (swap! voc/config assoc ::voc/special-uri-str-re #"^(urn:|arn:|urx).*")
+    (is (= "urx:blah:blah:blah"
+           (voc/uri-for (voc/keyword-for "urx:blah:blah:blah"))))
+    (reset! voc/config old-config)))
 
 ;;;;;;;;;;;;
 ;; ISSUE 20

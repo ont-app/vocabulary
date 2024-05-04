@@ -469,7 +469,9 @@ dcat:mediaType relation for some dcat:downloadURL."]])
                                       (if (> (count c) 1)
                                         (on-ambiguous-resource-context c)
                                         ;; else there's no ambiguity
-                                        (first c))))}})
+                                        (first c))))}
+   ::special-uri-str-re #"^(urn:|arn:).*"
+   })
 
 (when (empty? @config)
   (reset! config default-config))
@@ -603,15 +605,12 @@ dcat:mediaType relation for some dcat:downloadURL."]])
   "A regex matching a standard IRI string."
   #"^(http:|https:|file:).*")
 
-(def ^:dynamic *exceptional-iri-str-re*
-  "A regex matching an IRI string which doesn't match the usual http//-ish scheme, such as `urn:`."
-  #"^(urn:|arn:).*")
-
 (defn- match-uri-str-spec
   "Truthy when `s` matches spec `:voc/uri-str-spec`."
   [s]
   (or (re-matches ordinary-iri-str-re s)
-      (re-matches *exceptional-iri-str-re* s)))
+      (if-let [r (-> @config ::special-uri-str-re)]
+        (re-matches  r s))))
 
 (defn- match-kwi-spec
   "Truthy when `k` matches spec `:voc/kwi-spec`"
@@ -634,7 +633,7 @@ dcat:mediaType relation for some dcat:downloadURL."]])
   {:pre [(keyword? kw)
          (empty? (namespace kw))]
    }
-  (if (re-matches *exceptional-iri-str-re* (name kw))
+  (if (re-matches (-> @config ::special-uri-str-re) (name kw))
     (name kw)
     (throw (ex-info (str "Could not find IRI for " kw)
                   {:type ::NoIRIForKw
@@ -1403,9 +1402,6 @@ dcat:mediaType relation for some dcat:downloadURL."]])
   [x]
   (as-uri-string x))
 
-(def ^:deprecated exceptional-iri-str-re
-  "deprecated alias for dynamic var *exceptional-iri-str-re*"
-  *exceptional-iri-str-re*)
 
 (defprotocol ^:deprecated Resource
   "Deprecated. Use resource-type multimethod instead."
