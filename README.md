@@ -25,6 +25,7 @@ This library should work under both clojure and clojurescript.
     - [`namespace-to-ns`](#namespace-to-ns)
     - [`ns-to-prefix`](#ns-to-prefix)
     - [`clear-caches!`](#clear-caches)
+    - [Prefix collisions](#prefix-collisions)
 - [Resource types](#resource-types)
   - [The `resource-type` multimethod](#the-resource-type-multimethod)
     - [Resource-type contexts](#resource-type-contexts)
@@ -257,7 +258,7 @@ All the same behaviors described herein for namespace metadata will apply.
 
 Resources for which the [`resource-type`](#resource-types) can be
 derived can be rendered as URI strings, KWIs, and qnames using the
-functions described below.
+functions described in the following sections.
 
 #### `as-uri-string`
 
@@ -265,12 +266,12 @@ This maps instances of the resource type to a URI string.
 
 ##### URI syntax
 
-There are two dynamic variables defined to recognize and partially
-parse URI strings under _ont-app/vocabulary_.
+The system maintains a spec `:voc/uri-str-spec` which will enforce
+what it considers well-formed URI strings.
 
-- `voc/ordinary-iri-str-re` by default is defined as `"^(http:|https:|file:).*"`
-- `voc/*exceptional-iri-str-re*` by default is defined as `#"^(urn:|arn:).*"`
-  - A dynamic variable. Can be rebound to recognize other patterns as needed
+Ordinary URI strings match
+#"^(http:|https:|file:|urn:|tel:|mailto:|jdbc:|odbc:|ftp:|geo:|git:|gopher:|pop:|telnet:).*"). You can also set a value for (-> @config `::voc/special-uri-str-re`),
+which defaults to `#"^(arn:).*"`
 
 #### `as-kwi`
 
@@ -461,6 +462,35 @@ need to clear the caches:
 > (voc/clear-caches!)
 ```
 
+### Prefix collisions
+
+There may be cases where two namespaces lay claim to the same
+prefix. In such cases the `disambiguate-prefix-ns` method will be
+called. By default, this will throw an `ExceptionInfo` of `:type`
+`::voc/DuplicatePrefix`.
+
+A bit of research into prefixes claimed by existing public
+vocabularies can help avoid this problem. The website
+https://prefix.cc/ maintains a registry.
+
+
+If you encounter this problem, one solution to this would be to
+`voc/put-ns-meta!` to overwrite the metadata for one of the namespaces
+to specify a different prefix, but that might not always be feasible, for example in cases where someone's KWIs already presume a certain prefix.
+
+In such cases you can define your own `voc/disambiguate-prefix-ns`
+method, dispatched on (namespace `kw`)
+
+```
+(defmethod voc/disambiguate-prefix-ns "data"
+  [kw _contending-namespaces]
+  (if (#{"foo" "bar"} (name kw))
+      (find-ns 'joe.blow.data)
+      ;; else
+      (find-ns 'jane.blane.data)))
+
+```
+
 ## Resource types
 
 The `as-uri-string`, `as-kwi`, `as-qname` and `resource=` methods are
@@ -472,8 +502,8 @@ be associated with named context layers.
 Each of the methods described above are dispatched on a method
 `(resource-type <value>) -> [ <context> <datatype>]`.
 
-The operative context is specified in the @voc/config atom described
-below.
+The operative context is specified in the `@voc/config` atom described
+in the following sections.
 
 #### Resource-type contexts
 
@@ -534,7 +564,7 @@ true
 ```
 ### Existing resource types
 
-The following existing classes have declared `Resource` extensions as follows:
+`::voc/resource-type-context` declares `Resource` mappings as follows:
 
 | Resource | maps to resource type|
 | --- | --- |
@@ -542,8 +572,8 @@ The following existing classes have declared `Resource` extensions as follows:
 | _clojure.lang.Keyword_ <br/> _cljs.core/Keyword_ | `:voc/Kwi`<br/>`:voc/QualifiedNonKwi`<br/>`:voc/UnqualifiedKeyword` |
 | _java.io.File_ | `:voc/LocalFile` |
 
-Of the resource class tags defined above, there are "as-X" methods
-defined for the following:
+Of the resource class tags defined above, there are `as-(uri-string|qname|kwi)` and `resource=` methods
+defined under `::voc/resource-type-context` for the following:
 
 - `:voc/UriString`
 - `:voc/Qname`
@@ -580,9 +610,11 @@ New layers of logic can be added with  `register-resource-type-context!`:
 > (voc/register-resource-type-context! ::resource-type-context ::voc/resource-type-context)
 ```
 
-This will enable new methods in `my-ns` to be dispatched on
-`voc/resource-type [::myns/resource-type-context <some type>]`, overriding the behavior
-of `voc/resource-type [::voc/resource-type-context <some type>]`.
+This will derive `::my-ns/resource-type-context` from
+`::voc/resource-type-context` and enable new methods in `my-ns` to be
+dispatched on `voc/resource-type [::myns/resource-type-context <some
+type>]`, overriding the behavior of `voc/resource-type
+[::voc/resource-type-context <some type>]`.
 
 The sibling modules [ont-app/rdf](https://github.com/ont-app/rdf) and
 [ont-app/jena](https://github.com/ont-app/igraph-jena) provide
@@ -605,34 +637,6 @@ with a function something like:
        #(-> % myns/order-contexts-by-precedence first)))
 ```
 
-## Prefix collisions
-
-There may be cases where two namespaces lay claim to the same
-prefix. In such cases the `disambiguate-prefix-ns` method will be
-called. By default, this will throw an `ExceptionInfo` of `:type`
-`::voc/DuplicatePrefix`.
-
-A bit of research into prefixes claimed by existing public
-vocabularies can help avoid this problem. The website
-https://prefix.cc/ maintains a registry.
-
-
-If you encounter this problem, one solution to this would be to
-`voc/put-ns-meta!` to overwrite the metadata for one of the namespaces
-to specify a different prefix, but that might not always be feasible, for example in cases where someone's KWIs already presume a certain prefix.
-
-In such cases you can define your own `voc/disambiguate-prefix-ns`
-method, dispatched on (namespace `kw`)
-
-```
-(defmethod voc/disambiguate-prefix-ns "data"
-  [kw _contending-namespaces]
-  (if (#{"foo" "bar"} (name kw))
-      (find-ns 'joe.blow.data)
-      ;; else
-      (find-ns 'jane.blane.data)))
-
-```
 
 ## Common Linked Data namespaces
 

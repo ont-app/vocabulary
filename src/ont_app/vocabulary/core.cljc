@@ -18,16 +18,27 @@
 (def config
   "Configuration map.
   Typical keys are
-  - `::resource-types` := m s.t. #{`::context-fn`, `::most-specific-context`,
+  - `::resource-types` := m s.t. #{`::context-fn`, `::operative-context`,
                                    `::on-ambiguous-context-fn`}
   - `::context-fn` := fn [] -> `resource-type-context`
-  - `::most-specific-context` := fn [] -> a keyword naming the operative
+  - `::operative-context` := fn [] -> a keyword naming the operative
      resource type context, which informs the `resource-type-dispatch` function.
      Resource type contexts should be declared in a taxonomy, typically rooted
      in ::voc/resource-type-context (the default)
   - `::on-ambiguous-context-fn` := fn [contexts] -> winning-context, or error
   "
   (atom {}))
+
+(declare ambiguous-resource-type-context-error
+         find-unique-operative-context)
+
+(def default-config
+  {::resource-types {::operative-context #{::resource-type-context}
+                     ::on-ambiguous-context-fn ambiguous-resource-type-context-error
+                     ::context-fn find-unique-operative-context}
+
+   ::special-uri-str-re #"^(arn:).*"})
+
 
 ;;;;;;;;;
 ;; SPEX
@@ -82,7 +93,7 @@ NOTE: call this when you may have imported new namespace metadata
 ;; Resource Type context and method def
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(declare most-specific-context)
+(declare operative-context)
 (declare on-ambiguous-resource-context)
 
 (defn- ambiguous-resource-type-context-error
@@ -92,7 +103,6 @@ NOTE: call this when you may have imported new namespace metadata
                   {
                    :type ::ambiguous-resource-type-context
                    ::contexts contexts})))
-
 
 (defn resource-type-dispatch
   "Returns [`type-context` (type this)]
@@ -399,21 +409,6 @@ asserted in usual key-value metadata asserted for <ns>, e.g. asserting a
 dcat:mediaType relation for some dcat:downloadURL."]])
 
 ;;;; FUNCTIONS
-#_(defn ^:dynamic on-duplicate-prefix
-  "Throws an error if a prefix is bound to more than one namespace.
-  Reduces into `prefix` argument
-  - Where
-    - `prefixes` := {`prefix` `ns`, ...}
-    - `prefix` := is a string naming the `vann:preferredNamespaceUri` for `ns'`
-    - `ns'` refers to a namespace"
-  [prefixes prefix ns']
-  (throw (ex-info (str "Prefix `" prefix "` is being associated with both "
-                       (prefixes prefix) " and " ns')
-                  {:type ::DuplicatePrefix
-                   :prefixes prefixes
-                   :prefix prefix
-                   :ns ns'})))
-
 (defn vann-annotated-objects
   "Returns `[obj, ...]
   - Where:
@@ -461,42 +456,6 @@ dcat:mediaType relation for some dcat:downloadURL."]])
                    :ns ns'})))
 
 
-(def default-config
-  {::resource-types {::most-specific-context #{::resource-type-context}
-                     ::on-ambiguous-context-fn ambiguous-resource-type-context-error
-                     ::context-fn (fn []
-                                    (let [c (most-specific-context)]
-                                      (if (> (count c) 1)
-                                        (on-ambiguous-resource-context c)
-                                        ;; else there's no ambiguity
-                                        (first c))))}
-   ::special-uri-str-re #"^(urn:|arn:).*"
-   })
-
-(when (empty? @config)
-  (reset! config default-config))
-
-#_(defn- collect-prefixes
-  "Returns {`prefix` #{`namespace`, ...} ...} s.t. `next-ns` is included
-  Where
-  - `acc` := {`prefix` `namespace` ...}
-  - `next-ns` is typically an element in a reduction sequence of ns's
-  - `prefix` is a prefix declared in the metadata of `next-ns`
-  - `namespace` is a URI namespace declared for `prefix` in metadata of `next-ns`"
-  [acc next-ns]
-  {:pre [(map? acc)]
-   }
-  (let [nsm (get-ns-meta next-ns)
-        add-prefix (fn [acc prefix]
-                     (if (acc prefix)
-                       (let [f (::on-duplicate-prefix-fn @config)]
-                         (f acc prefix next-ns))
-                       (assoc acc prefix next-ns)))]
-    (if-let [p (:vann/preferredNamespacePrefix nsm)]
-      (if (set? p)
-        (reduce add-prefix acc p)
-        (add-prefix acc p))
-      acc)))
 (defn- collect-prefixes
   "Returns {`prefix` #{`namespace`, ...} ...} s.t. `next-ns` is included
   Where
@@ -602,8 +561,8 @@ dcat:mediaType relation for some dcat:downloadURL."]])
   (get (prefix-to-ns) prefix))
 
 (def ordinary-iri-str-re
-  "A regex matching a standard IRI string."
-  #"^(http:|https:|file:).*")
+  "A regex matching a commonly occurring standard IRI string, arbitrarily chosen from https://www.iana.org/assignments/uri-schemes/uri-schemes.xhtml"
+  #"^(http:|https:|file:|urn:|tel:|mailto:|jdbc:|odbc:|ftp:|geo:|git:|gopher:|pop:|telnet:).*")
 
 (defn- match-uri-str-spec
   "Truthy when `s` matches spec `:voc/uri-str-spec`."
@@ -949,10 +908,10 @@ dcat:mediaType relation for some dcat:downloadURL."]])
 ;; Methods keyed to resource-type
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defn- most-specific-context
+(defn- operative-context
   "Dereferenced from (::resource-types @config)"
   []
-  (-> @config ::resource-types ::most-specific-context))
+  (-> @config ::resource-types ::operative-context))
 
 (defn- on-ambiguous-resource-context
   "Dereferenced from (::resource-tyeps @config)"
@@ -960,13 +919,19 @@ dcat:mediaType relation for some dcat:downloadURL."]])
   (let [f (-> @config ::resource-types ::on-ambiguous-context-fn)]
     (f contexts)))
 
+(defn- find-unique-operative-context
+  "Returns the operative context if unique, or calls `on-ambiguous-resource-context`"
+  []
+  (unique (operative-context)
+          on-ambiguous-resource-context))
+
 (defn register-resource-type-context!
   "Side-effect: Establishes `child` in the (hopefully singleton) set of most-specific resource type context in (@config ::resource-types).
   - Where
     - `child` names a resource type context on which methods may be dispatched.
     - `parent` names a resource type context on which methods may be dispatched.
     - (@`config` `::resource-types`) := m s.t.
-       (keys m) :- #{::most-specific-context, ...}, tracking state for resource
+       (keys m) :- #{::operative-context, ...}, tracking state for resource
        type inference.
   "
   [child parent]
@@ -979,9 +944,9 @@ dcat:mediaType relation for some dcat:downloadURL."]])
                   (let [r-types (::resource-types m)]
                     (assoc m ::resource-types
                            (merge r-types
-                                  {::most-specific-context
+                                  {::operative-context
                                    (-> r-types
-                                       ::most-specific-context
+                                       ::operative-context
                                        (disj parent)
                                        (conj child))}))))))
 
@@ -1191,6 +1156,12 @@ dcat:mediaType relation for some dcat:downloadURL."]])
     (untag dstr error-on-no-untag-found))
    ([dstr on-not-found]
     (on-not-found dstr)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Establish initial @config
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(when (empty? @config)
+  (reset! config default-config))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; ;;; NAMESPACE DECLARATIONS
