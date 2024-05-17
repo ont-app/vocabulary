@@ -15,31 +15,6 @@
    ))
 
 
-(def config
-  "Configuration map.
-  Typical keys are
-  - `::resource-types` := m s.t. #{`::context-fn`, `::operative-context`,
-                                   `::on-ambiguous-context-fn`}
-  - `::context-fn` := fn [] -> `resource-type-context`
-  - `::operative-context` := fn [] -> a keyword naming the operative
-     resource type context, which informs the `resource-type-dispatch` function.
-     Resource type contexts should be declared in a taxonomy, typically rooted
-     in ::voc/resource-type-context (the default)
-  - `::on-ambiguous-context-fn` := fn [contexts] -> winning-context, or error
-  "
-  (atom {}))
-
-(declare ambiguous-resource-type-context-error
-         find-unique-operative-context)
-
-(def default-config
-  {::resource-types {::operative-context #{::resource-type-context}
-                     ::on-ambiguous-context-fn ambiguous-resource-type-context-error
-                     ::context-fn find-unique-operative-context}
-
-   ::special-uri-str-re #"^(arn:).*"})
-
-
 ;;;;;;;;;
 ;; SPEX
 ;;;;;;;;;
@@ -70,6 +45,27 @@
 (declare match-kwi-spec)
 (spec/def :voc/kwi-spec (fn [k] (match-kwi-spec k)))
 
+;;;;;;;;;;;;;;;;;
+;; CONFIGURATION
+;;;;;;;;;;;;;;;;;
+
+(def config
+  "Configuration map.
+  Typical keys are
+  - `::operative-resource-context` (optional) a keyword naming the operative
+     resource type context, which informs the `resource-type-dispatch` function.
+     Resource type contexts should be declared in a taxonomy rooted in
+     ::voc/resource-type-context. Left unspecified, it will be set automatically to the
+     most specific descendant of ::voc/resource-type-context.
+     - See also `most-specific-resource-type-context` 
+  - `::special-uri-str-re` is a regex matching URI strings not specified as ???.
+    - default: :~ `^(arn:).*`
+  "
+  (atom {}))
+
+(def default-config
+  {::special-uri-str-re #"^(arn:).*"})
+
 ;;;;;;;;;;
 ;; Caches
 ;;;;;;;;;;
@@ -93,16 +89,7 @@ NOTE: call this when you may have imported new namespace metadata
 ;; Resource Type context and method def
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(declare operative-context)
-(declare on-ambiguous-resource-context)
-
-(defn- ambiguous-resource-type-context-error
-  "Throws an error given non-unique set of resource type contexts to choose from."
-  [contexts]
-  (throw (ex-info (str "Ambiguous resource type context " contexts ". Redefine ::voc/on-ambiguous-context-fn field for @voc/resource-types.")
-                  {
-                   :type ::ambiguous-resource-type-context
-                   ::contexts contexts})))
+(declare operative-resource-context)
 
 (defn resource-type-dispatch
   "Returns [`type-context` (type this)]
@@ -110,25 +97,20 @@ NOTE: call this when you may have imported new namespace metadata
     - `this` is something which we may want to render as a URI or related
        construct.
     - `type-context` is a keyword naming a context to which dispatch methods are
-        keyed. It is the value of (-> @config ::resource-types ::context-fn)
-       - defaults to (partial `select-most-specific-descendant`
-                              `::voc/resource-type-context`)
+        keyed. It is the value of (operative-resource-context)
+       - defaults to (`most-specific-resource-context` `::voc/resource-type-context`)
   "
   [this]
-  (let [get-type-context-fn (-> @config ::resource-types ::context-fn)]
-    (assert get-type-context-fn)
-    [(get-type-context-fn)
-     (type this)]))
+  [(operative-resource-context)
+   (type this)])
 
 (defmulti resource-type
-  "- Signature [this] -> `resource-type`, informed by (-> @`context` `::resource-types`)
+  "- Signature [this] -> `resource-type`, dispatched on `resource-type-dispatch`
   - Where
-    - `this` is something renderable as a URI, KWI, qname, or some other resource ID.
+    - `this` is something renderable as a URI, KWI, qname, or some other
+       resource ID.
     - `resource-type` names a resource type on which `as-uri-string`, `as-kwi`,
-       `as-qname` or other methods might be dispatched.
-    - `::resource-types` is assocated with m s.t. (keys m) = #{`::context-fn` ...}
-    - `context-fn` := fn [] -> `resource-type-context`
-  - NOTE: `resource-type-dispatch` := [this] -> [`resource-type-context` (type this)]
+      `as-qname` or other methods might be dispatched.
   "
   resource-type-dispatch)
 
@@ -273,11 +255,9 @@ Where
     infer prefix declarations."
   [re-str s]
   {:pre [(string? re-str)
-         (string? s)]
-   }
+         (string? s)]}
   #?(:clj
-     (let [prefixes (re-matcher (re-pattern re-str) s)
-           ]
+     (let [prefixes (re-matcher (re-pattern re-str) s)]
        (loop [acc #{}
               next-match (re-find prefixes)]
          (if (not next-match)
@@ -303,8 +283,7 @@ Where
                ;; TODO: make this less ugly
                ;; Should be OK for shortish strings like SPARQL queries
                ;; for now
-               (recur acc (subs input 1)))))))
-     ))
+               (recur acc (subs input 1)))))))))
 
 (def cljc-ns-map
   "mimics behavior of `ns-map` on cljs, but returns empty symbol->binding map"
@@ -317,7 +296,8 @@ Where
 
 (declare prefixed-ns)
 
-(defmethod resource-type [::resource-type-context #?(:clj java.lang.String :cljs (type ""))]
+(defmethod resource-type [::resource-type-context #?(:clj java.lang.String
+                                                     :cljs (type ""))]
   [this]
   (cond
     (spec/valid? :voc/uri-str-spec this)
@@ -409,6 +389,19 @@ asserted in usual key-value metadata asserted for <ns>, e.g. asserting a
 dcat:mediaType relation for some dcat:downloadURL."]])
 
 ;;;; FUNCTIONS
+
+(defn- unique
+  "returns the only member of a singleton `coll`, or calls `on-ambiguity`"
+  ([coll]
+   (unique coll (fn [coll] (throw (ex-info "Ambiguous collection"
+                                           {:type ::ambiguous-collection
+                                            :coll coll})))))
+  ([coll on-ambiguity]
+   (if (= (count coll) 1)
+     (first coll)
+     ;; else ambiguous
+     (on-ambiguity coll))))
+
 (defn vann-annotated-objects
   "Returns `[obj, ...]
   - Where:
@@ -427,45 +420,20 @@ dcat:mediaType relation for some dcat:downloadURL."]])
                     (mapcat (comp vals cljc-ns-map) (cljc-all-ns))))))
 
 
-(defn- unique
-  "returns the only member of a singleton `coll`, or calls `on-ambiguity`"
-  ([coll]
-   (unique coll (fn [coll] (throw (ex-info "Ambiguous collection"
-                                           {:type ::ambiguous-collection
-                                            :coll coll})))))
-  ([coll on-ambiguity]
-   (if (= (count coll) 1)
-     (first coll)
-     ;; else ambiguous
-     (on-ambiguity coll))))
-
-(defn error-on-duplicate-prefix
-    "Throws an error if a prefix is bound to more than one namespace.
-  Reduces into `prefix` argument
-  - Where
-    - `prefixes` := {`prefix` `ns`, ...}
-    - `prefix` := is a string naming the `vann:preferredNamespaceUri` for `ns'`
-    - `ns'` refers to a namespace"
-
-  [prefixes prefix ns']
-  (throw (ex-info (str "Prefix `" prefix "` is being associated with both "
-                       (prefixes prefix) " and " ns')
-                  {:type ::DuplicatePrefix
-                   :prefixes prefixes
-                   :prefix prefix
-                   :ns ns'})))
 
 
 (defn- collect-prefixes
   "Returns {`prefix` #{`namespace`, ...} ...} s.t. `next-ns` is included
   Where
-  - `acc` := {`prefix` `namespace` ...}
+  - `acc` := {`prefix` #{`namespace`, ...}, ...}
   - `next-ns` is typically an element in a reduction sequence of ns's
   - `prefix` is a prefix declared in the metadata of `next-ns`
-  - `namespace` is a URI namespace declared for `prefix` in metadata of `next-ns`"
+  - `namespace` is a URI namespace declared for `prefix` in metadata of `next-ns`
+  - NOTE: We should try very hard to ensure that each prefix maps to a singleton set.
+    - Failing that see `disambiguate-prefix-ns` method.
+  "
   [acc next-ns]
-  {:pre [(map? acc)]
-   }
+  {:pre [(map? acc)]}
   (let [nsm (get-ns-meta next-ns)
         add-prefix (fn [acc prefix]
                      (if-let [ns-set (acc prefix)]
@@ -531,7 +499,7 @@ dcat:mediaType relation for some dcat:downloadURL."]])
        :vann/preferredNamespaceUri)))
 
 (defn namespace-to-ns
-  "returns {`namespace` `ns` ...} for each `ns` with :vann/preferredNamespaceUri
+  "returns {`namespace` `ns`, ...} for each `ns` with :vann/preferredNamespaceUri
   declaration
   - Where
     - `namespace` is the URI suitable for for an RDF prefix declaration
@@ -539,9 +507,9 @@ dcat:mediaType relation for some dcat:downloadURL."]])
   []
   (when-not @namespace-to-ns-cache
     (let [collect-mapping (fn [acc ns']
-                            (if-let [namespace (:vann/preferredNamespaceUri
+                            (if-let [namespace' (:vann/preferredNamespaceUri
                                                 (get-ns-meta ns'))]
-                              (assoc acc namespace ns')
+                              (assoc acc namespace' ns')
                               ;;else
                               acc))]
       (reset! namespace-to-ns-cache
@@ -556,12 +524,12 @@ dcat:mediaType relation for some dcat:downloadURL."]])
       `prefix`. See also the `disambiguate-prefix-ns` method.
   "
   [prefix]
-  {:pre [(string? prefix)]
-   }
+  {:pre [(string? prefix)]}
   (get (prefix-to-ns) prefix))
 
 (def ordinary-iri-str-re
-  "A regex matching a commonly occurring standard IRI string, arbitrarily chosen from https://www.iana.org/assignments/uri-schemes/uri-schemes.xhtml"
+  "A regex matching a commonly occurring standard IRI string, arbitrarily chosen from
+  https://www.iana.org/assignments/uri-schemes/uri-schemes.xhtml"
   #"^(http:|https:|file:|urn:|tel:|mailto:|jdbc:|odbc:|ftp:|geo:|git:|gopher:|pop:|telnet:).*")
 
 (defn- match-uri-str-spec
@@ -585,9 +553,8 @@ dcat:mediaType relation for some dcat:downloadURL."]])
                    ))
           (spec/valid? :voc/uri-str-spec kw-name)))))
 
-
-(defn- kwi-missing-namespace-if-not-urn-or-arn
-  "Returns the name-stiring of `kw`, or throws ::NoIRIForKw if `kw` is incorrectly missing a namespace."
+#_(defn- kwi-missing-namespace-if-not-special
+  "Returns the name-string of `kw`, or throws ::NoIRIForKw if `kw` is incorrectly missing a namespace."
   [kw]
   {:pre [(keyword? kw)
          (empty? (namespace kw))]
@@ -605,8 +572,7 @@ dcat:mediaType relation for some dcat:downloadURL."]])
     - `kw` is a keyword with no namespace."
   [kw]
   {:pre [(keyword? kw)
-         (empty? (namespace kw))]
-   }
+         (empty? (namespace kw))]}
   (let [kw-name (name kw)
         ]
     (if (spec/valid? :voc/uri-str-spec kw-name)
@@ -618,15 +584,13 @@ dcat:mediaType relation for some dcat:downloadURL."]])
                        ::kw kw
                        })))))
 
-
-
-
 (defn uri-for
   "Returns `iri` for `kw` based on metadata attached to `ns` Alias of `iri-for` or `on-no-prefix (kw) if the keyword is not namespaced.
   - Where
     - `kw` is a keyword of the form `prefix`:`value`
     - `on-no-kwi-ns` := fn [kw] -> uri, for cases where `kw` is not namespaced
-      default is `default-on-no-kwi-ns`
+      default returns the name-string of `kw` if its name string is a typical URI or URN,
+      otherwise throws a :NoIRIForKw error.
     - `iri` is of the form `namespace``value`
     - `ns` is an instance of clojure.lang.ns
     - `prefix` is declared with :vann/preferredNamespacePrefix in metadata of `ns`
@@ -636,31 +600,30 @@ dcat:mediaType relation for some dcat:downloadURL."]])
    (uri-for default-on-no-kwi-ns kw))
 
   ([on-no-kwi-ns kw]
-   {:pre [(keyword? kw)]
-    }
-  (let [prefix (namespace kw)
-        kw-name (name kw)]
-    (if prefix
-      (if (#{"http:" "https:" "file:"} (decode-kw-ns prefix))
-        ;; this doesn't happen much anymore. Retained for back-compatibility
-        (str (-> prefix decode-kw-name encode-uri-string)
-             "/"
-             (-> kw-name decode-kw-name encode-uri-string))
-        ;; else not a standard scheme....
-        (let [_ns (or (cljc-find-ns (symbol prefix))
-                      (unique (prefixed-ns prefix)
-                              (partial disambiguate-prefix-ns kw)))]
-          (if-not _ns
-            (throw (ex-info (str "No URI declared for prefix '" prefix "'")
-                            {:type ::NoUriDeclaredForPrefix
-                             ::kw kw
-                             ::prefix prefix
-                             }))
+   {:pre [(keyword? kw)]}
+   (let [prefix (namespace kw)
+         kw-name (name kw)]
+     (if prefix
+       (if (#{"http:" "https:" "file:"} (decode-kw-ns prefix))
+         ;; this doesn't happen much anymore. Retained for back-compatibility
+         (str (-> prefix decode-kw-name encode-uri-string)
+              "/"
+              (-> kw-name decode-kw-name encode-uri-string))
+         ;; else not a standard scheme....
+         (let [_ns (or (cljc-find-ns (symbol prefix))
+                       (unique (prefixed-ns prefix)
+                               (partial disambiguate-prefix-ns kw)))]
+           (if-not _ns
+             (throw (ex-info (str "No URI declared for prefix '" prefix "'")
+                             {:type ::NoUriDeclaredForPrefix
+                              ::kw kw
+                              ::prefix prefix
+                              }))
 
-            (str (-> _ns (ns-to-namespace))
-                 (-> kw-name decode-kw-name encode-uri-string)))))
-      ;; else no prefix
-      (on-no-kwi-ns kw)))))
+             (str (-> _ns (ns-to-namespace))
+                  (-> kw-name decode-kw-name encode-uri-string)))))
+       ;; else no prefix
+       (on-no-kwi-ns kw)))))
 
 (def iri-for "Alias of uri-for" uri-for)
 
@@ -697,12 +660,11 @@ dcat:mediaType relation for some dcat:downloadURL."]])
   (or @namespace-re-cache
       (let [namespace< (fn [a b] ;; match longer first
                          (> (count a)
-                            (count b)))
-            ]
+                            (count b)))]
         (reset! namespace-re-cache
                 (re-pattern (str "^("
                                  (join "|" (sort namespace<
-                                                   (keys (namespace-to-ns))))
+                                                 (keys (namespace-to-ns))))
                                  ")(.*)")))
         @namespace-re-cache)))
 
@@ -712,8 +674,8 @@ dcat:mediaType relation for some dcat:downloadURL."]])
   - Where
     - `kw` is a keyword, in a namespace with LOD declarations in its metadata."
   [kw]
-  {:pre [(keyword? kw)]
-   }
+  {:pre [(keyword? kw)]}
+  #dbg
   (let [prefix (namespace kw)
         kw-name (name kw)]
     (if (#{"https:" "http:" "file:" "https%3A" "http%3A" "file%3A"} prefix)
@@ -721,6 +683,8 @@ dcat:mediaType relation for some dcat:downloadURL."]])
       (let [uri-str (str (-> prefix decode-kw-name)
                          "/"
                          (-> kw-name decode-kw-name encode-uri-string))]
+        (throw (ex-info "is this still a thing?"
+                        {:type ::is-this-still-a-thing?}))
         (if-let [rem (re-matches (namespace-re) uri-str)]
           (let [[_ namespace-uri kw-name] rem]
             (when (not (spec/valid? :voc/qname-spec kw-name))
@@ -904,51 +868,59 @@ dcat:mediaType relation for some dcat:downloadURL."]])
    (join "\n" (conj (vec (prefixes-for-fn content-string))
                     content-string))))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Methods keyed to resource-type
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; RESOURCE TYPE CONTEXTS
+;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defn- operative-context
-  "Dereferenced from (::resource-types @config)"
+(defmulti preferred-child-resource-context
+  "Signature: [parent' children'] -> preferred child or error
+  - Distpatched on `parent'`
+  - Where
+    - `parent'` is the resource context from which each `child` is derived
+    - `children'` := #{`child`, ...}
+    - `child` is derived from `parent'` in the global heirarchy.
+  "
+  (fn [parent' _children] parent'))
+
+(defmethod preferred-child-resource-context :default
+  [parent' children]
+  (throw (ex-info (str "Ambiguous resource type context taxonomy. Please define `preferred-child-resource-context` for " parent')
+                  {:type ::ambiguous-resource-type-context
+                   :parent parent'
+                   :children children})))
+
+(defn most-specific-resource-context
+  [parent-context]
+  (if-let [descendants' (descendants parent-context)]
+    (recur (unique (filter #((or (parents %) #{}) parent-context) descendants')
+                   (partial preferred-child-resource-context parent-context)))
+    ;; else there are no descendants
+    parent-context))
+
+(defn operative-resource-context
+  "The resource context on which to dispatch the `resource-type` multimethod"
   []
-  (-> @config ::resource-types ::operative-context))
-
-(defn- on-ambiguous-resource-context
-  "Dereferenced from (::resource-tyeps @config)"
-  [contexts]
-  (let [f (-> @config ::resource-types ::on-ambiguous-context-fn)]
-    (f contexts)))
-
-(defn- find-unique-operative-context
-  "Returns the operative context if unique, or calls `on-ambiguous-resource-context`"
-  []
-  (unique (operative-context)
-          on-ambiguous-resource-context))
+  (or (-> @config ::operative-resource-context)
+      (let [context (most-specific-resource-context ::resource-type-context)]
+        (swap! config assoc ::operative-resource-context context)
+        context)))
 
 (defn register-resource-type-context!
-  "Side-effect: Establishes `child` in the (hopefully singleton) set of most-specific resource type context in (@config ::resource-types).
+  "Side-effects: Derives `child` from `parent` and clears (@context ::voc/operative-resource-context)
   - Where
     - `child` names a resource type context on which methods may be dispatched.
     - `parent` names a resource type context on which methods may be dispatched.
-    - (@`config` `::resource-types`) := m s.t.
-       (keys m) :- #{::operative-context, ...}, tracking state for resource
-       type inference.
   "
   [child parent]
   {:pre [(isa? parent ::resource-type-context)]
    :post [#(isa? child ::resource-type-context)
-          #(isa? child parent)]
-   }
+          #(isa? child parent)]}
   (derive child parent)
-  (swap! config (fn [m]
-                  (let [r-types (::resource-types m)]
-                    (assoc m ::resource-types
-                           (merge r-types
-                                  {::operative-context
-                                   (-> r-types
-                                       ::operative-context
-                                       (disj parent)
-                                       (conj child))}))))))
+  (swap! config dissoc ::operative-resource-context))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Methods keyed to resource-type
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (declare as-uri-string)
 
@@ -1160,6 +1132,7 @@ dcat:mediaType relation for some dcat:downloadURL."]])
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Establish initial @config
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 (when (empty? @config)
   (reset! config default-config))
 
@@ -1379,6 +1352,22 @@ dcat:mediaType relation for some dcat:downloadURL."]])
   :extend-via-metadata true
   (resource-class [this]))
 
+
+(defn- ^:deprecated error-on-duplicate-prefix
+    "Throws an error if a prefix is bound to more than one namespace.
+  Reduces into `prefix` argument
+  - Where
+    - `prefixes` := {`prefix` `ns`, ...}
+    - `prefix` := is a string naming the `vann:preferredNamespaceUri` for `ns'`
+    - `ns'` refers to a namespace"
+
+  [prefixes prefix ns']
+  (throw (ex-info (str "Prefix `" prefix "` is being associated with both "
+                       (prefixes prefix) " and " ns')
+                  {:type ::DuplicatePrefix
+                   :prefixes prefixes
+                   :prefix prefix
+                   :ns ns'})))
 
 (defn ^:dynamic ^:deprecated  on-duplicate-prefix
   [prefixes prefix ns']

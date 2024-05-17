@@ -414,40 +414,65 @@
       (is (= (voc/untag (voc/tag 1 :unit/Meter) identity)
              #voc/dstr "1^^unit:Meter")))))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Resource type contexts
+;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defmethod voc/preferred-child-resource-context ::Adam
+  [parent children]
+  ;; This method will be called on ::Adam or any of its descendants with ambiguous
+  ;; children
+  (or (->> children
+           set
+           (clojure.set/intersection #{::Abel})
+           first)
+      ;; The following will be the case with ::Enoch and ::Irad in
+      ;; test-register-resource-types below...
+      ((:default (methods voc/preferred-child-resource-context))
+       parent children
+       )))
+
 (deftest test-register-resource-types
-  (let [original-config @voc/config ]
+  (let [original-config @voc/config
+        test-contexts #{::Adam ::Cain ::Abel ::Enoch ::Irad}
+        ]
     (try
       (do
         ;; Declare a new context to supersede the default...
-        (voc/register-resource-type-context! ::test-context-1
+        (voc/register-resource-type-context! ::Adam
                                              ::voc/resource-type-context)
         ;; This should result in a new most-specific context set (a singleton)
-        (is (= (::voc/most-specific-context #{::test-context-1})))
+        
+        (is (= (voc/most-specific-resource-context ::voc/resource-type-context) ::Adam))
         ;; ... which is now the operative context...
-        (let [context-fn (-> @voc/config ::voc/resource-types ::voc/context-fn)]
-          (is (= (context-fn) ::test-context-1)))
+        (is (= (voc/operative-resource-context) ::Adam))
 
         ;; Registering a competing lineage...
-        (voc/register-resource-type-context! ::test-context-2
-                                             ::voc/resource-type-context)
+        (voc/register-resource-type-context! ::Cain ::Adam)
+        (is (= (voc/operative-resource-context) ::Cain))
+        ;; Given the voc/preferred-child-resource-context for ::Adam...
+        (voc/register-resource-type-context! ::Abel ::Adam)
+        (is (= ::Abel (voc/operative-resource-context)))
 
-        ;; ... introduces an ambiguity...
-        (is (= (::voc/most-specific-context #{::test-context-1 ::test-context-2})))
+        ;; ;; We can override this by operating directly on the configuration...
+        (swap! voc/config assoc ::voc/operative-resource-context ::Cain)
+        (is (= (voc/operative-resource-context) ::Cain))
 
-        ;; ... which is an error by default ...
+        ;; We wrote voc/preferred-child-resource-context ::Adam to throw default
+        ;; method on ambiguous descendants...
+        (voc/register-resource-type-context! ::Enoch ::Cain)
+        (voc/register-resource-type-context! ::Irad ::Cain)
         (is (thrown-with-msg?
              #?(:clj Exception :cljs js/Error)
              #"Ambiguous resource type context.*"
-             (voc/resource-type "blah")))
+             (voc/most-specific-resource-context ::Cain))))
 
-        ;; ... but we can fix it ...
-        (swap! voc/config assoc-in [::voc/resource-types ::voc/on-ambiguous-context-fn]
-               (fn [_] ::test-context-1))
-        (let [context-fn (-> @voc/config ::voc/resource-types ::voc/context-fn)]
-          (is (= (context-fn) ::test-context-1))))
-
-    (finally
-      (reset! voc/config original-config)))))
+      (finally
+        (do
+          (doseq [c test-contexts]
+                 (doseq [p (parents c)]
+                   (underive c p)))
+          (reset! voc/config voc/default-config))))))
 
 (comment
 (defn describe-api ;; todo: move this into a utilities lib
