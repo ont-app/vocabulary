@@ -668,57 +668,7 @@ dcat:mediaType relation for some dcat:downloadURL."]])
                                  ")(.*)")))
         @namespace-re-cache)))
 
-(defn qname-for
-  "Returns the 'qname' URI for `kw`, or <...>'d full URI if no valid qname could be found.
-  - Throws an error if the prefix is specified, but can't be mapped to metadata.
-  - Where
-    - `kw` is a keyword, in a namespace with LOD declarations in its metadata."
-  [kw]
-  {:pre [(keyword? kw)]}
-  #dbg
-  (let [prefix (namespace kw)
-        kw-name (name kw)]
-    (if (#{"https:" "http:" "file:" "https%3A" "http%3A" "file%3A"} prefix)
-      ;; scheme was parsed as namespace of kw
-      (let [uri-str (str (-> prefix decode-kw-name)
-                         "/"
-                         (-> kw-name decode-kw-name encode-uri-string))]
-        (throw (ex-info "is this still a thing?"
-                        {:type ::is-this-still-a-thing?}))
-        (if-let [rem (re-matches (namespace-re) uri-str)]
-          (let [[_ namespace-uri kw-name] rem]
-            (when (not (spec/valid? :voc/qname-spec kw-name))
-              (str
-               (->> namespace-uri
-                    (get (namespace-to-ns))
-                    (ns-to-prefix))
-               ":"
-               kw-name)))
-          ;;else no namespace match
-          (str "<" uri-str ">")))
-      ;; else this is not scheme-based URI
-      (if prefix
-        (let [ns' (or (cljc-find-ns (symbol prefix))
-                      (unique (prefixed-ns prefix)
-                              (partial disambiguate-prefix-ns kw)))]
-          (when-not ns'
-            (throw (ex-info (str "Could not resolve prefix " prefix)
-                            {:type ::CouldNotResolvePrefix
-                             ::kw kw
-                             ::prefix prefix
-                             })))
-          (let [qname (str (ns-to-prefix ns')
-                           ":"
-                           (-> kw-name decode-kw-name encode-uri-string
-                               (escape-slash)
-                               )
-                           )]
-            (if (not (spec/valid? :voc/qname-spec qname))
-              (str "<" (prefix-to-namespace-uri prefix) kw-name ">")
-              ;;else valid as qname
-              qname)))
-        ;; else no namespace in keyword
-        (str "<" (-> kw-name decode-kw-name encode-uri-string) ">")))))
+
 
 (defn prefix-re-str
   "Returns a regex string that recognizes prefixes declared in ns metadata with `:vann/preferredNamespacePrefix` keys.
@@ -787,22 +737,22 @@ dcat:mediaType relation for some dcat:downloadURL."]])
      ;;else this isn't a qname. Maybe it's a full URI we have a prefix for...
      ;; namespace re match returns [s namepace value] or nil
      (let [namespace-re-match  (re-matches (namespace-re) uri)
-           _namespace (and namespace-re-match (namespace-re-match 1))
-           _value (and namespace-re-match (namespace-re-match 2))]
-       (if (empty? _value)
+           namespace' (and namespace-re-match (namespace-re-match 1))
+           value' (and namespace-re-match (namespace-re-match 2))]
+       (if (empty? value')
          ;; there's nothing but prefix
          (on-no-ns uri (-> uri
                            decode-uri-string
                            encode-kw-name
                            ))
          ;; else there's a match to the namespace regex
-         (if (not _namespace)
-           (on-no-ns uri (keyword (decode-uri-string _value)))
+         (if (not namespace')
+           (on-no-ns uri (keyword (decode-uri-string value')))
            ;; we found a namespace for which we have a prefix...
-           (keyword (-> _namespace
+           (keyword (-> namespace'
                         ((namespace-to-ns))
                         (ns-to-prefix))
-                    (-> _value decode-uri-string encode-kw-name))))))))
+                    (-> value' decode-uri-string encode-kw-name))))))))
 
 
 (defn sparql-prefix-declaration
@@ -1021,10 +971,39 @@ dcat:mediaType relation for some dcat:downloadURL."]])
   {:post [(spec/assert :voc/qname-spec %)]}
   this)
 
+(defmethod as-qname :voc/Kwi
+  [this]
+  {:post [(spec/assert :voc/qname-spec %)]}
+  (let [prefix (namespace this)
+        kw-name (name this)]
+    (if (not prefix)
+      (str "<" (-> (name this) decode-kw-name encode-uri-string) ">")
+      ;; else there is a prefix
+      (let [ns' (or (cljc-find-ns (symbol prefix))
+                    (unique (prefixed-ns prefix)
+                            (partial disambiguate-prefix-ns this)))]
+        (when-not ns'
+          (throw (ex-info (str "Could not resolve prefix " prefix)
+                          {:type ::CouldNotResolvePrefix
+                           ::this this
+                           ::prefix prefix
+                           })))
+        (let [qname (str (ns-to-prefix ns')
+                         ":"
+                         (-> kw-name decode-kw-name encode-uri-string
+                             (escape-slash)
+                             ))]
+          (if (not (spec/valid? :voc/qname-spec qname))
+            (str "<" (prefix-to-namespace-uri prefix) kw-name ">")
+            ;;else valid as qname
+            qname))))))
+
+
 (defmethod as-qname :default
   [this]
   {:post [(spec/assert :voc/qname-spec %)]}
-  (qname-for (as-kwi this)))
+  (as-qname (as-kwi this))
+  )
 
 (defmulti resource=
   "Truthy when two different resource identifiers refer to the same resource
@@ -1380,3 +1359,9 @@ dcat:mediaType relation for some dcat:downloadURL."]])
                      {:type ::ResourcetypesAtomIsDeprecated})]
     (atom {::context-fn (fn []
                           (throw err))})))
+
+(defn ^:deprecated qname-for
+  "Deprecated. Use `as-qname` instead"
+  [kw]
+  {:pre [(keyword? kw)]}
+  (as-qname kw))
