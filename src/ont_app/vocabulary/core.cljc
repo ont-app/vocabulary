@@ -702,7 +702,7 @@ dcat:mediaType relation for some dcat:downloadURL."]])
       (spec/valid? :voc/uri-str-spec uri-str))))
 
 
-(defn- default-on-no-ns
+#_ (defn- default-on-no-ns
   "Returns the kwi normally appropriate for `kw` in cases where no ns can be matched, as is the case with say http://...
   - Where
     - _uri is a dummy provided to conform to the expected function signature.
@@ -711,48 +711,6 @@ dcat:mediaType relation for some dcat:downloadURL."]])
   (if (keyword? kw)
             kw
             (keyword (str kw))))
-
-(defn keyword-for
-  "Returns a keyword equivalent of `uri`, properly prefixed if Vann declarations exist in some ns in the current lexical environment.
-  - Side effects per `on-no-ns`
-  - Where
-    - `uri` is a string representing a URI
-    - `on-no-ns` (optional) := fn [uri kw] -> kwi',
-       possibly with side-effects in response to the fact that no qname was found for
-       `uri` (default returns `kw`)
-  - NOTE: typically `on-no-ns` would log a warning or make an assertion."
-  ([uri]
-   (keyword-for default-on-no-ns uri))
-  ([on-no-ns uri]
-   {:pre [(string? uri)]
-    :post [(keyword? %)]
-    }
-   (if-let [prefix-re-match  (re-matches (qname-re) uri)]
-     ;; ... this is a qname...
-     (let [[_ prefix _name] prefix-re-match
-           remove-backslash (fn [s] (clojure.string/replace s #"\\" ""))
-           ]
-       (spec/assert :voc/qname-spec uri)
-       (keyword prefix (-> _name remove-backslash decode-uri-string encode-kw-name)))
-     ;;else this isn't a qname. Maybe it's a full URI we have a prefix for...
-     ;; namespace re match returns [s namepace value] or nil
-     (let [namespace-re-match  (re-matches (namespace-re) uri)
-           namespace' (and namespace-re-match (namespace-re-match 1))
-           value' (and namespace-re-match (namespace-re-match 2))]
-       (if (empty? value')
-         ;; there's nothing but prefix
-         (on-no-ns uri (-> uri
-                           decode-uri-string
-                           encode-kw-name
-                           ))
-         ;; else there's a match to the namespace regex
-         (if (not namespace')
-           (on-no-ns uri (keyword (decode-uri-string value')))
-           ;; we found a namespace for which we have a prefix...
-           (keyword (-> namespace'
-                        ((namespace-to-ns))
-                        (ns-to-prefix))
-                    (-> value' decode-uri-string encode-kw-name))))))))
 
 
 (defn sparql-prefix-declaration
@@ -779,7 +737,6 @@ dcat:mediaType relation for some dcat:downloadURL."]])
        ": <"
        (prefix-to-namespace-uri prefix)
        ">."))
-
 
 (defn prefixes-for
   "Returns [`prefix-string`...] for each prefix identified in `content-string`.
@@ -890,20 +847,48 @@ dcat:mediaType relation for some dcat:downloadURL."]])
 (defmethod as-kwi :voc/Qname
   [this]
   {:post [(spec/assert :voc/kwi-spec %)]}
-  (keyword-for (as-uri-string this)))
+  (let [[_ prefix name'] (re-matches (qname-re) this)
+           remove-backslash (fn [s] (clojure.string/replace s #"\\" ""))]
+    (if (empty? name')
+      ;; there's nothing but prefix
+      (-> prefix
+          prefix-to-namespace-uri
+          as-kwi)
+      ;; else there's a complete match to the namespace regex
+      (keyword prefix (-> name' remove-backslash decode-uri-string encode-kw-name)))))
+
 
 (defmethod as-kwi :voc/KwiInferredFromUriString
   [this]
   {:post [(spec/assert :voc/kwi-spec %)]}
-  (keyword-for (as-uri-string this))
+  (as-kwi (as-uri-string this))
   )
 
 (derive :voc/LocalFile :voc/KwiInferredFromUriString)
 
 (defmethod as-kwi :voc/UriString
-  [this]
+  [uri]
   {:post [(spec/assert :voc/kwi-spec %)]}
-  (keyword-for this))
+  (let [namespace-re-match  (re-matches (namespace-re) uri)
+        namespace' (and namespace-re-match (namespace-re-match 1))
+        value' (and namespace-re-match (namespace-re-match 2))]
+    (if (empty? value')
+      ;; there's nothing but prefix
+      (-> uri
+          decode-uri-string
+          encode-kw-name
+          keyword)
+      ;; else there's a match to the namespace regex
+      (if (not namespace')
+           (-> (decode-uri-string value')
+               encode-kw-name
+               keyword)
+           ;; we found a namespace for which we have a prefix...
+           (keyword
+            (-> namespace'
+                ((namespace-to-ns))
+                ns-to-prefix)
+            (-> value' decode-uri-string encode-kw-name))))))
 
 (defmethod as-kwi :default
   [this]
@@ -948,7 +933,7 @@ dcat:mediaType relation for some dcat:downloadURL."]])
 (defmethod as-uri-string :voc/Qname
   [this]
   {:post [(spec/assert :voc/uri-str-spec %)]}
-  (uri-for (keyword-for this)))
+  (uri-for (as-kwi this)))
 
 (defmethod as-uri-string :default
   [this]
@@ -1365,3 +1350,9 @@ dcat:mediaType relation for some dcat:downloadURL."]])
   [kw]
   {:pre [(keyword? kw)]}
   (as-qname kw))
+
+(defn ^:deprecated keyword-for
+  "Deprecated. use `as-kwi` instead"
+  ([uri]
+   (as-kwi uri)))
+
