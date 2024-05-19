@@ -80,14 +80,14 @@
        }
      issue-21-uncouple-voc-from-ns
      (is (=  "http://rdf.naturallexicon.com/issue21/uri-for"
-             (voc/uri-for :issue21/uri-for)))
+             (voc/as-uri-string :issue21/uri-for)))
      (is (= "issue21:uri-for"
-            (voc/qname-for :issue21/uri-for)))
+            (voc/as-qname :issue21/uri-for)))
      (is (= :issue21/uri-for
-            (voc/keyword-for "http://rdf.naturallexicon.com/issue21/uri-for")))
+            (voc/as-kwi "http://rdf.naturallexicon.com/issue21/uri-for")))
      (is (= #{"PREFIX issue21: <http://rdf.naturallexicon.com/issue21/>"}
          (into #{} (voc/sparql-prefixes-for
-                    "Select * Where{?s issue21:testing ?whatever}"))))))
+                    "Select * Where { ?s issue21:testing ?whatever }"))))))
 
 
 ;; NO READER MACROS BELOW THIS POINT
@@ -101,33 +101,33 @@
            (voc/ns-to-prefix 'ont-app.vocabulary.foaf)
             ))
     (is (= "http://xmlns.com/foaf/0.1/homepage"
-           (voc/iri-for :foaf/homepage)
+           (voc/as-uri-string :foaf/homepage)
            ))
     (is (= "http://blah"
-           (voc/iri-for (voc/keyword-for "http://blah"))
+           (voc/as-uri-string (voc/as-kwi "http://blah"))
            ))
     (is (= "http://rdf.naturallexicon.org/ont-app/vocabulary/blah"
-           (voc/iri-for ::voc/blah)
+           (voc/as-uri-string ::voc/blah)
            ))
     (is (= "foaf"
            (voc/ns-to-prefix (voc/cljc-find-ns 'ont-app.vocabulary.foaf))
            ))
     (is (= "voc:blah"
-           (voc/qname-for ::voc/blah)
+           (voc/as-qname ::voc/blah)
            ))
     (is (= "foaf:homepage"
-           (voc/qname-for :foaf/homepage)
+           (voc/as-qname :foaf/homepage)
            ))
     (is (= :foaf/homepage
-           (voc/keyword-for "http://xmlns.com/foaf/0.1/homepage")
+           (voc/as-kwi "http://xmlns.com/foaf/0.1/homepage")
            ))
     (is (= :http:%2F%2Fexample.com%2Fmy%2Fstuff
-           (voc/keyword-for "http://example.com/my/stuff")
+           (voc/as-kwi "http://example.com/my/stuff")
            ))
-    (is (= :no-prefix-found
-           (voc/keyword-for (fn [u k] :no-prefix-found)
-                          "example.com/my/stuff")
-           ))
+    (is (thrown-with-msg?
+         #?(:clj Exception :cljs js/Error)
+         #"No `as-kwi` method.*"
+         (voc/as-kwi  "example.com/my/stuff")))
     (is (= #{"foaf"}
            (voc/cljc-find-prefixes (voc/prefix-re-str)
                                  "Select * Where{?s foaf:homepage ?homepage}")
@@ -136,9 +136,9 @@
            (voc/sparql-prefixes-for
             "Select * Where{?s foaf:homepage ?homepage}")
             ))
-    (is (= "PREFIX foaf: <http://xmlns.com/foaf/0.1/>\nSelect * Where{?s foaf:homepage ?homepage}"
+    (is (= "PREFIX foaf: <http://xmlns.com/foaf/0.1/>\nSelect * Where { ?s foaf:homepage ?homepage }"
            (voc/prepend-prefix-declarations
-            "Select * Where{?s foaf:homepage ?homepage}")
+            "Select * Where { ?s foaf:homepage ?homepage }")
            ))))
 
 (deftest encode-and-decode-kw-names
@@ -150,34 +150,34 @@
            (fmt/decode-kw-name (fmt/encode-kw-name "123"))
            ))
     (is (= "http://xmlns.com/foaf/0.1/123"
-           (voc/iri-for :foaf/+n+123)
+           (voc/as-uri-string :foaf/+n+123)
            ))
     (is (= :foaf/+n+123
-           (voc/keyword-for "http://xmlns.com/foaf/0.1/123")
+           (voc/as-kwi "http://xmlns.com/foaf/0.1/123")
            ))
     (is (= :foaf/+n+123
-           (voc/keyword-for "foaf:123")
+           (voc/as-kwi "foaf:123")
            ))
     (is (= "foaf:123"
-           (voc/qname-for (voc/keyword-for "foaf:123"))
+           (voc/as-qname (voc/as-kwi "foaf:123"))
            ))
     (is (= :foaf/Subtopic%2Fx
-           (voc/keyword-for "http://xmlns.com/foaf/0.1/Subtopic/x")
+           (voc/as-kwi "http://xmlns.com/foaf/0.1/Subtopic/x")
            ))
     (is (= "http://xmlns.com/foaf/0.1/Subtopic/x"
-           (voc/iri-for (voc/keyword-for "http://xmlns.com/foaf/0.1/Subtopic/x"))
+           (voc/as-uri-string (voc/as-kwi "http://xmlns.com/foaf/0.1/Subtopic/x"))
            ))
     (is (= :foaf/blah%2F
-           (voc/keyword-for "http://xmlns.com/foaf/0.1/blah/")))))
+           (voc/as-kwi "http://xmlns.com/foaf/0.1/blah/")))))
 
 (deftest maps-to-test
   (testing ":voc/mapsTo ns metadata should resolve prefixes properly"
     ;; note that the local ns  maps to vocabulary.core
     (is (= "http://rdf.naturallexicon.org/ont-app/vocabulary/blah"
-           (voc/iri-for ::blah)
+           (voc/as-uri-string ::blah)
            ))
     (is (= "voc:blah"
-           (voc/qname-for ::blah)
+           (voc/as-qname ::blah)
            ))))
 
 (deftest language-tagged-strings
@@ -253,21 +253,21 @@
 (deftest
   issue-19-urns-should-be-accommodated
   (is (= "test-urn:19"
-         (voc/qname-for (voc/keyword-for "urn:testing:issue:19"))))
+         (voc/as-qname (voc/as-kwi "urn:testing:issue:19"))))
   (is (= :test-urn/+n+19
-         (voc/keyword-for "test-urn:19")))
+         (voc/as-kwi "test-urn:19")))
   (is (= :test-urn/+n+19
-         (voc/keyword-for "urn:testing:issue:19")))
+         (voc/as-kwi "urn:testing:issue:19")))
   (is (= "urn:blah:blah:blah"
-         (voc/uri-for (voc/keyword-for "urn:blah:blah:blah"))))
+         (voc/as-uri-string (voc/as-kwi "urn:blah:blah:blah"))))
   (is (thrown-with-msg?
        #?(:clj Exception :cljs js/Error)
-       #"Could not find IRI for :urx:blah:blah:blah"
-       (voc/uri-for (voc/keyword-for "urx:blah:blah:blah"))))
+       #"No `as-kwi` method.*"
+       (voc/as-kwi "urx:blah:blah:blah")))
   (let [old-config @voc/config]
     (swap! voc/config assoc ::voc/special-uri-str-re #"^(urn:|arn:|urx).*")
     (is (= "urx:blah:blah:blah"
-           (voc/uri-for (voc/keyword-for "urx:blah:blah:blah"))))
+           (voc/as-uri-string (voc/as-kwi "urx:blah:blah:blah"))))
     (reset! voc/config old-config)))
 
 ;;;;;;;;;;;;
@@ -276,7 +276,7 @@
 
 (deftest issue-20-validity-of-full-uri-keywords
   (is (= :https:%2F%2Fw3id.org%2Fschematransform%2FExampleShape#BShape
-         (voc/keyword-for "https://w3id.org/schematransform/ExampleShape#BShape"))))
+         (voc/as-kwi "https://w3id.org/schematransform/ExampleShape#BShape"))))
 
 ;;;;;;;;;;;;
 ;; ISSUE 25
