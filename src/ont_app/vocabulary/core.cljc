@@ -1,7 +1,7 @@
 (ns ont-app.vocabulary.core
   (:require
    [clojure.spec.alpha :as spec]
-   [clojure.string :refer [join]]
+   [clojure.string :as str :refer [join]]
    [ont-app.vocabulary.format :as fmt :refer [decode-kw-ns
                                               decode-kw-name
                                               decode-uri-string
@@ -58,7 +58,8 @@
      ::voc/resource-type-context. Left unspecified, it will be set automatically to the
      most specific descendant of ::voc/resource-type-context.
      - See also `most-specific-resource-type-context` 
-  - `::special-uri-str-re` is a regex matching URI strings not specified as ???.
+  - `::special-uri-str-re` is a regex matching valid URI strings not specified in
+     `ordinary-uri-str-re`.
     - default: :~ `^(arn:).*`
   "
   (atom {}))
@@ -110,7 +111,7 @@ NOTE: call this when you may have imported new namespace metadata
     - `this` is something renderable as a URI, KWI, qname, or some other
        resource ID.
     - `resource-type` names a resource type on which `as-uri-string`, `as-kwi`,
-      `as-qname` or other methods might be dispatched.
+      `as-qname`, `resource=` and perhaps other methods might be dispatched.
   "
   resource-type-dispatch)
 
@@ -313,8 +314,7 @@ Where
                           #?(:clj clojure.lang.Keyword :cljs cljs.core/Keyword)]
   [this]
   (let [prefix (namespace this)
-        kw-name (name this)
-        ]
+        kw-name (name this)]
     (if prefix
       (let [ns' (or (cljc-find-ns (symbol prefix))
                     (prefixed-ns prefix))
@@ -332,9 +332,9 @@ Where
      [_]
      :voc/LocalFile))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Differing escaping semantics
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (def ^{:private true} unescaped-slash-re
   "Matches a string preceded by a backslash escape"
@@ -344,8 +344,8 @@ Where
 (defn escape-slash
   "Replaces a slash in `s` with a backslash-escaped slash"
   [s]
-  #?(:clj (clojure.string/replace s #"/" "\\\\/")
-     :cljs (clojure.string/replace s #"/" "\\/")))
+  #?(:clj (str/replace s #"/" "\\\\/")
+     :cljs (str/replace s #"/" "\\/")))
 
 ;;;;;;;;;;;;;;;;;;;;
 ;; Parsing instants
@@ -379,7 +379,7 @@ details."
   })
 
 (def terms
-  "Describes vocabulary for this namespace. May be read into an IGraph downstream."
+  "Describes vocabulary for this namespace in a format that may be read into an IGraph downstream."
   ^{:triples-format :vector-of-vectors}
   [[:voc/appendix
     :rdf/type :rdf:Property
@@ -388,10 +388,12 @@ details."
 asserted in usual key-value metadata asserted for <ns>, e.g. asserting a
 dcat:mediaType relation for some dcat:downloadURL."]])
 
-;;;; FUNCTIONS
+;;;;;;;;;;;;;;;;;;;;;;
+;; UTILIITY FUNCTIONS
+;;;;;;;;;;;;;;;;;;;;;;
 
 (defn- unique
-  "returns the only member of a singleton `coll`, or calls `on-ambiguity`"
+  "Returns the only member of a singleton `coll`, or calls `on-ambiguity`."
   ([coll]
    (unique coll (fn [coll] (throw (ex-info "Ambiguous collection"
                                            {:type ::ambiguous-collection
@@ -401,6 +403,10 @@ dcat:mediaType relation for some dcat:downloadURL."]])
      (first coll)
      ;; else ambiguous
      (on-ambiguity coll))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; PREFIX <-> NAMESPACE MAPPINGS
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn vann-annotated-objects
   "Returns `[obj, ...]
@@ -419,9 +425,6 @@ dcat:mediaType relation for some dcat:downloadURL."]])
                     ;; vars ...
                     (mapcat (comp vals cljc-ns-map) (cljc-all-ns))))))
 
-
-
-
 (defn- collect-prefixes
   "Returns {`prefix` #{`namespace`, ...} ...} s.t. `next-ns` is included
   Where
@@ -430,8 +433,7 @@ dcat:mediaType relation for some dcat:downloadURL."]])
   - `prefix` is a prefix declared in the metadata of `next-ns`
   - `namespace` is a URI namespace declared for `prefix` in metadata of `next-ns`
   - NOTE: We should try very hard to ensure that each prefix maps to a singleton set.
-    - Failing that see `disambiguate-prefix-ns` method.
-  "
+    - Failing that see `disambiguate-prefix-ns` method."
   [acc next-ns]
   {:pre [(map? acc)]}
   (let [nsm (get-ns-meta next-ns)
@@ -527,7 +529,7 @@ dcat:mediaType relation for some dcat:downloadURL."]])
   {:pre [(string? prefix)]}
   (get (prefix-to-ns) prefix))
 
-(def ordinary-iri-str-re
+(def ordinary-uri-str-re
   "A regex matching a commonly occurring standard IRI string, arbitrarily chosen from
   https://www.iana.org/assignments/uri-schemes/uri-schemes.xhtml"
   #"^(http:|https:|file:|urn:|tel:|mailto:|jdbc:|odbc:|ftp:|geo:|git:|gopher:|pop:|telnet:).*")
@@ -535,7 +537,7 @@ dcat:mediaType relation for some dcat:downloadURL."]])
 (defn- match-uri-str-spec
   "Truthy when `s` matches spec `:voc/uri-str-spec`."
   [s]
-  (or (re-matches ordinary-iri-str-re s)
+  (or (re-matches ordinary-uri-str-re s)
       (if-let [r (-> @config ::special-uri-str-re)]
         (re-matches  r s))))
 
@@ -553,18 +555,6 @@ dcat:mediaType relation for some dcat:downloadURL."]])
                    ))
           (spec/valid? :voc/uri-str-spec kw-name)))))
 
-#_(defn- kwi-missing-namespace-if-not-special
-  "Returns the name-string of `kw`, or throws ::NoIRIForKw if `kw` is incorrectly missing a namespace."
-  [kw]
-  {:pre [(keyword? kw)
-         (empty? (namespace kw))]
-   }
-  (if (re-matches (-> @config ::special-uri-str-re) (name kw))
-    (name kw)
-    (throw (ex-info (str "Could not find IRI for " kw)
-                  {:type ::NoIRIForKw
-                   ::kw kw
-                   }))))
 
 (defn- default-on-no-kwi-ns
   "Returns the name-string of `kw` if its name string is a typical URI or URN, otherwise throws a :NoIRIForKw error.
@@ -583,49 +573,6 @@ dcat:mediaType relation for some dcat:downloadURL."]])
                       {:type ::NoIRIForKw
                        ::kw kw
                        })))))
-
-(defn uri-for
-  "Returns `iri` for `kw` based on metadata attached to `ns` Alias of `iri-for` or `on-no-prefix (kw) if the keyword is not namespaced.
-  - Where
-    - `kw` is a keyword of the form `prefix`:`value`
-    - `on-no-kwi-ns` := fn [kw] -> uri, for cases where `kw` is not namespaced
-      default returns the name-string of `kw` if its name string is a typical URI or URN,
-      otherwise throws a :NoIRIForKw error.
-    - `iri` is of the form `namespace``value`
-    - `ns` is an instance of clojure.lang.ns
-    - `prefix` is declared with :vann/preferredNamespacePrefix in metadata of `ns`
-    - `namespace` is typically of the form http://...., declared with
-      `:vann/preferredNamespaceUri` in metadata of `ns`"
-  ([kw]
-   (uri-for default-on-no-kwi-ns kw))
-
-  ([on-no-kwi-ns kw]
-   {:pre [(keyword? kw)]}
-   (let [prefix (namespace kw)
-         kw-name (name kw)]
-     (if prefix
-       (if (#{"http:" "https:" "file:"} (decode-kw-ns prefix))
-         ;; this doesn't happen much anymore. Retained for back-compatibility
-         (str (-> prefix decode-kw-name encode-uri-string)
-              "/"
-              (-> kw-name decode-kw-name encode-uri-string))
-         ;; else not a standard scheme....
-         (let [_ns (or (cljc-find-ns (symbol prefix))
-                       (unique (prefixed-ns prefix)
-                               (partial disambiguate-prefix-ns kw)))]
-           (if-not _ns
-             (throw (ex-info (str "No URI declared for prefix '" prefix "'")
-                             {:type ::NoUriDeclaredForPrefix
-                              ::kw kw
-                              ::prefix prefix
-                              }))
-
-             (str (-> _ns (ns-to-namespace))
-                  (-> kw-name decode-kw-name encode-uri-string)))))
-       ;; else no prefix
-       (on-no-kwi-ns kw)))))
-
-(def iri-for "Alias of uri-for" uri-for)
 
 (defn ns-to-prefix
   "Returns the prefix associated with `ns'`
@@ -655,6 +602,7 @@ dcat:mediaType relation for some dcat:downloadURL."]])
 
 (defn namespace-re
   "Returns a regex to recognize substrings matching a URI for an ns declared with LOD metadata.
+  - Side-effect: manages `namespace-re-cache`
   - Note: Groups for namespace and value."
   []
   (or @namespace-re-cache
@@ -667,8 +615,6 @@ dcat:mediaType relation for some dcat:downloadURL."]])
                                                  (keys (namespace-to-ns))))
                                  ")(.*)")))
         @namespace-re-cache)))
-
-
 
 (defn prefix-re-str
   "Returns a regex string that recognizes prefixes declared in ns metadata with `:vann/preferredNamespacePrefix` keys.
@@ -701,6 +647,7 @@ dcat:mediaType relation for some dcat:downloadURL."]])
     (when-let [[_ uri-str] (re-matches #"^[<](.*)[>]$" s)] ;; angle-brackets
       (spec/valid? :voc/uri-str-spec uri-str))))
 
+<<<<<<< HEAD
 
 #_ (defn- default-on-no-ns
   "Returns the kwi normally appropriate for `kw` in cases where no ns can be matched, as is the case with say http://...
@@ -712,6 +659,11 @@ dcat:mediaType relation for some dcat:downloadURL."]])
             kw
             (keyword (str kw))))
 
+=======
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; PREFIXES FOR SPARQL AND TURTLE SOURCE
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+>>>>>>> refactor-uri-for
 
 (defn sparql-prefix-declaration
   "Returns PREFIX `prefix`: <`uri`>.
@@ -780,20 +732,20 @@ dcat:mediaType relation for some dcat:downloadURL."]])
 ;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defmulti preferred-child-resource-context
-  "Signature: [parent' children'] -> preferred child or error
-  - Distpatched on `parent'`
+  "Signature: [`parent` `children'`] -> preferred `child` or error
+  - Distpatched on `parent`
   - Where
-    - `parent'` is the resource context from which each `child` is derived
+    - `parent` is the resource context from which each `child` is derived
     - `children'` := #{`child`, ...}
-    - `child` is derived from `parent'` in the global heirarchy.
+    - `child` is derived from `parent` in the global heirarchy.
   "
-  (fn [parent' _children] parent'))
+  (fn [parent _children] parent))
 
 (defmethod preferred-child-resource-context :default
-  [parent' children]
-  (throw (ex-info (str "Ambiguous resource type context taxonomy. Please define `preferred-child-resource-context` for " parent')
+  [parent children]
+  (throw (ex-info (str "Ambiguous resource type context taxonomy. Please define `preferred-child-resource-context` for " parent)
                   {:type ::ambiguous-resource-type-context
-                   :parent parent'
+                   :parent parent
                    :children children})))
 
 (defn most-specific-resource-context
@@ -848,7 +800,11 @@ dcat:mediaType relation for some dcat:downloadURL."]])
   [this]
   {:post [(spec/assert :voc/kwi-spec %)]}
   (let [[_ prefix name'] (re-matches (qname-re) this)
+<<<<<<< HEAD
            remove-backslash (fn [s] (clojure.string/replace s #"\\" ""))]
+=======
+           remove-backslash (fn [s] (str/replace s #"\\" ""))]
+>>>>>>> refactor-uri-for
     (if (empty? name')
       ;; there's nothing but prefix
       (-> prefix
@@ -856,13 +812,20 @@ dcat:mediaType relation for some dcat:downloadURL."]])
           as-kwi)
       ;; else there's a complete match to the namespace regex
       (keyword prefix (-> name' remove-backslash decode-uri-string encode-kw-name)))))
+<<<<<<< HEAD
 
+=======
+>>>>>>> refactor-uri-for
 
 (defmethod as-kwi :voc/KwiInferredFromUriString
   [this]
   {:post [(spec/assert :voc/kwi-spec %)]}
+<<<<<<< HEAD
   (as-kwi (as-uri-string this))
   )
+=======
+  (as-kwi (as-uri-string this)))
+>>>>>>> refactor-uri-for
 
 (derive :voc/LocalFile :voc/KwiInferredFromUriString)
 
@@ -883,7 +846,11 @@ dcat:mediaType relation for some dcat:downloadURL."]])
            (-> (decode-uri-string value')
                encode-kw-name
                keyword)
+<<<<<<< HEAD
            ;; we found a namespace for which we have a prefix...
+=======
+           ;; else we found a namespace for which we have a prefix...
+>>>>>>> refactor-uri-for
            (keyword
             (-> namespace'
                 ((namespace-to-ns))
@@ -914,26 +881,57 @@ dcat:mediaType relation for some dcat:downloadURL."]])
 (defmethod as-uri-string :voc/UriStringInferredFromKwi
   [this]
   {:post [(spec/assert :voc/uri-str-spec %)]}
-  (uri-for (as-kwi this)))
+  (as-uri-string (as-kwi this)))
 
 (defmethod as-uri-string :voc/Kwi
   [this]
   {:post [(spec/assert :voc/uri-str-spec %)]}
-  (uri-for this))
+  (let [ns' (namespace this)
+        name' (name this)
+        get-ns-set (fn [ns-prefix] (or (-> ns-prefix (prefixed-ns))
+                                       ;; auto-resolved keyword...
+                                       (->> ns-prefix symbol cljc-find-ns (conj #{}))))]
+    (if (and ns' name')
+      (-> (str (-> (namespace this)
+               decode-kw-ns
+               (get-ns-set)
+               (unique (partial disambiguate-prefix-ns this))
+               ns-to-namespace)
+           (-> (name this)
+               decode-kw-name
+               encode-uri-string)))
+      ;; else we're either all ns or all name
+      (or (and ns'
+               (-> ns' decode-kw-ns encode-uri-string))
+          (and name'
+               (-> name' decode-kw-name encode-uri-string))))))
 
 (defmethod as-uri-string :voc/LocalFile
   [this]
   {:post [(spec/assert :voc/uri-str-spec %)]}
   (let [s (str this)]
     (as-uri-string
-     (if (re-matches ordinary-iri-str-re s)
+     (if (re-matches ordinary-uri-str-re s)
        s
        (spec/conform :voc/uri-str-spec (str "file:/" s))))))
 
 (defmethod as-uri-string :voc/Qname
   [this]
   {:post [(spec/assert :voc/uri-str-spec %)]}
+<<<<<<< HEAD
   (uri-for (as-kwi this)))
+=======
+  (if-let [[_ prefix name'] (re-matches (qname-re) this)]
+    (str (-> (unique (prefixed-ns prefix)
+                     (partial disambiguate-prefix-ns this))
+             ns-to-namespace)
+         (-> name'
+             (str/replace #"\\/" "/")
+             ))
+    ;; else it's an angle-quoted URI
+    (let [[_ uri-str] (re-matches #"^[<](.*)[>]$" this)]
+      uri-str)))
+>>>>>>> refactor-uri-for
 
 (defmethod as-uri-string :default
   [this]
@@ -944,7 +942,7 @@ dcat:mediaType relation for some dcat:downloadURL."]])
                    })))
 
 (defmulti as-qname
-  "Returns a qname for instance of Resource.
+  "Returns a qname/CURIE for instance of Resource.
   - Signature: [this] -> `qname`
   - Where
     - `this` is an instance of `Resource`
@@ -971,32 +969,27 @@ dcat:mediaType relation for some dcat:downloadURL."]])
           (throw (ex-info (str "Could not resolve prefix " prefix)
                           {:type ::CouldNotResolvePrefix
                            ::this this
-                           ::prefix prefix
-                           })))
+                           ::prefix prefix})))
         (let [qname (str (ns-to-prefix ns')
                          ":"
                          (-> kw-name decode-kw-name encode-uri-string
-                             (escape-slash)
-                             ))]
+                             (escape-slash)))]
           (if (not (spec/valid? :voc/qname-spec qname))
             (str "<" (prefix-to-namespace-uri prefix) kw-name ">")
             ;;else valid as qname
             qname))))))
 
-
 (defmethod as-qname :default
   [this]
   {:post [(spec/assert :voc/qname-spec %)]}
-  (as-qname (as-kwi this))
-  )
+  (as-qname (as-kwi this)))
 
 (defmulti resource=
   "Truthy when two different resource identifiers refer to the same resource
   - Signature: [this that] -> truthy
   - Where
     - `this` is a Resource
-    - `that` is a Resource
-  "
+    - `that` is a Resource"
   (fn [this that] [(resource-type this) (resource-type that)]))
 
 (defmethod resource= :default
@@ -1013,6 +1006,7 @@ dcat:mediaType relation for some dcat:downloadURL."]])
     - `obj` is something to be tagged
     - `tag-spec` is a resource, or (@lstr/default-tags (type `obj`))
     - `tag` := (as-kwi `tag-spec`)
+  - NOTE: this is the dispatch value for the `tag` method
   "
   ([obj]
    (if-let [tag-spec (@dstr/default-tags (type obj))]
@@ -1032,8 +1026,7 @@ dcat:mediaType relation for some dcat:downloadURL."]])
     - `obj` is something to be tagged
     - `tag-spec` is a resource, or (@lstr/default-tags (type `obj`))
     - `dstr` :~ #voc/dstr `obj`^^`tag`
-    - `tag` := (as-kwi `tag-spec`)
-  "
+    - `tag` := (as-kwi `tag-spec`)"
   tag-dispatch)
 
 (defmethod tag :xsd/dateTime
@@ -1079,6 +1072,8 @@ dcat:mediaType relation for some dcat:downloadURL."]])
 (defmethod untag :xsd/short    [obj & _] (short (read-string (str obj))))
 (defmethod untag :xsd/float    [obj & _] (float (read-string (str obj))))
 (defmethod untag :xsd/byte     [obj & _] (byte (read-string (str obj))))
+
+(derive :xsd/decimal :xsd/double)
 
 (defn- error-on-no-untag-found
   "Default response to a case where no `untag` method was found."
@@ -1356,3 +1351,13 @@ dcat:mediaType relation for some dcat:downloadURL."]])
   ([uri]
    (as-kwi uri)))
 
+<<<<<<< HEAD
+=======
+(defn ^:deprecated uri-for
+  "Deprecated. Use `as-uri-string` instead."
+  [this]
+  (as-uri-string this))
+
+
+(def ^:deprecated iri-for "Deprecated. Use `as-uri-string`" uri-for)
+>>>>>>> refactor-uri-for
