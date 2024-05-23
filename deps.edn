@@ -5,8 +5,7 @@
         org.clojure/clojurescript {:mvn/version "1.11.60"
                                    :exclusions [org.msgpack/msgpack]
                                    ;; ... per nvd warning CVE-2022-41719
-                                   }
-        }
+                                   }}
  :aliases {
            ;;;;;;;;;;;;;;;;
            ;; JVM SUPPORT
@@ -52,9 +51,7 @@
            :shadow {
                     :extra-deps {thheller/shadow-cljs {:mvn/version "2.24.1"}}
                     :extra-paths ["test"]
-                    }
-           } ;; aliases
- }
+                    }}}
 
 ;; NVD notes
 ;; CVE-2023-0247 is flagged for clojurescript-1.11.60.jar, but seems to pertain to a go repo

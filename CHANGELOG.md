@@ -5,6 +5,10 @@ v 0.4.3
   - Adding @config atom to hold all configuration
   - BREAKING: @resource-types moved to (@config ::resource-types)
   - BREAKING: @exceptional-iri-str-re moved to (@config ::special-uri-str-re)
+  - kwi-for, qname-for, and uri-for are deprecated in favor of as-kwi
+    as-qname, and and as-uri-string respectively (fixes issue #28)
+  - duplicate prefixes are now handled with the
+    voc/disambiguate-prefix-ns method (fixes issue #25)
   
 v 0.4.2
   - Removing custom hierarchy. (More trouble than it's worth).

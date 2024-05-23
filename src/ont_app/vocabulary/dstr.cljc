@@ -53,7 +53,7 @@
 
 
 #?(:cljs
-   (defmethod cljs.compiler/emit-constant* ont_app.vocabulary.dstr.DatatypeStr
+   (defmethod cljs.compiler/emit-constant* ont-app.vocabulary.dstr.DatatypeStr
      ;; Emits a string of js instantiating a DatatypeStr
      [^DatatypeStr x]
      (apply cljs.compiler/emits [(str "new DatatypeStr (\""

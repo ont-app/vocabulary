@@ -24,7 +24,6 @@
   :voc/mapsTo 'ont-app.vocabulary.core ;; <- part of the test
   })
 
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; FUN WITH READER MACROS
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -296,8 +295,8 @@
 (defmethod voc/disambiguate-prefix-ns "issue25"
   [kw namespaces]
   (if (= (name kw) "blah")
-    (find-ns 'duplicate-prefixes-2)
-    (find-ns 'duplicate-prefixes-1)))
+    (voc/cljc-find-ns 'duplicate-prefixes-2)
+    (voc/cljc-find-ns 'duplicate-prefixes-1)))
 
 
 (deftest issue-25-duplicate-prefixes

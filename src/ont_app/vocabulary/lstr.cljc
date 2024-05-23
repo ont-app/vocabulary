@@ -38,13 +38,24 @@
 #?(:clj
    (defmethod print-dup LangStr [o ^java.io.Writer w]
      (print-method o w)))
-
+(def notes (atom nil))
 ;; for cljs ...
 #?(:cljs
    (extend-protocol IPrintWithWriter
      LangStr
      (-pr-writer [this writer _]
-       (write-all writer "#voc/lstr \"" (.toString this) "@" (.-lang this) "\""))))
+       ;; NOTE: for some reason the \" causes write-all to render improperly under cider
+       ;; replacing \" with ' removes the rendering problem, but of course then the
+       ;; syntax is off
+       (reset! notes writer)
+       (write-all writer
+                  "#voc/lstr "
+                  "\""
+                  (.toString this)
+                  "@"
+                  (.-lang this)
+                  "\""
+                  ))))
 
 #?(:cljs
    (extend-protocol IEquiv
@@ -56,7 +67,7 @@
 
 
 #?(:cljs
-   (defmethod cljs.compiler/emit-constant* ont_app.vocabulary.lstr.LangStr
+   (defmethod cljs.compiler/emit-constant* ont-app.vocabulary.lstr.LangStr
      ;; Emits a string of js instantiating a LangStr
      [^LangStr x]
      (apply cljs.compiler/emits [(str "new LangStr (\""
