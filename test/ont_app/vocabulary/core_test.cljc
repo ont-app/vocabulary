@@ -193,6 +193,25 @@
       (is (= "en" (lstr/lang x) ))
       (is (= x (lstr/read-LangStr "asdf@en"))))))
 
+;;;;;;;;;;;;;;;;;;;;;;;
+;; MINTING IDENTIFIERS
+;;;;;;;;;;;;;;;;;;;;;;;
+
+(defmethod voc/mint-kwi :eg/widget
+  [_ & {:keys [part-number]}]
+  (keyword "eg"
+           (str "widget#partNumber=" part-number)))
+  
+(deftest test-minting-identifiers
+  (is (= :eg/widget-no-method_part-number_123
+         (voc/mint-kwi :eg/widget-no-method :part-number 123)))
+  (is (= :eg/widget#partNumber=123
+         (voc/mint-kwi :eg/widget :part-number 123)))
+  (is (= "876627597"
+         (voc/kw-string (list 1 2 3 {:a 1 :b 2}))))
+  (is (= :eg/my-thing_x_y_z_876627597)
+         (voc/mint-kwi :eg/my-thing :x :y :z (list 1 2 3 {:a 1 :b 2}))))
+
 ;;;;;;;;;;;;
 ;; ISSUE 12
 ;;;;;;;;;;;;
