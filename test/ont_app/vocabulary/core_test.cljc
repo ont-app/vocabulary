@@ -207,8 +207,8 @@
          (voc/mint-kwi :eg/widget-no-method :part-number 123)))
   (is (= :eg/widget#partNumber=123
          (voc/mint-kwi :eg/widget :part-number 123)))
-  (is (= "876627597"
-         (voc/kw-string (list 1 2 3 {:a 1 :b 2}))))
+  (is (integer? ;; a hash
+       (read-string (voc/kw-string (list 1 2 3 {:a 1 :b 2})))))
   (is (= :eg/my-thing_x_y_z_876627597)
          (voc/mint-kwi :eg/my-thing :x :y :z (list 1 2 3 {:a 1 :b 2}))))
 

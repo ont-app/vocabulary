@@ -85,101 +85,6 @@ NOTE: call this when you may have imported new namespace metadata
   (reset! prefix-to-ns-cache nil)
   (reset! namespace-re-cache nil))
 
-;;;;;;;;;;;;;;;;
-;; Minting KWIs
-;;;;;;;;;;;;;;;;
-
-(defmulti kw-string
-  "Signature: [this] -> a string to be used as part of a minted kwi
-  - where
-    - `this` is some object
-  - Dispatched on (type this)"
-  type)
-
-(defmethod kw-string :default
-  [this]
-  (str this))
-
-(defmethod kw-string clojure.lang.Keyword
-  [this]
-  (name this))
-
-(defmethod kw-string clojure.lang.Seqable
-  [this]
-  (str (abs (hash this))))
-
-(defn mint-kwi-dispatch
-  "Returns `head-kwi` as `dispatch-key` for the `mint-kwi` method. 
-  Where:
-  `head-kwi` is the first argument
-  `dispatch-key` is a keyword"
-  [head-kwi & _args]
-  head-kwi)
-
-(defmulti mint-kwi
-  "Args: [`head-kwi` & `args`]. Returns a canonical kwi.
-  Where
-  - `head-kwi` initiates the KWI (typically the name of an existing class in some
-    model).
-  - `args` := [`property` `value`, ...], .s.t. the named value is uniquely distinguished.
-  E.g: The default method simply joins arguments on _ as follows:
-    (mint-kwi :myNs/MyClass :myNs/prop1 'foo' :myNs/prop2 'bar)
-    -> :myNs/MyClass_prop1_foo_prop2_bar, but overriding methods will be
-    dispatched on `head`
-  Compiled arguments are rendered as their hashes.
-  "
-  mint-kwi-dispatch)
-
-(defmethod mint-kwi :default
-  [head-kwi & args]
-  ;; <head-kwi> + hash of sorted args.
-  (assert (not (some #(nil? %) args)))
-  (let [_ns (namespace head-kwi)
-        _name (name head-kwi)
-        kwi (keyword _ns (str _name "_" (str/join "_" (map kw-string args))))]
-    kwi))
-
-
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Resource Type context and method def
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(declare operative-resource-context)
-
-(defn resource-type-dispatch
-  "Returns [`type-context` (type this)]
-  - Where
-    - `this` is something which we may want to render as a URI or related
-       construct.
-    - `type-context` is a keyword naming a context to which dispatch methods are
-        keyed. It is the value of (operative-resource-context)
-       - defaults to (`most-specific-resource-context` `::voc/resource-type-context`)
-  "
-  [this]
-  [(operative-resource-context)
-   (type this)])
-
-(defmulti resource-type
-  "- Signature [this] -> `resource-type`, dispatched on `resource-type-dispatch`
-  - Where
-    - `this` is something renderable as a URI, KWI, qname, or some other
-       resource ID.
-    - `resource-type` names a resource type on which `as-uri-string`, `as-kwi`,
-      `as-qname`, `resource=` and perhaps other methods might be dispatched.
-  "
-  resource-type-dispatch)
-
-(defmethod mint-kwi :voc/resource-type
-  [_ this]
-  (keyword "voc"
-           (str "resource_type_"
-                (clojure.string/replace (str (type this)) #" " "_"))))
-
-(defmethod resource-type :default
-  [this]
-  (mint-kwi :voc/resource-type this))
-  
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; FUN WITH READER MACROS
@@ -357,45 +262,24 @@ Where
   #?(:clj ns-map
      :cljs (fn [_not-a-real-ns] {})))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; platform-specific resource types
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; platform-specific method dispatch types
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(declare prefixed-ns)
+(derive #?(:clj java.lang.String :cljs (type ""))
+        ::cljc-string-type)
 
-(defmethod resource-type [::resource-type-context #?(:clj java.lang.String
-                                                     :cljs (type ""))]
-  [this]
-  (cond
-    (spec/valid? :voc/uri-str-spec this)
-    :voc/UriString
+(derive #?(:clj clojure.lang.Keyword :cljs cljs.core/Keyword)
+        ::cljc-keyword-type)
 
-    (spec/valid? :voc/qname-spec this)
-    :voc/Qname
+#?(:clj (derive java.io.File ::cljc-file-type))
 
-    :else
-    :voc/NonUriString))
-
-(defmethod resource-type [::resource-type-context
-                          #?(:clj clojure.lang.Keyword :cljs cljs.core/Keyword)]
-  [this]
-  (let [prefix (namespace this)
-        kw-name (name this)]
-    (if prefix
-      (let [ns' (or (cljc-find-ns (symbol prefix))
-                    (prefixed-ns prefix))]
-        (if ns' :voc/Kwi
-            ;; else
-            :voc/QualifiedNonKwi))
-      ;; else no prefix
-      (if (spec/valid? :voc/uri-str-spec kw-name)
-        :voc/Kwi
-        :voc/UnqualifiedKeyword))))
-
-#?(:clj
-   (defmethod resource-type [::resource-type-context java.io.File]
-     [_]
-     :voc/LocalFile))
+#?(:clj (derive clojure.lang.Seqable ::cljc-seqable-type)
+   :cljs (do
+           (derive PersistentArrayMap ::cljc-seqable-type)
+           (derive List ::cljc-seqable-type)
+           (derive EmptyList ::cljc-seqable-type)
+           (derive PersistentVector ::cljc-seqable-type)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Differing escaping semantics
@@ -470,8 +354,74 @@ dcat:mediaType relation for some dcat:downloadURL."]])
 
 
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Resource Type context and method def
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(declare operative-resource-context)
+
+(defn resource-type-dispatch
+  "Returns [`type-context` (type this)]
+  - Where
+    - `this` is something which we may want to render as a URI or related
+       construct.
+    - `type-context` is a keyword naming a context to which dispatch methods are
+        keyed. It is the value of (operative-resource-context)
+       - defaults to (`most-specific-resource-context` `::voc/resource-type-context`)
+  "
+  [this]
+  [(operative-resource-context)
+   (type this)])
+
+(defmulti resource-type
+  "- Signature [this] -> `resource-type`, dispatched on `resource-type-dispatch`
+  - Where
+    - `this` is something renderable as a URI, KWI, qname, or some other
+       resource ID.
+    - `resource-type` names a resource type on which `as-uri-string`, `as-kwi`,
+      `as-qname`, `resource=` and perhaps other methods might be dispatched.
+  "
+  resource-type-dispatch)
+
+(declare mint-kwi)
+(defmethod resource-type :default
+  [this]
+  (mint-kwi :voc/resource-type this))
 
 
+(defmethod resource-type [::resource-type-context ::cljc-string-type]
+  [this]
+  (cond
+    (spec/valid? :voc/uri-str-spec this)
+    :voc/UriString
+
+    (spec/valid? :voc/qname-spec this)
+    :voc/Qname
+
+    :else
+    :voc/NonUriString))
+
+(declare prefixed-ns)
+(defmethod resource-type [::resource-type-context ::cljc-keyword-type]
+  [this]
+  (let [prefix (namespace this)
+        kw-name (name this)]
+    (if prefix
+      (let [ns' (or (cljc-find-ns (symbol prefix))
+                    (prefixed-ns prefix))]
+        (if ns' :voc/Kwi
+            ;; else
+            :voc/QualifiedNonKwi))
+      ;; else no prefix
+      (if (spec/valid? :voc/uri-str-spec kw-name)
+        :voc/Kwi
+        :voc/UnqualifiedKeyword))))
+
+
+(defmethod resource-type [::resource-type-context ::cljc-file-type]
+  [_]
+  :voc/LocalFile)
+  
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; PATTERN MATCHING
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -709,6 +659,67 @@ dcat:mediaType relation for some dcat:downloadURL."]])
        (get (prefix-to-ns))
        unique
        (ns-to-namespace)))
+
+
+;;;;;;;;;;;;;;;;
+;; Minting KWIs
+;;;;;;;;;;;;;;;;
+
+(defmulti kw-string
+  "Signature: [this] -> a string to be used as part of a minted kwi
+  - where
+    - `this` is some object
+  - Dispatched on (type this)"
+  type)
+
+(defmethod kw-string :default
+  [this]
+  (str/replace (str this) #"\s" "_"))
+
+(defmethod kw-string ::cljc-keyword-type
+  [this]
+  (name this))
+
+(defmethod kw-string ::cljc-seqable-type
+  [this]
+  (str (abs (hash this))))
+
+(defn mint-kwi-dispatch
+  "Returns `head-kwi` as `dispatch-key` for the `mint-kwi` method. 
+  Where:
+  `head-kwi` is the first argument
+  `dispatch-key` is a keyword"
+  [head-kwi & _args]
+  head-kwi)
+
+(defmulti mint-kwi
+  "Args: [`head-kwi` & `args`]. Returns a canonical kwi.
+  Where
+  - `head-kwi` initiates the KWI (typically the name of an existing class in some
+    model).
+  - `args` := [`property` `value`, ...], .s.t. the named value is uniquely distinguished.
+  E.g: The default method simply joins arguments on _ as follows:
+    (mint-kwi :myNs/MyClass :myNs/prop1 'foo' :myNs/prop2 'bar)
+    -> :myNs/MyClass_prop1_foo_prop2_bar, but overriding methods will be
+    dispatched on `head`
+  Compiled arguments are rendered as their hashes.
+  "
+  mint-kwi-dispatch)
+
+(defmethod mint-kwi :default
+  [head-kwi & args]
+  ;; <head-kwi> + hash of sorted args.
+  (assert (not (some #(nil? %) args)))
+  (let [_ns (namespace head-kwi)
+        _name (name head-kwi)
+        kwi (keyword _ns (str _name "_" (str/join "_" (map kw-string args))))]
+    kwi))
+
+(defmethod mint-kwi :voc/resource-type
+  [_ this]
+  (keyword "voc"
+           (str "resource_type_"
+                (kw-string (type this)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; RESOURCE TYPE CONTEXTS
