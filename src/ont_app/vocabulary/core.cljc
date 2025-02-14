@@ -312,6 +312,14 @@ Where
   #?(:clj (read-instant-date date)
      :cljs (js/Date. date)))
 
+(defn- cljc-get-java-class-tag-name
+  "Returns a string naming a Java class for use in a (voc/tag ... :clj/JavaClass) method. Clj will accept a class instance or a string naming the class; cljs will only accept a string. "
+  [obj]
+  #?(:clj (if (instance? java.lang.Class obj)
+            (.getName obj)
+            (str obj))
+     :cljs (str obj)))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; NO READER MACROS BEYOND THIS POINT
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -352,6 +360,16 @@ dcat:mediaType relation for some dcat:downloadURL."]])
      ;; else ambiguous
      (on-ambiguity coll))))
 
+(defn as-calendar
+  "Returns an instance of `java.util.GregorianCalendar` given `date`
+  - Where
+    - `date` is a java.util.Date, the standard value of clojure #inst
+  - Note: this lets you `.get` things like the `java.util.Calendar/YEAR`"
+  [date]
+  {:pre [(instance? java.util.Date date)]}
+  (let [c (java.util.Calendar/getInstance)]
+    (.setTime c date)
+    c))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -421,7 +439,7 @@ dcat:mediaType relation for some dcat:downloadURL."]])
 (defmethod resource-type [::resource-type-context ::cljc-file-type]
   [_]
   :voc/LocalFile)
-  
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; PATTERN MATCHING
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -685,7 +703,7 @@ dcat:mediaType relation for some dcat:downloadURL."]])
   (str (abs (hash this))))
 
 (defn mint-kwi-dispatch
-  "Returns `head-kwi` as `dispatch-key` for the `mint-kwi` method. 
+  "Returns `head-kwi` as `dispatch-key` for the `mint-kwi` method.
   Where:
   `head-kwi` is the first argument
   `dispatch-key` is a keyword"
@@ -1080,6 +1098,20 @@ dcat:mediaType relation for some dcat:downloadURL."]])
     (dstr/->DatatypeStr (-> obj' cljc-to-date str)
                         "xsd:dateTime")))
 
+(defmethod tag :clj/Var
+  [obj & _]
+  {:pre [(var? obj)]}
+  (dstr/->DatatypeStr (str (.toSymbol obj)) (as-qname :clj/Var)))
+
+(defmethod tag :clj/Symbol
+  [obj & _]
+  {:pre [(symbol? obj)]}
+  (dstr/->DatatypeStr (str obj) (as-qname :clj/Symbol)))
+
+(defmethod tag :clj/JavaClass
+  [obj & _]
+  (dstr/->DatatypeStr (cljc-get-java-class-tag-name obj) (as-qname :clj/JavaClass)))
+
 (defmethod tag :default
   ([obj]
    (tag obj (@dstr/default-tags (type obj))))
@@ -1105,18 +1137,23 @@ dcat:mediaType relation for some dcat:downloadURL."]])
   "
   untag-dispatch)
 
-(defmethod untag :xsd/Boolean  [obj & _] {:post [(boolean? %)]} (read-string (str obj)))
-(defmethod untag :xsd/dateTime [obj & _] (cljc-read-date (str obj)))
-(defmethod untag :xsd/long     [obj & _] (read-string (str obj)))
-(defmethod untag :xsd/int      [obj & _] (read-string (str obj)))
-(defmethod untag :xsd/integer  [obj & _] (read-string (str obj)))
-(defmethod untag :xsd/double   [obj & _] (read-string (str obj)))
-(defmethod untag :xsd/string   [obj & _] (str obj))
-(defmethod untag :xsd/short    [obj & _] (short (read-string (str obj))))
-(defmethod untag :xsd/float    [obj & _] (float (read-string (str obj))))
-(defmethod untag :xsd/byte     [obj & _] (byte (read-string (str obj))))
+(defmethod untag :clj/JavaClass [obj & _] (-> obj str symbol resolve))
+(defmethod untag :clj/Symbol    [obj & _] (-> obj str symbol))
+(defmethod untag :clj/Var       [obj & _] (-> obj str symbol resolve))
+(defmethod untag :xsd/Boolean   [obj & _] {:post [(boolean? %)]} (-> obj str read-string))
+(defmethod untag :xsd/byte      [obj & _] (-> obj str read-string byte))
+(defmethod untag :xsd/dateTime  [obj & _] (-> obj str cljc-read-date))
+(defmethod untag :xsd/double    [obj & _] (-> obj str read-string))
+(defmethod untag :xsd/float     [obj & _] (-> obj str read-string float))
+(defmethod untag :xsd/int       [obj & _] (-> obj str read-string))
+(defmethod untag :xsd/integer   [obj & _] (-> obj str read-string))
+(defmethod untag :xsd/long      [obj & _] (-> obj str read-string))
+(defmethod untag :xsd/short     [obj & _] (-> obj str read-string short))
+(defmethod untag :xsd/string    [obj & _] (-> obj str))
+
 
 (derive :xsd/decimal :xsd/double)
+
 
 (defn- error-on-no-untag-found
   "Default response to a case where no `untag` method was found."
@@ -1301,6 +1338,15 @@ dcat:mediaType relation for some dcat:downloadURL."]])
                      :dcat/mediaType "text/turtle"]
                     ["http://schema.org/version/latest/schema.jsonld"
                      :dcat/mediaType "application/ld+json"]]
+     })
+
+(put-ns-meta!
+ 'ont-app.vocabulary.void
+    {
+     :vann/preferredNamespaceUri "http://rdfs.org/ns/void#"
+     :vann/preferredNamespacePrefix "void"
+     :dc/description "The Vocabulary of Interlinked Datasets (VoID) is an RDF Schema vocabulary for expressing metadata about RDF datasets. It is intended as a bridge between the publishers and users of RDF data, with applications ranging from data discovery to cataloging and archiving of datasets. This document provides a formal definition of the new RDF classes and properties introduced for VoID. It is a companion to the main specification document for VoID, Describing Linked Datasets with the VoID Vocabulary."
+     :foaf/homepage "https://www.w3.org/TR/void/"
      })
 
 (put-ns-meta!

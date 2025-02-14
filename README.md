@@ -757,6 +757,7 @@ Open Data prefixes:
 | [foaf](http://xmlns.com/foaf/spec/) | http://xmlns.com/foaf/spec/ | the 'Friend of a Friend' vocabulary |
 | [skos](https://www.w3.org/2009/08/skos-reference/skos.html) | http://www.w3.org/2004/02/skos/core# |for thesaurus-type taxonomies |
 | [schema.org](https://schema.org/) | https://schema.org/ |  mostly commercial topics, with web-page metadata and search-engine indexes in mind |
+| [void](https://www.w3.org/TR/void/) | http://rdfs.org/ns/void# | Vocabulary of Interlinked Datasets. |
 | [qudt](http://qudt.org) | http://qudt.org/schema/qudt/| Units, Dimensions and Datatypes vocabulary. |
 | [unit](http://qudt.org) | http://qudt.org/vocab/unit#| Units module of the QUDT vocabulary. |
 

@@ -62,7 +62,8 @@
                                       (#?(:clj .datatype :cljs .-datatype) x)
                                    "\")")])))
 
-(defn datatype 
+
+(defn datatype
   "returns the datatype tag associated with `datatypeStr`"
   [^DatatypeStr datatypeStr]
   (#?(:clj .datatype
@@ -97,8 +98,13 @@
                             ")"      ;; end group 2
                             "$"
                             ))
-     
+
      ))
+
+(def ^:private cljc-default-tags
+  "Platform-specific default tags, to be merged into @default-tags at compile time."
+  #?(:clj {java.lang.Class "clj:JavaClass"}
+     :cljs {}))
 
 ;; END READER MACROS
 
@@ -126,7 +132,6 @@
                      :regex datatypestring-re
                      :form form}))))
 
-
 (defn read-DatatypeStr-cljs
   "Returns a macro expression for read-DatatypeStr suitable for insertion and interpretation in cljs source."
   ^DatatypeStr [form]
@@ -147,4 +152,8 @@
          (type (short 0)) "xsd:short"
          (type (byte 0)) "xsd:byte"
          (type (float 0)) "xsd:float"
+         (type #'parse) "clj:Var"
+         (type 'symbol) "clj:Symbol"
          }))
+
+(swap! default-tags merge cljc-default-tags)
