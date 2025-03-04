@@ -320,6 +320,38 @@ Where
             (str obj))
      :cljs (str obj)))
 
+
+(defn as-calendar
+  "Returns an instance of `java.util.GregorianCalendar` given `date`
+  - Where
+    - `date` is a java.util.Date, the standard value of clojure #inst
+  - Note: this lets you `.get` things like the `java.util.Calendar/YEAR`"
+  #?(:clj
+     ([date]
+      {:pre [(instance? java.util.Date date)]}
+      (let [c (java.util.Calendar/getInstance)]
+        (.setTime c date)
+        c)))
+  #?(:cljs
+     ([date]
+      (throw (ex-info "as-calender not implemented under cljs"
+                     {:type ::not-implemented-under-cljs
+                      :function 'as-calendar
+                      :date date})))))
+
+(defn cljc-resolve
+  "Returns the resolved `sym`, if possible
+  - Where
+    - `sym` is a symbol, typically acquired from a string value in a DSTR tag.
+  - Note:
+    - Resolving symbols is not straightforward under cljs, and I have yet to need to do
+      so in anger, so for now under cljs the symbol will be returned unchanged until
+      actual use cases present themselves.
+  "
+  [sym]
+  #?(:clj (resolve sym)
+     :cljs sym))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; NO READER MACROS BEYOND THIS POINT
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -360,16 +392,6 @@ dcat:mediaType relation for some dcat:downloadURL."]])
      ;; else ambiguous
      (on-ambiguity coll))))
 
-(defn as-calendar
-  "Returns an instance of `java.util.GregorianCalendar` given `date`
-  - Where
-    - `date` is a java.util.Date, the standard value of clojure #inst
-  - Note: this lets you `.get` things like the `java.util.Calendar/YEAR`"
-  [date]
-  {:pre [(instance? java.util.Date date)]}
-  (let [c (java.util.Calendar/getInstance)]
-    (.setTime c date)
-    c))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1100,12 +1122,17 @@ dcat:mediaType relation for some dcat:downloadURL."]])
 
 (defmethod tag :clj/Var
   [obj & _]
-  {:pre [(var? obj)]}
-  (dstr/->DatatypeStr (str (.toSymbol obj)) (as-qname :clj/Var)))
+  (let [s (if (var? obj)
+            (str (.toSymbol obj))
+            (str obj))]
+    (dstr/->DatatypeStr (if (var? obj)
+                          (str (.toSymbol obj))
+                          ;; else not a var
+                          (str obj))
+                        (as-qname :clj/Var))))
 
 (defmethod tag :clj/Symbol
   [obj & _]
-  {:pre [(symbol? obj)]}
   (dstr/->DatatypeStr (str obj) (as-qname :clj/Symbol)))
 
 (defmethod tag :clj/JavaClass
@@ -1137,9 +1164,9 @@ dcat:mediaType relation for some dcat:downloadURL."]])
   "
   untag-dispatch)
 
-(defmethod untag :clj/JavaClass [obj & _] (-> obj str symbol resolve))
+(defmethod untag :clj/JavaClass [obj & _] (-> obj str symbol cljc-resolve))
 (defmethod untag :clj/Symbol    [obj & _] (-> obj str symbol))
-(defmethod untag :clj/Var       [obj & _] (-> obj str symbol resolve))
+(defmethod untag :clj/Var       [obj & _] (-> obj str symbol cljc-resolve))
 (defmethod untag :xsd/Boolean   [obj & _] {:post [(boolean? %)]} (-> obj str read-string))
 (defmethod untag :xsd/byte      [obj & _] (-> obj str read-string byte))
 (defmethod untag :xsd/dateTime  [obj & _] (-> obj str cljc-read-date))
