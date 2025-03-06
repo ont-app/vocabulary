@@ -195,8 +195,9 @@
    ;; characters that break the cljs reader
    {}))
 
+
 (def uri-escapes
-  "{`c` `escape-str`, ...} for characters that break a URI string"
+  ;;"{`c` `escape-str`, ...} for characters that break a URI string"
   #?(:clj (edn/read-string
            (slurp (io/resource "uri-escapes.edn")))
      :cljs cljs-uri-escapes))

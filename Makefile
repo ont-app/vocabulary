@@ -14,7 +14,7 @@ test-js:
 
 .PHONY: test-node
 test-node:
-	shadow-cljs compile node-test
+	npx shadow-cljs compile node-test
 
 .PHONY: clean-all
 clean-all:
