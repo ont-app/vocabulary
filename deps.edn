@@ -40,7 +40,9 @@
            ;; See also https://github.com/Olical/cljs-test-runner
            :test-cljs {
                        :extra-deps {olical/cljs-test-runner {:mvn/version "3.8.1"}}
-                       :extra-paths ["test"]}
+                       :extra-paths ["test"]
+                       :main-opts ["-m" "cljs-test-runner.main"]
+                       }
 
            ;; SHADOW-CLJS SUPPORT
            ;; Alias referenced in shadow-cljs.edn
