@@ -1,5 +1,5 @@
 (ns ont-app.vocabulary.dstr
-  {:doc "Defines DatatypeStr type to inform #voc/dstr custom reader tag"
+  {:doc "Defines DatatypeStr type to inform #voc/dstr custom reader tag."
    :author "Eric D. Scott"
    }
   (:require
@@ -64,7 +64,7 @@
 
 
 (defn datatype
-  "returns the datatype tag associated with `datatypeStr`"
+  "Returns the datatype tag associated with `datatypeStr`."
   [^DatatypeStr datatypeStr]
   (#?(:clj .datatype
       :cljs .-datatype) datatypeStr))
@@ -109,23 +109,23 @@
 ;; END READER MACROS
 
 (defn parse
-  "Returns [`datum` `datatype`] for `s`, or nil
+  "Returns [`datum` `datatype`] for `s`, or nil.
   - Where
     -`s` is a string :~ `datum`^^`datatype`
     - `datum` is a string
     - `datatype` is is a string
   "
   [form]
-  (when-let [[_ datum datatype] (re-matches datatypestring-re form)]
-    [datum datatype]))
+  (when-let [[_ datum datatype'] (re-matches datatypestring-re form)]
+    [datum datatype']))
 
 (defn read-DatatypeStr
-  "Returns an instance of DatatypeStr parsed from `form`
+  "Returns an instance of DatatypeStr parsed from `form`.
   - Where:
   - `form` :- `datum`^^`datatype`"
   ^DatatypeStr [form]
-  (if-let [[datum datatype] (parse form)]
-    (DatatypeStr. datum datatype)
+  (if-let [[datum datatype'] (parse form)]
+    (DatatypeStr. datum datatype')
     ;; else no parse
     (throw (ex-info "Bad DatatypeString format"
                     {:type ::BadDatatypestringFormat
@@ -138,7 +138,7 @@
   `(read-DatatypeStr ~form))
 
 (def default-tags
-  "A map := {(type `obj`) `tag`, ...}
+  "A map := {(type `obj`) `tag`, ...}.
   - Where
     -`obj` is a clojure value
     -`tag` is a qname for the resource tagging the datatype of `obj`

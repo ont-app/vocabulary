@@ -2,16 +2,16 @@
   (:require
    [clojure.spec.alpha :as spec]
    [clojure.string :as str :refer [join]]
-   [ont-app.vocabulary.format :as fmt :refer [decode-kw-ns
-                                              decode-kw-name
-                                              decode-uri-string
-                                              encode-kw-name
-                                              encode-uri-string]]
-   [ont-app.vocabulary.lstr :as lstr]
    [ont-app.vocabulary.dstr :as dstr]
+   [ont-app.vocabulary.format :refer [decode-kw-ns
+                                      decode-kw-name
+                                      decode-uri-string
+                                      encode-kw-name
+                                      encode-uri-string]]
+   #?(:cljs [ont-app.vocabulary.lstr :as lstr])
    #?(:clj [clojure.instant :refer [read-instant-date]])
-   #?(:cljs [clojure.reader :as cljs-reader :refer [read-string]])
-   #?(:cljs [goog.date.DateTime :as DateTime])
+   #?(:cljs [clojure.reader :refer [read-string]])
+   ;; #?(:cljs [goog.date.DateTime :as DateTime])
    ))
 
 ;;;;;;;;;
@@ -64,6 +64,7 @@
   (atom {}))
 
 (def default-config
+  "The default value of `voc/config`."
   {::special-uri-str-re #"^(arn:).*"})
 
 ;;;;;;;;;;
@@ -76,7 +77,7 @@
 (def ^:private namespace-re-cache (atom nil))
 
 (defn clear-caches!
-  "Side-effects: resets all caches in voc/ to nil
+  "Side-effects: resets all caches in voc/ to nil.
 NOTE: call this when you may have imported new namespace metadata
 "
   []
@@ -91,6 +92,7 @@ NOTE: call this when you may have imported new namespace metadata
 ;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 #?(:cljs
+   #_:clj-kondo/ignore
    (do
      (cljs.reader/register-tag-parser! "lstr" lstr/read-LangStr-cljs)
      (cljs.reader/register-tag-parser! "dstr" dstr/read-DatatypeStr-cljs)
@@ -101,14 +103,15 @@ NOTE: call this when you may have imported new namespace metadata
 ;;;; namespace metadata isn't available at runtime in cljs...
 #?(:cljs
    (def cljs-ns-metadata
-     "Namespaces in cljs are not proper objects, and there is no metadata
+     "Stores cljs ns `pseudo-metadata`.
+  Namespaces in cljs are not proper objects, and there is no metadata
   available at runtime. This atom stores 'pseudo-metadata' declared with
   cljc-put-ns-metadata and accessed with cljc-get-metadata. Clj just uses
   the metadata regime for its ns's"
      (atom {})))
 
 (defn put-ns-meta!
-  "Side-effect: ensures that subsequent calls to (cljc-get-ns-meta `ns'` return `m`
+  "Side-effect: ensures that subsequent calls to (cljc-get-ns-meta `ns'` return `m`.
   Where
   - `ns'`  is an ns (clj only) or the name of a namespace, possibly declared for the sole purpose of holding vocabulary metadata (e.g. rdf, foaf, etc)
   - `m` := {`key` `value`, ...}, metadata (clj) or 'pseudo-metadata' (cljs)
@@ -143,13 +146,14 @@ NOTE: call this when you may have imported new namespace metadata
              ns'))
          overwrite-ns-meta m))
       (clear-caches!)))
-
-   ([m]
-    #?(:cljs (put-ns-meta! (namespace ::dummy))
-       :clj (put-ns-meta! *ns* m))))
+   #?(:clj
+      ([m] (put-ns-meta! *ns* m))
+      :cljs
+      ([_m]
+       (put-ns-meta! (namespace ::dummy)))))
 
 (defn get-ns-meta
-  "Returns `metadata` assigned to ns named `ns'`
+  "Returns `metadata` assigned to ns named `ns'`.
   Where
   - `ns'` names a namespace or a 'dummy' namespace whose sole purpose is to hold metadata.
   - `metadata` := {`key` `value`, ...}
@@ -173,7 +177,7 @@ NOTE: call this when you may have imported new namespace metadata
 
 #?(:cljs
    (def ^:dynamic *alias-map*
-     "{`alias` `ns-name`, ...}
+     "A map :={`alias` `ns-name`, ...}.
   Where
   `alias` is a symbol
   `ns-name` is a symbol naming an ns in the current lexical env
@@ -182,7 +186,7 @@ NOTE: call this when you may have imported new namespace metadata
      {}))
 
 (defn cljc-ns-aliases
-  "Returns {`alias` `ns`, ...}
+  "Returns {`alias` `ns`, ...}.
 Where
   - `alias` is a symbol
   - `ns` is its associated ns in the current lexical environment.
@@ -208,7 +212,7 @@ NOTE: Implementations involving cljs must use cljs-put/get-ns-meta to declare
      ))
 
 (defn cljc-all-ns
-  "Returns (`ns-name-or-obj` ...)
+  "Returns (`ns-name-or-obj` ...).
 Where
   - `ns-name-or-obj` may either be a namespace (in clj)
      or the name of a namespace (in cljs)"
@@ -218,7 +222,7 @@ Where
 
 (declare prefix-re-str)
 (defn cljc-find-prefixes
-  "Returns #{`prefix`...} for `s` matching `re-str`
+  "Returns #{`prefix`...} for `s` matching `re-str`.
 Where
   - `prefix` is a prefix found in `s`, for which some (meta ns) has a
      :vann/preferredNamespacePrefix declaration
@@ -258,7 +262,7 @@ Where
                (recur acc (subs input 1)))))))))
 
 (def cljc-ns-map
-  "mimics behavior of `ns-map` on cljs, but returns empty symbol->binding map"
+  "Mimics behavior of `ns-map` on cljs, but returns empty symbol->binding map."
   #?(:clj ns-map
      :cljs (fn [_not-a-real-ns] {})))
 
@@ -286,12 +290,12 @@ Where
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (def ^{:private true} unescaped-slash-re
-  "Matches a string preceded by a backslash escape"
+  "Matches a string preceded by a backslash escape."
   #?(:clj #"[^\\][\/]"
      :cljs #"[^\\][/]"))
 
 (defn escape-slash
-  "Replaces a slash in `s` with a backslash-escaped slash"
+  "Replaces a slash in `s` with a backslash-escaped slash."
   [s]
   #?(:clj (str/replace s #"/" "\\\\/")
      :cljs (str/replace s #"/" "\\/")))
@@ -301,7 +305,7 @@ Where
 ;;;;;;;;;;;;;;;;;;;;
 
 (defn- cljc-to-date
-  "returns a string rendering of a date for xsd:dateTime."
+  "Returns a string rendering of a date for xsd:dateTime."
   [s]
   #?(:clj (.toInstant s)
      :cljs (.toISOString (js/Date. s))))
@@ -313,7 +317,7 @@ Where
      :cljs (js/Date. date)))
 
 (defn- cljc-get-java-class-tag-name
-  "Returns a string naming a Java class for use in a (voc/tag ... :clj/JavaClass) method. Clj will accept a class instance or a string naming the class; cljs will only accept a string. "
+  "Returns a string naming a Java class for use in a (voc/tag ... :clj/JavaClass) method. Clj will accept a class instance or a string naming the class; cljs will only accept a string."
   [obj]
   #?(:clj (if (instance? java.lang.Class obj)
             (.getName obj)
@@ -322,10 +326,10 @@ Where
 
 
 (defn as-calendar
-  "Returns an instance of `java.util.GregorianCalendar` given `date`
+  "Returns an instance of `java.util.GregorianCalendar` given `date`.
   - Where
     - `date` is a java.util.Date, the standard value of clojure #inst
-  - Note: this lets you `.get` things like the `java.util.Calendar/YEAR`"
+  - Note: this lets you `.get` things like the `java.util.Calendar/YEAR`."
   #?(:clj
      ([date]
       {:pre [(instance? java.util.Date date)]}
@@ -340,7 +344,7 @@ Where
                       :date date})))))
 
 (defn cljc-resolve
-  "Returns the resolved `sym`, if possible
+  "Returns the resolved `sym`, if possible.
   - Where
     - `sym` is a symbol, typically acquired from a string value in a DSTR tag.
   - Note:
@@ -401,7 +405,7 @@ dcat:mediaType relation for some dcat:downloadURL."]])
 (declare operative-resource-context)
 
 (defn resource-type-dispatch
-  "Returns [`type-context` (type this)]
+  "Returns [`type-context` (type this)].
   - Where
     - `this` is something which we may want to render as a URI or related
        construct.
@@ -414,7 +418,7 @@ dcat:mediaType relation for some dcat:downloadURL."]])
    (type this)])
 
 (defmulti resource-type
-  "- Signature [this] -> `resource-type`, dispatched on `resource-type-dispatch`
+  "Signature [this] -> `resource-type`, dispatched on `resource-type-dispatch`.
   - Where
     - `this` is something renderable as a URI, KWI, qname, or some other
        resource ID.
@@ -467,19 +471,19 @@ dcat:mediaType relation for some dcat:downloadURL."]])
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (def ordinary-uri-str-re
-  "A regex matching a commonly occurring standard URI string, arbitrarily chosen from
-  https://www.iana.org/assignments/uri-schemes/uri-schemes.xhtml."
+  "A regex matching a commonly occurring standard URI string.
+  Arbitrarily chosen from https://www.iana.org/assignments/uri-schemes/uri-schemes.xhtml."
   #"^(http:|https:|file:|urn:|tel:|mailto:|jdbc:|odbc:|ftp:|geo:|git:|gopher:|pop:|telnet:).*")
 
 (defn- match-uri-str-spec
   "Truthy when `s` matches spec `:voc/uri-str-spec`."
   [s]
   (or (re-matches ordinary-uri-str-re s)
-      (if-let [r (-> @config ::special-uri-str-re)]
+      (when-let [r (-> @config ::special-uri-str-re)]
         (re-matches r s))))
 
 (defn- match-kwi-spec
-  "Truthy when `k` matches spec `:voc/kwi-spec`"
+  "Truthy when `k` matches spec `:voc/kwi-spec`."
   [k]
   (and (keyword? k)
        (let [prefix (namespace k)
@@ -527,7 +531,7 @@ dcat:mediaType relation for some dcat:downloadURL."]])
                  )))
   @prefix-re-str-cache)
 
-(defn qname-re "Returns a regex s.t. 'my-ns:my-name' will parse to ['my-ns:my-name' 'my-ns' 'my-name']"
+(defn qname-re "Returns a regex s.t. 'my-ns:my-name' will parse to ['my-ns:my-name' 'my-ns' 'my-name']."
   []
   (let [name-pattern (str "("            ;; start group
                           ""             ;; either nothing
@@ -552,10 +556,10 @@ dcat:mediaType relation for some dcat:downloadURL."]])
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn- vann-annotated-objects
-  "Returns `[obj, ...]
+  "Returns [`obj`, ...] of objects annonated with the vann vocabulary.
   - Where:
     - `obj` bears metadata s.t. (get-ns-meta obj)  includes :vann/... annotations
-      - these may be either namespaces or vars"
+      - these may be either namespaces or vars."
   []
   (let [has-vann-declarations? (fn [obj]
                                  (when-let [m (get-ns-meta obj)]
@@ -569,7 +573,7 @@ dcat:mediaType relation for some dcat:downloadURL."]])
                     (mapcat (comp vals cljc-ns-map) (cljc-all-ns))))))
 
 (defn- collect-prefixes
-  "Returns {`prefix` #{`namespace`, ...} ...} s.t. `next-ns` is included
+  "Returns {`prefix` #{`namespace`, ...} ...} s.t. `next-ns` is included.
   Where
   - `acc` := {`prefix` #{`namespace`, ...}, ...}
   - `next-ns` is typically an element in a reduction sequence of ns's
@@ -592,7 +596,7 @@ dcat:mediaType relation for some dcat:downloadURL."]])
       acc)))
 
 (defn prefix-to-ns
-  "Returns {`prefix` `ns` ...}
+  "Returns {`prefix` `ns` ...}.
   - Where
     - `prefix` is declared in metadata for some `ns` with
        :vann/preferredNamespacePrefix
@@ -607,7 +611,7 @@ dcat:mediaType relation for some dcat:downloadURL."]])
   @prefix-to-ns-cache)
 
 (defmulti disambiguate-prefix-ns
-  "Signature: [kw namespaces] -> winning-ns
+  "Signature: [kw namespaces] -> winning-ns.
   - Where
     - `kw` is a namespaced keyword
     - `namespaces` is a set containing a plurality of namespaces associated with
@@ -630,7 +634,7 @@ dcat:mediaType relation for some dcat:downloadURL."]])
                    :prefix (namespace kw)})))
 
 (defn ns-to-namespace
-  "Returns `iri` for `ns`
+  "Returns `iri` for `ns`.
 - Where
   - `ns'` is an instance of clojure.lang.Namespace (in clj) or a symbol-name for ns (cljs)
   - `iri` is an iri declared with :vann/preferredNamespaceUri in the metadata for
@@ -645,7 +649,7 @@ dcat:mediaType relation for some dcat:downloadURL."]])
        :vann/preferredNamespaceUri)))
 
 (defn namespace-to-ns
-  "returns {`namespace` `ns`, ...} for each `ns` with :vann/preferredNamespaceUri
+  "Returns {`namespace` `ns`, ...} for each `ns` with `:vann/preferredNamespaceUri`.
   declaration
   - Where
     - `namespace` is the URI suitable for for an RDF prefix declaration
@@ -675,7 +679,7 @@ dcat:mediaType relation for some dcat:downloadURL."]])
 
 
 (defn ns-to-prefix
-  "Returns the prefix associated with `ns'`
+  "Returns the prefix associated with `ns'`.
   - Where
     - `ns'` is a clojure namespace, which may have :vann/preferredNamespacePrefix
       declaration in its metadata."
@@ -690,7 +694,7 @@ dcat:mediaType relation for some dcat:downloadURL."]])
    (str (ns-name ns'))))
 
 (defn prefix-to-namespace-uri
-  "returns `namespace` URI associated with `prefix`
+  "Returns `namespace` URI associated with `prefix`.
   - Where:
     - `prefix` is a string declared for `ns` with vann/preferredNamespacePrefix
     - `namespace` is a string declared for some `ns` with vann/preferredNamespaceUri"
@@ -706,7 +710,7 @@ dcat:mediaType relation for some dcat:downloadURL."]])
 ;;;;;;;;;;;;;;;;
 
 (defmulti kw-string
-  "Signature: [this] -> a string to be used as part of a minted kwi
+  "Signature: [this] -> a string to be used as part of a minted kwi.
   - where
     - `this` is some object
   - Dispatched on (type this)"
@@ -750,9 +754,9 @@ dcat:mediaType relation for some dcat:downloadURL."]])
   [head-kwi & args]
   ;; <head-kwi> + hash of sorted args.
   (assert (not (some #(nil? %) args)))
-  (let [_ns (namespace head-kwi)
-        _name (name head-kwi)
-        kwi (keyword _ns (str _name "_" (str/join "_" (map kw-string args))))]
+  (let [ns' (namespace head-kwi)
+        name' (name head-kwi)
+        kwi (keyword ns' (str name' "_" (str/join "_" (map kw-string args))))]
     kwi))
 
 (defmethod mint-kwi :voc/resource-type
@@ -766,7 +770,7 @@ dcat:mediaType relation for some dcat:downloadURL."]])
 ;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defmulti preferred-child-resource-context
-  "Signature: [`parent` `children'`] -> preferred `child` or error
+  "Signature: [`parent` `children'`] -> preferred `child` or error.
   - Distpatched on `parent`
   - Where
     - `parent` is the resource context from which each `child` is derived
@@ -785,6 +789,8 @@ dcat:mediaType relation for some dcat:downloadURL."]])
                    :children children})))
 
 (defn most-specific-resource-context
+  "Returns the `::resource--type-context` which has no descendents.
+  Raises an error if this is not unique."
   [parent-context]
   {:pre [(isa? parent-context ::resource-type-context)]}
   (if-let [descendants' (descendants parent-context)]
@@ -794,7 +800,7 @@ dcat:mediaType relation for some dcat:downloadURL."]])
     parent-context))
 
 (defn operative-resource-context
-  "The resource context on which to dispatch the `resource-type` multimethod"
+  "The resource context on which to dispatch the `resource-type` multimethod."
   []
   (or (-> @config ::operative-resource-context)
       (-> @config ::inferred-operative-resource-context)
@@ -803,7 +809,7 @@ dcat:mediaType relation for some dcat:downloadURL."]])
         context)))
 
 (defn register-resource-type-context!
-  "Side-effects: Derives `child` from `parent` and clears (@context ::voc/operative-resource-context)
+  "Side-effects: Derives `child` from `parent` and clears (@context ::voc/operative-resource-context).
   - Where
     - `child` names a resource type context on which methods may be dispatched.
     - `parent` names a resource type context on which methods may be dispatched.
@@ -1002,7 +1008,7 @@ dcat:mediaType relation for some dcat:downloadURL."]])
   (as-qname (as-kwi this)))
 
 (defmulti resource=
-  "Truthy when two different resource identifiers refer to the same resource
+  "Truthy when two different resource identifiers refer to the same resource.
   - Signature: [this that] -> truthy
   - Where
     - `this` is a Resource
@@ -1056,11 +1062,11 @@ dcat:mediaType relation for some dcat:downloadURL."]])
   ([prefix-fn content-string]
    (map prefix-fn (cljc-find-prefixes (prefix-re-str) content-string))))
 
-(defn sparql-prefixes-for "Gets SPARQL prefixes from `sparql-string`"
+(defn sparql-prefixes-for "Gets SPARQL prefixes from `sparql-string`."
   [sparql-string]
   (prefixes-for sparql-prefix-declaration sparql-string))
 
-(defn turtle-prefixes-for "Gets Turtle prefixes from `ttl-string`"
+(defn turtle-prefixes-for "Gets Turtle prefixes from `ttl-string`."
   [ttl-string]
   (prefixes-for turtle-prefix-declaration ttl-string))
 
@@ -1084,7 +1090,7 @@ dcat:mediaType relation for some dcat:downloadURL."]])
 ;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn tag-dispatch
-  "Returns `tag` for `obj` with optional `tag-spec`
+  "Returns `tag` for `obj` with optional `tag-spec`.
   - Where
     - `obj` is something to be tagged
     - `tag-spec` is a resource, or (@lstr/default-tags (type `obj`))
@@ -1104,7 +1110,7 @@ dcat:mediaType relation for some dcat:downloadURL."]])
    (as-kwi tag-spec)))
 
 (defmulti tag
-  "Signature [`obj` & maybe `tag-spec`] -> `dstr`
+  "Signature [`obj` & maybe `tag-spec`] -> `dstr`.
   - Where
     - `obj` is something to be tagged
     - `tag-spec` is a resource, or (@lstr/default-tags (type `obj`))
@@ -1122,14 +1128,11 @@ dcat:mediaType relation for some dcat:downloadURL."]])
 
 (defmethod tag :clj/Var
   [obj & _]
-  (let [s (if (var? obj)
-            (str (.toSymbol obj))
-            (str obj))]
-    (dstr/->DatatypeStr (if (var? obj)
-                          (str (.toSymbol obj))
-                          ;; else not a var
-                          (str obj))
-                        (as-qname :clj/Var))))
+  (dstr/->DatatypeStr (if (var? obj)
+                        (str (.toSymbol obj))
+                        ;; else not a var
+                        (str obj))
+                      (as-qname :clj/Var)))
 
 (defmethod tag :clj/Symbol
   [obj & _]
@@ -1142,11 +1145,11 @@ dcat:mediaType relation for some dcat:downloadURL."]])
 (defmethod tag :default
   ([obj]
    (tag obj (@dstr/default-tags (type obj))))
-  ([obj tag]
-   (dstr/->DatatypeStr (str obj) (as-qname tag))))
+  ([obj tag']
+   (dstr/->DatatypeStr (str obj) (as-qname tag'))))
 
 (defn untag-dispatch
-  "Returns (as-kwi `tag`) for `dstr`
+  "Returns (as-kwi `tag`) for `dstr`.
   - Where
     - `dstr` :~ #voc/dstr `obj`^^`tag`
     - `tag` := (as-qname `tag-spec`)
@@ -1155,7 +1158,7 @@ dcat:mediaType relation for some dcat:downloadURL."]])
   (as-kwi (dstr/datatype dstr)))
 
 (defmulti untag
-  "Signature: [`dstr` & maybe `on-not-found-fn`?]
+  "Signature: [`dstr` & maybe `on-not-found-fn`?].
   - returns: clojure value appropriate to (as-kwi `tag`)
   - Where
     - `dstr` :~ #voc/dstr `obj`^^`tag`
@@ -1403,7 +1406,7 @@ dcat:mediaType relation for some dcat:downloadURL."]])
 ;;;;;;;;;;;;;;;
 
 (def ^:deprecated cljc-put-ns-meta! "Deprecated. Use put-ns-meta!" put-ns-meta!)
-(def ^:deprecated cljc-get-ns-meta "Deprecated. Use get-ns-meta" get-ns-meta)
+(def ^:deprecated cljc-get-ns-meta "Deprecated. Use get-ns-meta." get-ns-meta)
 
 ^:deprecated
 (defmulti uri-str-for
@@ -1420,37 +1423,21 @@ dcat:mediaType relation for some dcat:downloadURL."]])
   :extend-via-metadata true
   (resource-class [this]))
 
-(defn- ^:deprecated error-on-duplicate-prefix
-    "Throws an error if a prefix is bound to more than one namespace.
-  Reduces into `prefix` argument
-  - Where
-    - `prefixes` := {`prefix` `ns`, ...}
-    - `prefix` := is a string naming the `vann:preferredNamespaceUri` for `ns'`
-    - `ns'` refers to a namespace"
-
-  [prefixes prefix ns']
-  (throw (ex-info (str "Prefix `" prefix "` is being associated with both "
-                       (prefixes prefix) " and " ns')
-                  {:type ::DuplicatePrefix
-                   :prefixes prefixes
-                   :prefix prefix
-                   :ns ns'})))
-
 (def ^:deprecated resource-types
-  "Deprecated. Use (@voc/config ::voc/resource-types instead)"
+  "Deprecated. Use (@voc/config ::voc/resource-types instead)."
   (let [err (ex-info "@Resource-types is no longer used. Use (@voc/config ::voc/resource-types) instead."
                      {:type ::ResourcetypesAtomIsDeprecated})]
     (atom {::context-fn (fn []
                           (throw err))})))
 
 (defn ^:deprecated qname-for
-  "Deprecated. Use `as-qname` instead"
+  "Deprecated. Use `as-qname` instead."
   [kw]
   {:pre [(keyword? kw)]}
   (as-qname kw))
 
 (defn ^:deprecated keyword-for
-  "Deprecated. use `as-kwi` instead"
+  "Deprecated. use `as-kwi` instead."
   ([uri]
    (as-kwi uri)))
 
@@ -1459,4 +1446,5 @@ dcat:mediaType relation for some dcat:downloadURL."]])
   [this]
   (as-uri-string this))
 
-(def ^:deprecated iri-for "Deprecated. Use `as-uri-string`" uri-for)
+#_:clj-kondo/ignore
+(def ^:deprecated iri-for "Deprecated. Use `as-uri-string`." uri-for)

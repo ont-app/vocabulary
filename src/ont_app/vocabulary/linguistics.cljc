@@ -1,6 +1,5 @@
 (ns ont-app.vocabulary.linguistics
-  {:doc "Defines a set of namespaces relating to linguistics"
-   }
+  {:doc "Defines a set of namespaces relating to linguistics."}
   (:require
    [ont-app.vocabulary.core :as voc]
    ))       

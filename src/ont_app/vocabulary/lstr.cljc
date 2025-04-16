@@ -1,5 +1,5 @@
 (ns ont-app.vocabulary.lstr
-  {:doc "Defines LangStr type to inform #voc/lstr custom reader tag"
+  {:doc "Defines LangStr type to inform #voc/lstr custom reader tag."
    :author "Eric D. Scott"
    }
   (:require
@@ -38,8 +38,14 @@
 #?(:clj
    (defmethod print-dup LangStr [o ^java.io.Writer w]
      (print-method o w)))
-(def notes (atom nil))
+
+
 ;; for cljs ...
+#?(:cljs
+   (def notes
+  "An atom containing the writer used for IPrintWithWriter of cljs version of LangStr."
+     (atom nil)))
+
 #?(:cljs
    (extend-protocol IPrintWithWriter
      LangStr
@@ -76,8 +82,8 @@
                                       (#?(:clj .lang :cljs .-lang) x)
                                    "\")")])))
 
-(defn lang 
-  "returns the language tag associated with `langStr`"
+(defn lang
+  "Returns the language tag associated with `langStr`."
   [^LangStr langStr]
   (#?(:clj .lang
       :cljs .-lang) langStr))
@@ -92,7 +98,7 @@
 ;; END READER MACROS
 
 (defn parse
-  "Returns [`datum` `type`] for `s`, or nil
+  "Returns [`datum` `type`] for `s`, or nil.
   - Where
     -`s` is a string :~ `datum`^^`type`
     - `datum` is a string
@@ -103,12 +109,12 @@
     [datum datatype]))
 
 (defn read-LangStr
-  "Returns an instance of LangStr parsed from `form`
+  "Returns an instance of LangStr parsed from `form`.
 Where:
 - `form` :- `str`@`lang`"
   ^LangStr [form]
-  (if-let [[s lang] (parse form)]
-    (LangStr. s lang)
+  (if-let [[s lang'] (parse form)]
+    (LangStr. s lang')
     ;; else no parse
     (throw (ex-info "Bad LangString fomat"
                     {:type ::BadLangstringFormat
