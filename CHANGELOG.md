@@ -1,7 +1,7 @@
 # Change Log
 All notable changes to this project will be documented in this file. This change log follows the conventions of [keepachangelog.com](http://keepachangelog.com/).
 
-v 0.4.3
+v 0.5.0
   - Adding @config atom to hold all configuration
   - BREAKING: @resource-types moved to (@config ::resource-types)
   - BREAKING: @exceptional-iri-str-re moved to (@config ::special-uri-str-re)
@@ -9,10 +9,10 @@ v 0.4.3
     as-qname, and and as-uri-string respectively (fixes issue #28)
   - duplicate prefixes are now handled with the
     voc/disambiguate-prefix-ns method (fixes issue #25)
-  
+
 v 0.4.2
   - Removing custom hierarchy. (More trouble than it's worth).
-  
+
 V 0.4.1
   - Reform to the way resource type contexts are registered and inferred
   - Tweak to the way dateTiime is tagged

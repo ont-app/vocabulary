@@ -180,7 +180,7 @@ default to reasonable values.
 (ns ...
  (:require
    ...
-   [ont-app.vocabulary.core :as voc] 
+   [ont-app.vocabulary.core :as voc]
    ...))
 ```
 
@@ -189,7 +189,7 @@ This will load function definitions interned in the
 `ns` declarations](#imported-with-voc), each dedicated to a commonly
 occurring namespace in the world of LOD.
 
-### Basic namespace metadata 
+### Basic namespace metadata
 Within standard (JVM-based) clojure, the minimal specification to
 support ont-app/vocabulary functionality for a given namespace
 requires metadata specification as follows:
@@ -200,7 +200,7 @@ requires metadata specification as follows:
     :vann/preferredNamespacePrefix "eg"
     :vann/preferredNamespaceUri "http://example.org/"
   }
-  (:require 
+  (:require
   [ont-app.vocabulary.core :as voc]
   ...))
 ```
@@ -246,7 +246,7 @@ described above to a [Clojure
 Var](https://clojure.org/reference/vars).
 
 ```clj
-(def 
+(def
   ^{
       :vann/preferredNamespacePrefix "myVar"
       :vann/preferredNamespaceUri "http://example.org/myVar/"
@@ -427,7 +427,7 @@ Note that these are all simple key/value declarations except the
 `:voc/appendix` declaration which is in the form
 
 ```clj
-:voc/appendix [[<subject> <predicate> <object>]....], 
+:voc/appendix [[<subject> <predicate> <object>]....],
 ```
 
 This includes triples which elaborate on constructs mentioned in the
@@ -451,7 +451,7 @@ current lexical environment:
  }
  >
  ```
- 
+
 In Clojurescript, since there's no _ns_ object, the results would look like this:
 
 ```clj
@@ -741,7 +741,7 @@ dedicated to linguistics.
 
 Requiring the `ont-app.vocabulary.core` module also loads `ns`
 declarations dedicated to some of the most commonly used RDF/Linked
-Open Data prefixes: 
+Open Data prefixes:
 
 
 | PREFIX | URI | Comments |
@@ -776,13 +776,13 @@ this constant:
 `ont-app.vocabulary.wikidata/sparql-endpoint`
 
 <a name="imported-with-ling"></a>
-### Imported with _ont-app.vocabulary.linguistics_ 
+### Imported with _ont-app.vocabulary.linguistics_
 
 The `ont-app.vocabulary.linguistics` module declares namespaces for:
 
 | PREFIX | URI | Comments |
 | --- | --- | --- |
-| [ontolex](https://www.w3.org/2016/05/ontolex/) | http://www.w3.org/ns/lemon/ontolex# | for encoding lexical data | 
+| [ontolex](https://www.w3.org/2016/05/ontolex/) | http://www.w3.org/ns/lemon/ontolex# | for encoding lexical data |
 | [pmn](http://premon.fbk.eu/ontology/core.html) | http://premon.fbk.eu/ontology/core# | PreMOn - dedicated to describing English verbs |
 | [nif](http://persistence.uni-leipzig.org/nlp2rdf/ontologies/nif-core/nif-core.html) | http://persistence.uni-leipzig.org/nlp2rdf/ontologies/nif-core#  | Natural Language Interchange Format - for annotating corpora |
 
@@ -1010,7 +1010,7 @@ There is a default:
 
 ```clj
 > (mint-kwi :eg/widget :part-number 123))
-  
+
 :eg/widget_part-number_123
 ```
 
@@ -1021,7 +1021,7 @@ Or you can roll your own:
   [_ & {:keys [part-number]}]
   (keyword "eg"
            (str "widget#partNumber=" part-number)))
-  
+
 > (mint-kwi :eg/widget :part-number 123)
 :eg/widget#partNumber=123
 > (voc/as-uri-string *1)
@@ -1064,7 +1064,7 @@ your option) any later version.
 <img src="http://ericdscott.com/NaturalLexiconLogo.png" alt="Natural Lexicon logo" :width=50 height=50/> </td>
 <td>
 <p>Natural Lexicon logo - Copyright © 2020 Eric D. Scott. Artwork by Athena M. Scott.</p>
-<p>Released under <a href="https://creativecommons.org/licenses/by-sa/4.0/">Creative Commons Attribution-ShareAlike 4.0 International license</a>. Under the terms of this license, if you display this logo or derivates thereof, you must include an attribution to the original source, with a link to https://github.com/ont-app, or  http://ericdscott.com. </p> 
+<p>Released under <a href="https://creativecommons.org/licenses/by-sa/4.0/">Creative Commons Attribution-ShareAlike 4.0 International license</a>. Under the terms of this license, if you display this logo or derivates thereof, you must include an attribution to the original source, with a link to https://github.com/ont-app, or  http://ericdscott.com. </p>
 </td>
 </tr>
 <table>

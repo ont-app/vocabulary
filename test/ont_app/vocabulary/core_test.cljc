@@ -201,7 +201,7 @@
   [_ & {:keys [part-number]}]
   (keyword "eg"
            (str "widget#partNumber=" part-number)))
-  
+
 (deftest test-minting-identifiers
   (is (= :eg/widget-no-method_part-number_123
          (voc/mint-kwi :eg/widget-no-method :part-number 123)))
@@ -460,7 +460,7 @@
         (voc/register-resource-type-context! ::Adam
                                              ::voc/resource-type-context)
         ;; This should result in a new most-specific context set (a singleton)
-        
+
         (is (= (voc/most-specific-resource-context ::voc/resource-type-context) ::Adam))
         ;; ... which is now the operative context...
         (is (= (voc/operative-resource-context) ::Adam))
