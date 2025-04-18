@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<suppressions xmlns="https://jeremylong.github.io/DependencyCheck/dependency-suppression.1.3.xsd">
+    <suppress>
+        <notes><![CDATA[
+        Clojure deps are flagged even though they are post-1.9.0.
+        See Slack discussion at https://clojurians.slack.com/archives/C03S1KBA2/p1707205549345089
+        ]]></notes>
+        <packageUrl regex="true">^pkg:maven/org\.clojure/core\.specs\.alpha@0\.2\.62.*$</packageUrl>
+        <vulnerabilityName>CVE-2017-20189</vulnerabilityName>
+    </suppress>
+    <suppress>
+        <notes><![CDATA[
+        Clojure deps are flagged even though they are post-1.9.0.
+        See Slack discussion at https://clojurians.slack.com/archives/C03S1KBA2/p1707205549345089.
+        ]]></notes>
+        <packageUrl regex="true">^pkg:maven/org\.clojure/spec\.alpha@0\.3\.218.*$</packageUrl>
+        <vulnerabilityName>CVE-2017-20189</vulnerabilityName>
+    </suppress>
+</suppressions>

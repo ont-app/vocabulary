@@ -50,7 +50,9 @@
   (when (:include-caches? opts)
     (println (str "Clearing caches"))
     (b/delete {:path "./.cpcache"})  
-    (b/delete {:path "./.shadow-cljs"}))
+    (b/delete {:path "./.shadow-cljs"})
+    (b/delete {:path "./node_modules"})
+    )
   opts)
 
 (defn install "Install the JAR locally." [opts]

@@ -1,9 +1,8 @@
-{:linters {:missing-docstring {:level :warning}
-           :docstring-no-summary {:level :warning}
+{:linters {:docstring-no-summary {:level :warning}
+           :missing-docstring {:level :warning}
            :shadowed-var {:level :warning}
-           :unused-alias {:level :warning}
-           :used-underscored-binding {:level :warning}
            :unsorted-imports {:level :warning}
            :unsorted-required-namespaces {:level :warning}
-           :warn-on-reflection {:level :warning}
-           }}}}
+           :unused-alias {:level :warning}
+           :used-underscored-binding {:level :warning}
+           :warn-on-reflection {:level :warning}}}}}
