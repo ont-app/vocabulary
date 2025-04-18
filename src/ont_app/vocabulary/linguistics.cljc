@@ -1,5 +1,17 @@
 (ns ont-app.vocabulary.linguistics
-  {:doc "Defines a set of namespaces relating to linguistics."}
+  {:doc "Defines a set of namespaces relating to linguistics. Including this library will bring in meta data for:
+- ontolex (describes lexical entries)
+- 1so639 (identifies language tags)
+- pmn (Premon, represents predicate models and their mappings)
+- nif (Natural language Interchange Format, for annotating text)
+- Custom experimental ontologies
+  - http://rdf.naturallexicon.org/ont# -- general ontology
+  - http://rdf.naturallexicon.org/en/ont# -- general English 
+  - http://rdf.naturallexicon.org/en/form/ -- English wordforms
+  - http://rdf.naturallexicon.org/zh/ont# -- general Chinese
+  - http://rdf.naturallexicon.org/zh/written/ -- written Chinese
+  - http://rdf.naturallexicon.org/zh/cmn/ -- Mandarin
+"}
   (:require
    [ont-app.vocabulary.core :as voc]
    ))       

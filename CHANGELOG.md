@@ -9,6 +9,16 @@ v 0.5.0
     as-qname, and and as-uri-string respectively (fixes issue #28)
   - duplicate prefixes are now handled with the
     voc/disambiguate-prefix-ns method (fixes issue #25)
+  - Some `resource-type` methods are reformed to derive from `::cljc-seqable-type`
+  - Resource contexts are selected by multimethod `preferred-child-resource-context`
+  - Refactoring the way KWIs are minted
+  - Keyword strings are assisted by a `kw-string` method dispatched on type
+  - Added logic to deal with ambiguous ns metadata
+  - New dstr tags for :clj/Var, :clj/Symbol :clj/JavaClass
+  - Ontology has
+  - Makefile is simplified
+  - Adding NVD support
+
 
 v 0.4.2
   - Removing custom hierarchy. (More trouble than it's worth).

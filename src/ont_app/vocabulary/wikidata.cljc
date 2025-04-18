@@ -1,9 +1,8 @@
 (ns ont-app.vocabulary.wikidata
-  {:doc "Wikidata-related vocabulary. Requiring this file should bring in all ns assocated with wikidata."
+  {:doc "Wikidata-related vocabulary. Requiring this file should bring in all ns assocated with wikidata. See also https://www.mediawiki.org/wiki/Wikibase/Indexing/RDF_Dump_Format#Full_list_of_prefixes ."
    }
   (:require
-   [ont-app.vocabulary.core :as voc]
-   ))
+   [ont-app.vocabulary.core :as voc]))
 
 (def sparql-endpoint
   "The public SPARQL endpoint provided by WMF."
@@ -15,9 +14,7 @@
      :dc/title "Wikibase/EntityData"
      :foaf/homepage "https://www.mediawiki.org/wiki/Wikibase/EntityData"
      :vann/preferredNamespaceUri "http://www.wikidata.org/entity/"
-     :vann/preferredNamespacePrefix "wd"
-     }
-    )
+     :vann/preferredNamespacePrefix "wd"})
 
 (voc/put-ns-meta!
  'ont-app.vocabulary.wikidata.wdt
@@ -25,18 +22,15 @@
      :dc/description "Direct properties in wikibase"
      :vann/preferredNamespaceUri "http://www.wikidata.org/prop/direct/"
      :vann/preferredNamespacePrefix "wdt"
-     :rdfs/seeAlso :wikibase/directClaim
-     }
-    )
+     :rdfs/seeAlso :wikibase/directClaim})
+
 (voc/put-ns-meta!
  'ont-app.vocabulary.wikidata.wikibase
     {
      :rdfs/label "Wikibase system ontology"
      :vann/preferredNamespaceUri "http://wikiba.se/ontology#"
      :vann/preferredNamespacePrefix "wikibase"
-     :rdfs/isDefinedBy "http://wikiba.se/ontology-1.0.owl"
-     }
-    )
+     :rdfs/isDefinedBy "http://wikiba.se/ontology-1.0.owl"})
 
 (voc/put-ns-meta!
  'ont-app.vocabulary.wikidata.p
@@ -44,9 +38,8 @@
      :rdfs/comment "Reifies wikibase properties"
      :vann/preferredNamespaceUri "http://www.wikidata.org/prop/"
      :vann/preferredNamespacePrefix "p"
-     :foaf/homepage "https://www.wikidata.org/wiki/Help:Properties"
-     }
-    )
+     :foaf/homepage "https://www.wikidata.org/wiki/Help:Properties"})
+
 (voc/put-ns-meta!
  'ont-app.vocabulary.wikidata.ps
     {
@@ -60,9 +53,7 @@
     {
      :vann/preferredNamespaceUri "http://www.wikidata.org/prop/qualifier"
      :vann/preferredNamespacePrefix "q"
-     :foaf/homepage "https://www.wikidata.org/wiki/Help:Qualifiers"
-     }
-    )
+     :foaf/homepage "https://www.wikidata.org/wiki/Help:Qualifiers"})
 
 ;; THESE NAMESPACES ARE RELATIVELY RARE
 ;; BUT SHOW UP IN https://www.mediawiki.org/wiki/Wikibase/Indexing/RDF_Dump_Format#Full_list_of_prefixes
@@ -72,9 +63,8 @@
  'ont-app.vocabulary.wikidata.wdtn
     {
      :vann/preferredNamespaceUri "http://www.wikidata.org/prop/direct-normalized/"
-     :vann/preferredNamespacePrefix "wdtn"
-     }
-    )
+     :vann/preferredNamespacePrefix "wdtn"})
+
 ;;  PREFIX wds: <http://www.wikidata.org/entity/statement/>
 
 (voc/put-ns-meta!
@@ -90,45 +80,35 @@
  'ont-app.vocabulary.wikidata.wdref
     {
      :vann/preferredNamespaceUri "http://www.wikidata.org/reference/"
-     :vann/preferredNamespacePrefix "wdref"
-     }
-    )
+     :vann/preferredNamespacePrefix "wdref"})
 
 ;; PREFIX wdv: <http://www.wikidata.org/value/>
 (voc/put-ns-meta!
  'ont-app.vocabulary.wikidata.wdv
     {
      :vann/preferredNamespaceUri "http://www.wikidata.org/value/"
-     :vann/preferredNamespacePrefix "wdv"
-     }
-    )
+     :vann/preferredNamespacePrefix "wdv"})
 
 ;; PREFIX psv: <http://www.wikidata.org/prop/statement/value/>
 (voc/put-ns-meta!
  'ont-app.vocabulary.wikidata.psv
     {
      :vann/preferredNamespaceUri "http://www.wikidata.org/prop/statement/value/"
-     :vann/preferredNamespacePrefix "psv"
-     }
-    )
+     :vann/preferredNamespacePrefix "psv"})
 
 ;; PREFIX psn: <http://www.wikidata.org/prop/statement/value-normalized/>
 (voc/put-ns-meta!
  'iri.org.wikidata.www.prop.statement.value-normalized
     {
      :vann/preferredNamespaceUri "http://www.wikidata.org/prop/statement/value-normalized/"
-     :vann/preferredNamespacePrefix "psn"
-     }
-    )
+     :vann/preferredNamespacePrefix "psn"})
 
 ;; PREFIX pq: <http://www.wikidata.org/prop/qualifier/>
 (voc/put-ns-meta!
  'ont-app.vocabulary.wikidata.pq
     {
      :vann/preferredNamespaceUri "http://www.wikidata.org/prop/qualifier/"
-     :vann/preferredNamespacePrefix "pq"
-     }
-    )
+     :vann/preferredNamespacePrefix "pq"})
 
 ;; PREFIX pqv: <http://www.wikidata.org/prop/qualifier/value/>
 (voc/put-ns-meta!
@@ -144,42 +124,32 @@
  'ont-app.vocabulary.wikidata.pqn
     {
      :vann/preferredNamespaceUri "http://www.wikidata.org/prop/qualifier/value-normalized/"
-     :vann/preferredNamespacePrefix "pqn"
-     }
-    )
+     :vann/preferredNamespacePrefix "pqn"})
 
 ;; PREFIX pr: <http://www.wikidata.org/prop/reference/>
 (voc/put-ns-meta!
  'ont-app.vocabulary.wikidata.pr
     {
      :vann/preferredNamespaceUri "http://www.wikidata.org/prop/reference/"
-     :vann/preferredNamespacePrefix "pr"
-     }
-    )
+     :vann/preferredNamespacePrefix "pr"})
 
 ;; PREFIX prv: <http://www.wikidata.org/prop/reference/value/>
 (voc/put-ns-meta!
  'ont-app.vocabulary.wikidata.prv
     {
      :vann/preferredNamespaceUri "http://www.wikidata.org/prop/reference/value/"
-     :vann/preferredNamespacePrefix "prv"
-     }
-    )
+     :vann/preferredNamespacePrefix "prv"})
 
 ;; PREFIX prn: <http://www.wikidata.org/prop/reference/value-normalized/>
 (voc/put-ns-meta!
  'ont-app.vocabulary.wikidata.prn
     {
      :vann/preferredNamespaceUri "http://www.wikidata.org/prop/reference/value-normalized/"
-     :vann/preferredNamespacePrefix "prn"
-     }
-    )
+     :vann/preferredNamespacePrefix "prn"})
 
 ;; PREFIX wdno: <http://www.wikidata.org/prop/novalue/>
 (voc/put-ns-meta!
  'ont-app.vocabulary.wikidata.wdno
     {
      :vann/preferredNamespaceUri "http://www.wikidata.org/prop/novalue/"
-     :vann/preferredNamespacePrefix "wdno"
-     }
-    )
+     :vann/preferredNamespacePrefix "wdno"})
