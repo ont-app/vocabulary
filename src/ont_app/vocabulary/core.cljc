@@ -324,24 +324,17 @@ Where
             (str obj))
      :cljs (str obj)))
 
-
+#?(:clj
 (defn as-calendar
-  "Returns an instance of `java.util.GregorianCalendar` given `date`.
+  "Returns an instance of `java.util.GregorianCalendar` given `date` (JVM only).
   - Where
     - `date` is a java.util.Date, the standard value of clojure #inst
   - Note: this lets you `.get` things like the `java.util.Calendar/YEAR`."
-  #?(:clj
-     ([date]
-      {:pre [(instance? java.util.Date date)]}
-      (let [c (java.util.Calendar/getInstance)]
-        (.setTime c date)
-        c)))
-  #?(:cljs
-     ([date]
-      (throw (ex-info "as-calender not implemented under cljs"
-                     {:type ::not-implemented-under-cljs
-                      :function 'as-calendar
-                      :date date})))))
+  ([date]
+   {:pre [(instance? java.util.Date date)]}
+   (let [c (java.util.Calendar/getInstance)]
+     (.setTime c date)
+     c))))
 
 (defn cljc-resolve
   "Returns the resolved `sym`, if possible.
@@ -1405,46 +1398,46 @@ dcat:mediaType relation for some dcat:downloadURL."]])
 ;; deprecated
 ;;;;;;;;;;;;;;;
 
-(def ^:deprecated cljc-put-ns-meta! "Deprecated. Use put-ns-meta!" put-ns-meta!)
-(def ^:deprecated cljc-get-ns-meta "Deprecated. Use get-ns-meta." get-ns-meta)
+(def ^:deprecated ^:no-doc cljc-put-ns-meta! "Deprecated. Use put-ns-meta!" put-ns-meta!)
+(def ^:deprecated ^:no-doc cljc-get-ns-meta "Deprecated. Use get-ns-meta." get-ns-meta)
 
-^:deprecated
+^:deprecated ^:no-doc
 (defmulti uri-str-for
   "Deprecated. Use Resource protocol and `as-uri-string` instead."
   type)
 
-^:deprecated
+^:deprecated ^:no-doc
 (defmethod uri-str-for :default
   [x]
   (as-uri-string x))
 
-(defprotocol ^:deprecated Resource
+(defprotocol ^:deprecated ^:no-doc Resource
   "Deprecated. Use resource-type multimethod instead."
   :extend-via-metadata true
   (resource-class [this]))
 
-(def ^:deprecated resource-types
+(def ^:deprecated ^:no-doc resource-types
   "Deprecated. Use (@voc/config ::voc/resource-types instead)."
   (let [err (ex-info "@Resource-types is no longer used. Use (@voc/config ::voc/resource-types) instead."
                      {:type ::ResourcetypesAtomIsDeprecated})]
     (atom {::context-fn (fn []
                           (throw err))})))
 
-(defn ^:deprecated qname-for
+(defn ^:deprecated ^:no-doc qname-for
   "Deprecated. Use `as-qname` instead."
   [kw]
   {:pre [(keyword? kw)]}
   (as-qname kw))
 
-(defn ^:deprecated keyword-for
+(defn ^:deprecated ^:no-doc keyword-for
   "Deprecated. use `as-kwi` instead."
   ([uri]
    (as-kwi uri)))
 
-(defn ^:deprecated uri-for
+(defn ^:deprecated ^:no-doc uri-for
   "Deprecated. Use `as-uri-string` instead."
   [this]
   (as-uri-string this))
 
 #_:clj-kondo/ignore
-(def ^:deprecated iri-for "Deprecated. Use `as-uri-string`." uri-for)
+(def ^:deprecated ^:no-doc iri-for "Deprecated. Use `as-uri-string`." uri-for)
