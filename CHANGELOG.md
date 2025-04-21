@@ -5,7 +5,7 @@ v 0.5.0
   - Adding @config atom to hold all configuration
   - BREAKING: @resource-types moved to (@config ::resource-types)
   - BREAKING: @exceptional-iri-str-re moved to (@config ::special-uri-str-re)
-  - kwi-for, qname-for, and uri-for are deprecated in favor of as-kwi
+  - BREAKING: several of the more arcane functions are made private to simplify the API.  - kwi-for, qname-for, and uri-for are deprecated in favor of as-kwi
     as-qname, and and as-uri-string respectively (fixes issue #28)
   - duplicate prefixes are now handled with the
     voc/disambiguate-prefix-ns method (fixes issue #25)
@@ -15,7 +15,6 @@ v 0.5.0
   - Keyword strings are assisted by a `kw-string` method dispatched on type
   - Added logic to deal with ambiguous ns metadata
   - New dstr tags for :clj/Var, :clj/Symbol :clj/JavaClass
-  - Ontology has
   - Makefile is simplified
   - Adding NVD support
 

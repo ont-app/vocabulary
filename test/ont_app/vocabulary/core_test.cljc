@@ -127,10 +127,6 @@
          #?(:clj Exception :cljs js/Error)
          #"No `as-kwi` method.*"
          (voc/as-kwi  "example.com/my/stuff")))
-    (is (= #{"foaf"}
-           (voc/cljc-find-prefixes (voc/prefix-re-str)
-                                 "Select * Where{?s foaf:homepage ?homepage}")
-           ))
     (is (= (list "PREFIX foaf: <http://xmlns.com/foaf/0.1/>")
            (voc/sparql-prefixes-for
             "Select * Where{?s foaf:homepage ?homepage}")

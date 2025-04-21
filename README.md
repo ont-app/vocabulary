@@ -9,7 +9,6 @@ This library should work under both clojure and clojurescript.
 - [Installation](#installation)
 - [A brief synopsis](#a-brief-synopsis)
 - [Motivation](#motivation)
-- [Configuration](#configuration)
 - [Defining keyword Identifiers (KWIs) mapped to URI namespaces](#defining-kwis)
   - [Basic namespace metadata](#basic-namespace-metadata)
   - [Adding vann metadata to a Clojure Var](#adding-vann-metadata-to-a-clojure-var)
@@ -22,6 +21,7 @@ This library should work under both clojure and clojurescript.
   - [Accessing-namespace-metadata](#accessing-namespace-metadata)
     - [`put-ns-meta!` and `get-ns-meta`](#put-ns-meta)
     - [`prefix-to-ns`](#prefix-to-ns)
+    - [`prefix-to-namespace-uri`](#prefix-to-namespace-uri)
     - [`ns-to-namespace`](#ns-to-namespace)
     - [`namespace-to-ns`](#namespace-to-ns)
     - [`ns-to-prefix`](#ns-to-prefix)
@@ -43,13 +43,13 @@ This library should work under both clojure and clojurescript.
   - [Imported with_ont-app.vocabulary.core](#imported-with-voc)
   - [Imported with ont-app.vocabulary.wikidata](#imported-with-wd)
   - [Imported with ont-app.vocabulary.linguistics](#imported-with-ling)
-- [Support for SPARQL queries](#support-for-sparql-queries)
+- [Support for SPARQL queries and Turtle/n3](#support-for-sparql-queries)
   - [`sparql-prefixes-for`](#sparql-prefixes-for)
   - [`prepend-prefix-declarations`](#prepend-prefix-declarations)
 - [Minting Identifiers](#minting-identifiers)
   - [The `mint-kwi` method](#mint-kwi)
   - [The `kw-string` method](#kw-string)
-
+- [Configuration](#configuration)
 
 - [License](#license)
 
@@ -64,37 +64,52 @@ At which see the declarations for your favorite build tool.
 <a name=a-brief-synopsis></a>
 ## A brief synopsis
 
+[Metadata](#metadata) describing RDF prefixing and URIs are added to namespaces ([ClojureScript](#put-ns-meta) has to be done a little differently) ...
+
 ```clj
-(ns ...
+(ns my.example
+ {:vann/preferredNamespacePrefix "eg"
+  :vann/preferredNamespaceUri "http://example.com/"}
+...
+)
+```
+
+Then the metadata is referenced to [render](#working-with-kwis-etc)
+resources in various forms...
+
+```clj
+(ns my.application
  (:require
+   [my.example yadda yadda]
    [ont-app.vocabulary.core :as voc]))
 
-```
+> (voc/as-kwi "http://example.com/Foo")
+:eg/Foo
 
-```clj
-> (voc/as-kwi "http://www.w3.org/2000/01/rdf-schema#subClassOf")
-:rdfs/subClassOf
-```
+> (voc/as-uri-string :eg/Foo)
+"http://example.com/Foo"
 
-```clj
-> (voc/as-uri-string :rdfs/subClassOf)
-"http://www.w3.org/2000/01/rdf-schema#subClassOf"
-```
+> (voc/as-qname :eg/Foo
+"eg:Foo"
 
-```clj
-> (voc/as-qname :rdfs/subClassOf
-"rdfs:subClassOf"
-```
-
-```clj
-> (voc/resource= :rdfs/subClassOf "http://www.w3.org/2000/01/rdf-schema#subClassOf")
+> (voc/resource= :eg/Foo "http://example.com/Foo")
 true
 ```
 
-This works off of metadata assigned to namespaces or vars:
+Also, metadata for a number of [commonly used public
+vocabularies](#common-linked-data-namespaces) are imported
+automatically the `ont-app.voc.core` module:
+
+```clj
+> (voc/as-uri-string :rdfs/label)
+"http://www.w3.org/2000/01/rdf-schema#label"
+```
+
+This works for all the typical [URI schemes](#uri-syntax), (and can be
+extended as needed):
 
 ```
-> (voc/put-ns-metadata! 'tmp
+> (ns tmp
    {:vann/preferredNamespacePrefix "tmp"
     :vann/preferredNamespaceUri "file://tmp/"
     })
@@ -111,14 +126,19 @@ This works off of metadata assigned to namespaces or vars:
 "tmp:myfile.txt"
 ```
 
-These methods are dispatched on a `resource-type` method as discussed
-[below](#the-resource-type-multimethod).
+There's a multimethod for minting unique keyword identifiers:
 
-RDF-style language tags and typed literals are also supported ...
+```clj
+> (mint-kwi :eg/widget {... :part-number 123 ...})
+:eg/widget#partNumber=123
+```
+
+RDF-style [language tags](#language-tagged-strings) and [typed
+literals](#typed-literals) are also supported:
 
 ```
-(def my-thing {:name #{"my thing@en" "meine Sache@de "mi cosa@es" "我的东西@zh"}
-               :height "2.3^^unit:Meter})
+(def my-thing {:rdfs/label #{"my thing@en" "meine Sache@de "mi cosa@es" "我的东西@zh"}
+               :eg/height "2.3^^unit:Meter})
 
 ```
 
@@ -135,8 +155,8 @@ for providing namespaces.
 Ont-app/vocabulary provides mappings between [Clojure
 namespaces](https://clojure.org/reference/namespaces) and
 [URI](https://en.wikipedia.org/wiki/Uniform_Resource_Identifier)-based
-namespaces using declarations within Clojure metadata on those
-namespaces. It also lets you attach the same metadata to [Clojure
+namespaces using declarations within their Clojure metadata. It also
+lets you attach the same metadata to [Clojure
 vars](https://clojure.org/reference/vars) with the same effect.
 
 There is support for a similar arrangement within
@@ -146,7 +166,7 @@ metadata in the same way.
 
 These mappings set the stage for using Keyword Identifiers (KWIs)
 mappable between Clojure code and the wider world through a
-correspondence with URIs.
+correspondence of URIs within shared public vocabularies.
 
 Another construct from RDF that may have application more generally is
 that of a [language-tagged literal](#language-tagged-strings), which
@@ -161,17 +181,6 @@ There is a similar arrangement for [typed
 literals](https://www.w3.org/TR/rdf11-concepts/#section-Datatypes)
 using the #voc/dstr tag, e.g. `#voc/dstr "1^^unit:Meter"`.
 
-## Configuration
-
-There is a global atom `voc/config`, holding a map used to configure a
-few parameters. These are all for advanced features, and already
-default to reasonable values.
-
-| Key | Notes |
-| --- | --- |
-| `:operative-resource-context` (optional) | See section on [resource type contexts](#resource-type-contexts). |
-| `:inferred-operative-resource-context` (automatic) | Inferred automatically in the absence of an explicit `:operative-resource-context`.  Default is `::voc/resource-type-context`. See section on [registering new resource-type contexts](#registering-new-resource-type-contexts) |
-| `:special-uri-str-re` | Extends acceptable URI string patterns. See section on [URI syntax](#uri-syntax). Default is #"^(arn:).*", |
 
 <a name="defining-kwis"></a>
 ## Defining Keyword Identifiers (KWIs) mapped to URI namespaces
@@ -189,6 +198,7 @@ This will load function definitions interned in the
 `ns` declarations](#imported-with-voc), each dedicated to a commonly
 occurring namespace in the world of LOD.
 
+<a name=metadata></a>
 ### Basic namespace metadata
 Within standard (JVM-based) clojure, the minimal specification to
 support ont-app/vocabulary functionality for a given namespace
@@ -218,6 +228,7 @@ This expresses an equivalence between the clojure keyword...
 The `vann` prefix refers to [an existing public
 vocabulary](http://vocab.org/vann/) which will be explained in more detail
 [below](#accessing-namespace-metadata).
+
 
 Unfortunately, Clojurescript does not implement namespaces as
 first-class objects, and so there is no `ns` object to which we can
@@ -280,15 +291,6 @@ functions described in the following sections.
 
 This maps instances of the resource type to a URI string.
 
-##### URI syntax
-
-The system maintains a spec `:voc/uri-str-spec` which will enforce
-what it considers well-formed URI strings.
-
-Ordinary URI strings match
-#"^(http:|https:|file:|urn:|tel:|mailto:|jdbc:|odbc:|ftp:|geo:|git:|gopher:|pop:|telnet:).*"). You can extend this by setting a value for (-> @config `::voc/special-uri-str-re`),
-which defaults to `#"^(arn:).*".
-
 ```clojure
 > (voc/as-uri-string :rdfs/label)
 "http://www.w3.org/2000/01/rdf-schema#label"
@@ -297,13 +299,24 @@ which defaults to `#"^(arn:).*".
 "file://tmp/example.txt"
 ```
 
-You may find this a useful reference: https://www.iana.org/assignments/uri-schemes/uri-schemes.xhtml.
+##### URI syntax
+
+The system maintains a spec `:voc/uri-str-spec` which will enforce
+what it considers well-formed URI strings.
+
+Ordinary URI strings match
+#"^(http:|https:|file:|urn:|tel:|mailto:|jdbc:|odbc:|ftp:|geo:|git:|gopher:|pop:|telnet:).*". You can extend this by [configuring](#configuration) the value of (-> @config `::voc/special-uri-str-re`), which defaults to `#"^(arn:).*".
+
+
+You may find this a useful reference:
+https://www.iana.org/assignments/uri-schemes/uri-schemes.xhtml.
 
 
 #### `as-kwi`
 
-Maps  instances of the resource type to a KeyWord Identifier (KWI). This will be a
-qualfied keyword whose namespace is the prefix declared in `vann` metadata.
+This method maps instances of the resource type to a KeyWord
+Identifier (KWI). This will be a qualfied keyword whose namespace is
+the prefix declared in `vann` metadata.
 
 ```clojure
 (voc/as-kwi "http://www.w3.org/2000/01/rdf-schema#label")
@@ -322,7 +335,7 @@ If no metadata has been declared, the keyword is rendered without a namespace, e
 
 #### `as-qname`
 
-Maps instances of the resource type to a [compact
+This method maps instances of the resource type to a [compact
 URI](https://en.wikipedia.org/wiki/CURIE) string embeddable in many
 RDF formats. Where possible this will use the prefixes declared in
 `vann` metadata, but failing that it will fall back on a URI enclosed
@@ -336,7 +349,7 @@ they are actually more properly called "CURIEs".
 "rdfs:label"
 ```
 
-If no metadata has been declared, the qname is rendered in angle-brackets.
+If no metadata has been declared, the qname will be rendered as the URI string in angle-brackets.
 
 ```clojure
 (voc/as-qname :file:%2F%2Fmy-dir%2Fexample.txt)
@@ -432,10 +445,9 @@ Note that these are all simple key/value declarations except the
 
 This includes triples which elaborate on constructs mentioned in the
 key-value pairs in the rest of the metadata, in this case describing
-the media types of files describing the vocabulary which are available
-for download at the URLs given. This vector-of-triples format is
-readable by one of ont-app/vocabulary's siblings,
-[ont-app/igraph](https://github.com/ont-app/igraph).
+the media type of the file describing the `foaf` specification. This
+vector-of-triples format is readable by one of ont-app/vocabulary's
+siblings, [ont-app/igraph](https://github.com/ont-app/igraph).
 
 #### `prefix-to-ns`
 We can get a map of all the prefixes of namespaces declared within the
@@ -463,6 +475,15 @@ In Clojurescript, since there's no _ns_ object, the results would look like this
  ...
  }
  >
+```
+
+#### `prefix-to-namespace-uri`
+
+This returns the `:vann/preferredNamespaceUri` associated with `prefix`.
+
+```clj
+> (voc/prefix-to-namespace-uri "eg")
+"http://example.com/"
 ```
 
 #### `ns-to-namespace`
@@ -556,28 +577,35 @@ argument to `voc/ns-to-prefix`...
 ## Resource types
 
 The `as-uri-string`, `as-kwi`, `as-qname` and `resource=` methods are
-each despatched on the `resource-type` multimethod, which in turn are
-associated with named context layers (default `::voc/resource-type-context`).
+each despatched on the `resource-type` multimethod. The value returned
+by this method is a vector of two values, one of which is keyword
+naming a _resource type context_. Keying methods to a named context
+allows us to use the [Clojure
+taxonomy](https://clojure.org/reference/multimethods) to add layers of
+nuance to our inference of resource types in different applications.
 
 ### The `resource-type` multimethod
 
 Each of the methods described above are dispatched on a method
 `(resource-type <value>) -> [ <context> <datatype>]`.
 
-The operative context may be specified explicitly in the `@voc/config`
-atom, or inferred automatically as described in the following
-sections.
+The operative context may be [specified explicitly](#configuration) in
+the `@voc/config` atom, or inferred automatically as described in the
+following sections.
 
 #### Resource-type contexts
 
 Different application domains may need to make different distinctions
-between resource types (for example RDF requires that we recognize
-blank nodes, and Jena provides special functionality for such
-nodes).
+between resource types. For example RDF requires that we recognize
+something called a blank node, and Jena provides special functionality
+for such nodes. Using a named context as one component of our resource
+type allows us a good deal of flexibility in providing layers of logic
+as different supporting libraries come into play.
 
 The default resource-type context is
-`::voc/resource-type-context`. Other context identifiers must have it
-as an [ancestor](https://clojuredocs.org/clojure.core/ancestors), as
+`::voc/resource-type-context`. Other context identifiers must
+[derive](https://clojuredocs.org/clojure.core/derive) from it as the
+root [ancestor](https://clojuredocs.org/clojure.core/ancestors), as
 discussed [below](#registering-new-resource-type-contexts).
 
 
@@ -688,6 +716,19 @@ The sibling modules [ont-app/rdf](https://github.com/ont-app/rdf#uris) and
 [ont-app/jena](https://github.com/ont-app/igraph-jena#resource-types) provide
 examples of this.
 
+##### voc/most-specific-resource-context
+
+This function takes some parent context as an argument (typically
+::voc/resource-context) and descends the ancestry tree to find its
+leaf. If there is an ambiguity in the tree, the function method
+`voc/preferred-child-resource-context` will be called, which defaults
+to throwing an error.
+
+This is used to set the value of (@voc/config
+::inferred-operative-resource-context) in the event that (@voc/config
+::operative-resource-context) is not set.
+
+
 #### Handling ambiguous contexts
 
 By default, the system will attempt to infer the most specific
@@ -696,7 +737,7 @@ unique lineage of resource-type contexts will trigger an `ex-info` of
 `:type` `::voc/ambiguous-resource-type-context` error unless:
 
 - A value for `(@voc/config ::voc/operative-resource-context)` has
-been explicitly set.
+been [explicitly set](#configuration).
 - A `voc/preferred-child-resource-context` method has been defined
   for the parent from which the ambiguity arises in the taxonomy.
 
@@ -812,11 +853,12 @@ The reader encodes an instance of type LangStr (it is autoiconic):
 ```clj
 > (def brit-jail #voc/lstr "gaol@en-GB")
 brit-jail
+
 > brit-jail
 #voc/lstr "gaol@en-GB"
+
 > (type brit-jail)
 ont_app.vocabulary.lstr.LangStr
->
 ```
 
 Rendered as a string, the language tag is dropped
@@ -824,7 +866,6 @@ Rendered as a string, the language tag is dropped
 ```clj
 > (str #voc/lstr "gaol@en-GB")
 "gaol"
->
 ```
 
 We get the language tag with `lang`:
@@ -846,22 +887,33 @@ approach in clojure using `#voc/dstr`...
 ```clj
 > (voc/tag 42)
 #voc/dstr "42^^xsd:long"
+
 > (type #voc/dstr "42^^xsd:long")
 ont_app.vocabulary.dstr.DatatypeStr
+
 > (str #voc/dstr "42^^xsd:long")
 "42"
+
 > (dstr/datatype #voc/dstr "42^^xsd:long")
 "xsd:long"
+
 > (voc/as-uri-string (dstr/datatype #voc/dstr "42^^xsd:long"))
 "http://www.w3.org/2001/XMLSchema#long"
+
 > (voc/untag #voc/dstr "42^^xsd:long")
 42
+
 > (voc/tag (short 42))
 #voc/dstr "42^^xsd:short"
+
 > (untag #voc/dstr "42^^xsd:short")
 42
+
 > (type *1)
 java.lang.Short
+
+> (voc/tag "1.25" :eg/Euros)
+#voc/dstr "1.25^^eg:Euros"
 ```
 
 ### The `tag` multimethod
@@ -882,20 +934,23 @@ registered in `dstr/default-tags` ...
 ```clj
 > dstr/default-tags
 #<Atom@793bab96:
-  {java.lang.Long "xsd:long",
-   java.lang.Double "xsd:double",
+  {clojure.lang.Symbol "clj:Symbol",
+   clojure.lang.Var "clj:Var",
    java.lang.Boolean "xsd:Boolean",
-   java.util.Date "xsd:dateTime",
-   java.lang.String "xsd:string",
-   java.lang.Short "xsd:short",
    java.lang.Byte "xsd:byte",
-   java.lang.Float "xsd:float"}>
+   java.lang.Class "clj:JavaClass",
+   java.lang.Double "xsd:double",
+   java.lang.Float "xsd:float",
+   java.lang.Long "xsd:long",
+   java.lang.Short "xsd:short",
+   java.lang.String "xsd:string",
+   java.util.Date "xsd:dateTime"}>
 
 > (voc/tag #inst "2000")
 #voc/dstr "2000-01-01T00:00:00Z^^xsd:dateTime"
 ```
 
-Here's a definition of the method for `:xsd/dateTime`:
+Here's a possible definition of the method for `:xsd/dateTime`:
 
 ```clj
 (defmethod tag :xsd/dateTime
@@ -947,6 +1002,7 @@ Execution error (ExceptionInfo) ... No untag method found for 2.2^^unit:Meter
 7.217847769000001
 ```
 
+<a name=support-for-sparql-queries></a>
 ## Support for SPARQL queries and Turtle/n3
 
 RDF is explicitly constructed from URIs, and there is an intimate
@@ -1049,11 +1105,22 @@ The `voc/kw-string` method informs the default `mint-kwi` method:
 :eg/my-thing_x_y_z_876627597
 ```
 
+## Configuration
+
+There is a global atom `voc/config`, holding a map used to configure a
+few parameters. These are all for advanced features, and already
+default to reasonable values.
+
+| Key | Notes |
+| --- | --- |
+| `:operative-resource-context` (optional) | See section on [resource type contexts](#resource-type-contexts). |
+| `:inferred-operative-resource-context` (automatic) | Inferred automatically in the absence of an explicit `:operative-resource-context`.  Default is the value of  (`voc/most-specific-resource-context` `::voc/resource-type-context`). See section on [registering new resource-type contexts](#registering-new-resource-type-contexts) |
+| `:special-uri-str-re` | Extends acceptable URI string patterns. See section on [URI syntax](#uri-syntax). Default is #"^(arn:).*", |
 
 <a name="h2-license"></a>
 ## License
 
-Copyright © 2019-24 Eric D. Scott
+Copyright © 2019-25 Eric D. Scott
 
 Distributed under the Eclipse Public License either version 1.0 or (at
 your option) any later version.
