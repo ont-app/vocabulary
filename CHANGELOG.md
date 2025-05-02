@@ -1,9 +1,27 @@
 # Change Log
 All notable changes to this project will be documented in this file. This change log follows the conventions of [keepachangelog.com](http://keepachangelog.com/).
 
+v 0.5.0
+  - Adding @config atom to hold all configuration
+  - BREAKING: @resource-types moved to (@config ::resource-types)
+  - BREAKING: @exceptional-iri-str-re moved to (@config ::special-uri-str-re)
+  - BREAKING: several of the more arcane functions are made private to simplify the API.  - kwi-for, qname-for, and uri-for are deprecated in favor of as-kwi
+    as-qname, and and as-uri-string respectively (fixes issue #28)
+  - duplicate prefixes are now handled with the
+    voc/disambiguate-prefix-ns method (fixes issue #25)
+  - Some `resource-type` methods are reformed to derive from `::cljc-seqable-type`
+  - Resource contexts are selected by multimethod `preferred-child-resource-context`
+  - Refactoring the way KWIs are minted
+  - Keyword strings are assisted by a `kw-string` method dispatched on type
+  - Added logic to deal with ambiguous ns metadata
+  - New dstr tags for :clj/Var, :clj/Symbol :clj/JavaClass
+  - Makefile is simplified
+  - Adding NVD support
+
+
 v 0.4.2
   - Removing custom hierarchy. (More trouble than it's worth).
-  
+
 V 0.4.1
   - Reform to the way resource type contexts are registered and inferred
   - Tweak to the way dateTiime is tagged

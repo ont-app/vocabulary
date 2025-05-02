@@ -1,5 +1,5 @@
 (ns ont-app.vocabulary.lstr
-  {:doc "Defines LangStr type to inform #voc/lstr custom reader tag"
+  {:doc "Defines LangStr type to inform #voc/lstr custom reader tag."
    :author "Eric D. Scott"
    }
   (:require
@@ -39,12 +39,29 @@
    (defmethod print-dup LangStr [o ^java.io.Writer w]
      (print-method o w)))
 
+
 ;; for cljs ...
+#?(:cljs
+   (def notes
+  "An atom containing the writer used for IPrintWithWriter of cljs version of LangStr."
+     (atom nil)))
+
 #?(:cljs
    (extend-protocol IPrintWithWriter
      LangStr
      (-pr-writer [this writer _]
-       (write-all writer "#voc/lstr \"" (.toString this) "@" (.-lang this) "\""))))
+       ;; NOTE: for some reason the \" causes write-all to render improperly under cider
+       ;; replacing \" with ' removes the rendering problem, but of course then the
+       ;; syntax is off
+       (reset! notes writer)
+       (write-all writer
+                  "#voc/lstr "
+                  "\""
+                  (.toString this)
+                  "@"
+                  (.-lang this)
+                  "\""
+                  ))))
 
 #?(:cljs
    (extend-protocol IEquiv
@@ -56,7 +73,7 @@
 
 
 #?(:cljs
-   (defmethod cljs.compiler/emit-constant* ont_app.vocabulary.lstr.LangStr
+   (defmethod cljs.compiler/emit-constant* ont-app.vocabulary.lstr.LangStr
      ;; Emits a string of js instantiating a LangStr
      [^LangStr x]
      (apply cljs.compiler/emits [(str "new LangStr (\""
@@ -65,8 +82,8 @@
                                       (#?(:clj .lang :cljs .-lang) x)
                                    "\")")])))
 
-(defn lang 
-  "returns the language tag associated with `langStr`"
+(defn lang
+  "Returns the language tag associated with `langStr`."
   [^LangStr langStr]
   (#?(:clj .lang
       :cljs .-lang) langStr))
@@ -81,7 +98,7 @@
 ;; END READER MACROS
 
 (defn parse
-  "Returns [`datum` `type`] for `s`, or nil
+  "Returns [`datum` `type`] for `s`, or nil.
   - Where
     -`s` is a string :~ `datum`^^`type`
     - `datum` is a string
@@ -92,12 +109,12 @@
     [datum datatype]))
 
 (defn read-LangStr
-  "Returns an instance of LangStr parsed from `form`
+  "Returns an instance of LangStr parsed from `form`.
 Where:
 - `form` :- `str`@`lang`"
   ^LangStr [form]
-  (if-let [[s lang] (parse form)]
-    (LangStr. s lang)
+  (if-let [[s lang'] (parse form)]
+    (LangStr. s lang')
     ;; else no parse
     (throw (ex-info "Bad LangString fomat"
                     {:type ::BadLangstringFormat

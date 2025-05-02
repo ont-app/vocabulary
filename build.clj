@@ -8,7 +8,7 @@
 
 (def lib 'ont-app/vocabulary)
 
-(def version "0.4.2")
+(def version "0.5.0-SNAPSHOT")
 
 (defn validate-deps
   "Throws an `ex-info` of type `::invalid-deps`, or returns `opts` unchanged"
@@ -50,7 +50,9 @@
   (when (:include-caches? opts)
     (println (str "Clearing caches"))
     (b/delete {:path "./.cpcache"})  
-    (b/delete {:path "./.shadow-cljs"}))
+    (b/delete {:path "./.shadow-cljs"})
+    (b/delete {:path "./node_modules"})
+    )
   opts)
 
 (defn install "Install the JAR locally." [opts]
@@ -59,7 +61,7 @@
       (bb/install)))
 
 (defn deploy
-  "Deploy the JAR to Clojars. Using $CLOJARS_USERNAME and $CLOJARS_PASSWORD"
+  "Deploy the JAR to Clojars. Using CLOJARS_USERNAME and CLOJARS_PASSWORD"
   [opts]
   (-> opts
       (assoc :lib lib :version version)

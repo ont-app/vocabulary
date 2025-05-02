@@ -79,14 +79,14 @@
        }
      issue-21-uncouple-voc-from-ns
      (is (=  "http://rdf.naturallexicon.com/issue21/uri-for"
-             (voc/uri-for :issue21/uri-for)))
+             (voc/as-uri-string :issue21/uri-for)))
      (is (= "issue21:uri-for"
-            (voc/qname-for :issue21/uri-for)))
+            (voc/as-qname :issue21/uri-for)))
      (is (= :issue21/uri-for
-            (voc/keyword-for "http://rdf.naturallexicon.com/issue21/uri-for")))
+            (voc/as-kwi "http://rdf.naturallexicon.com/issue21/uri-for")))
      (is (= #{"PREFIX issue21: <http://rdf.naturallexicon.com/issue21/>"}
          (into #{} (voc/sparql-prefixes-for
-                    "Select * Where{?s issue21:testing ?whatever}"))))))
+                    "Select * Where { ?s issue21:testing ?whatever }"))))))
 
 
 ;; NO READER MACROS BELOW THIS POINT
@@ -100,44 +100,40 @@
            (voc/ns-to-prefix 'ont-app.vocabulary.foaf)
             ))
     (is (= "http://xmlns.com/foaf/0.1/homepage"
-           (voc/iri-for :foaf/homepage)
+           (voc/as-uri-string :foaf/homepage)
            ))
     (is (= "http://blah"
-           (voc/iri-for (voc/keyword-for "http://blah"))
+           (voc/as-uri-string (voc/as-kwi "http://blah"))
            ))
     (is (= "http://rdf.naturallexicon.org/ont-app/vocabulary/blah"
-           (voc/iri-for ::voc/blah)
+           (voc/as-uri-string ::voc/blah)
            ))
     (is (= "foaf"
            (voc/ns-to-prefix (voc/cljc-find-ns 'ont-app.vocabulary.foaf))
            ))
     (is (= "voc:blah"
-           (voc/qname-for ::voc/blah)
+           (voc/as-qname ::voc/blah)
            ))
     (is (= "foaf:homepage"
-           (voc/qname-for :foaf/homepage)
+           (voc/as-qname :foaf/homepage)
            ))
     (is (= :foaf/homepage
-           (voc/keyword-for "http://xmlns.com/foaf/0.1/homepage")
+           (voc/as-kwi "http://xmlns.com/foaf/0.1/homepage")
            ))
     (is (= :http:%2F%2Fexample.com%2Fmy%2Fstuff
-           (voc/keyword-for "http://example.com/my/stuff")
+           (voc/as-kwi "http://example.com/my/stuff")
            ))
-    (is (= :no-prefix-found
-           (voc/keyword-for (fn [u k] :no-prefix-found)
-                          "example.com/my/stuff")
-           ))
-    (is (= #{"foaf"}
-           (voc/cljc-find-prefixes (voc/prefix-re-str)
-                                 "Select * Where{?s foaf:homepage ?homepage}")
-           ))
+    (is (thrown-with-msg?
+         #?(:clj Exception :cljs js/Error)
+         #"No `as-kwi` method.*"
+         (voc/as-kwi  "example.com/my/stuff")))
     (is (= (list "PREFIX foaf: <http://xmlns.com/foaf/0.1/>")
            (voc/sparql-prefixes-for
             "Select * Where{?s foaf:homepage ?homepage}")
             ))
-    (is (= "PREFIX foaf: <http://xmlns.com/foaf/0.1/>\nSelect * Where{?s foaf:homepage ?homepage}"
+    (is (= "PREFIX foaf: <http://xmlns.com/foaf/0.1/>\nSelect * Where { ?s foaf:homepage ?homepage }"
            (voc/prepend-prefix-declarations
-            "Select * Where{?s foaf:homepage ?homepage}")
+            "Select * Where { ?s foaf:homepage ?homepage }")
            ))))
 
 (deftest encode-and-decode-kw-names
@@ -149,34 +145,34 @@
            (fmt/decode-kw-name (fmt/encode-kw-name "123"))
            ))
     (is (= "http://xmlns.com/foaf/0.1/123"
-           (voc/iri-for :foaf/+n+123)
+           (voc/as-uri-string :foaf/+n+123)
            ))
     (is (= :foaf/+n+123
-           (voc/keyword-for "http://xmlns.com/foaf/0.1/123")
+           (voc/as-kwi "http://xmlns.com/foaf/0.1/123")
            ))
     (is (= :foaf/+n+123
-           (voc/keyword-for "foaf:123")
+           (voc/as-kwi "foaf:123")
            ))
     (is (= "foaf:123"
-           (voc/qname-for (voc/keyword-for "foaf:123"))
+           (voc/as-qname (voc/as-kwi "foaf:123"))
            ))
     (is (= :foaf/Subtopic%2Fx
-           (voc/keyword-for "http://xmlns.com/foaf/0.1/Subtopic/x")
+           (voc/as-kwi "http://xmlns.com/foaf/0.1/Subtopic/x")
            ))
     (is (= "http://xmlns.com/foaf/0.1/Subtopic/x"
-           (voc/iri-for (voc/keyword-for "http://xmlns.com/foaf/0.1/Subtopic/x"))
+           (voc/as-uri-string (voc/as-kwi "http://xmlns.com/foaf/0.1/Subtopic/x"))
            ))
     (is (= :foaf/blah%2F
-           (voc/keyword-for "http://xmlns.com/foaf/0.1/blah/")))))
+           (voc/as-kwi "http://xmlns.com/foaf/0.1/blah/")))))
 
 (deftest maps-to-test
   (testing ":voc/mapsTo ns metadata should resolve prefixes properly"
     ;; note that the local ns  maps to vocabulary.core
     (is (= "http://rdf.naturallexicon.org/ont-app/vocabulary/blah"
-           (voc/iri-for ::blah)
+           (voc/as-uri-string ::blah)
            ))
     (is (= "voc:blah"
-           (voc/qname-for ::blah)
+           (voc/as-qname ::blah)
            ))))
 
 (deftest language-tagged-strings
@@ -193,6 +189,29 @@
       (is (= "en" (lstr/lang x) ))
       (is (= x (lstr/read-LangStr "asdf@en"))))))
 
+;;;;;;;;;;;;;;;;;;;;;;;
+;; MINTING IDENTIFIERS
+;;;;;;;;;;;;;;;;;;;;;;;
+
+(defmethod voc/mint-kwi :eg/widget
+  [_ & {:keys [part-number]}]
+  (keyword "eg"
+           (str "widget#partNumber=" part-number)))
+
+(deftest test-minting-identifiers
+  (is (= :eg/widget-no-method_part-number_123
+         (voc/mint-kwi :eg/widget-no-method :part-number 123)))
+  (is (= :eg/widget#partNumber=123
+         (voc/mint-kwi :eg/widget :part-number 123)))
+  (is (integer? ;; a hash
+       (read-string (voc/kw-string (list 1 2 3 {:a 1 :b 2})))))
+  (is (= :eg/my-thing_x_y_z_876627597)
+         (voc/mint-kwi :eg/my-thing :x :y :z (list 1 2 3 {:a 1 :b 2}))))
+
+;;;;;;;;;;;;
+;; ISSUE 12
+;;;;;;;;;;;;
+
 (deftest issue-12-language-tagged-strings-in-cljs-source
   (testing "read lstr tag"
     (let [x #voc/lstr "dog@en"
@@ -204,12 +223,21 @@
       (is (= #{x} (into #{} [x y]))) ;; identical hashes
       (is (= ont_app.vocabulary.lstr.LangStr (type x))))))
 
+;;;;;;;;;;;;
+;; ISSUE 15
+;;;;;;;;;;;;
+
+
 (deftest issue-15-lstr-should-accommodate-newlines
   (testing "lstr newlines"
     (let [x #voc/lstr "line1\nline2@en"
           ]
       (is (= (str x)
              "line1\nline2")))))
+
+;;;;;;;;;;;;
+;; ISSUE 18
+;;;;;;;;;;;;
 
 (voc/put-ns-meta! 'example-ns
                   {:vann/preferredNamespacePrefix "eg"
@@ -226,9 +254,11 @@
                       voc/turtle-prefixes-for
                       "eg:SomeGuy foaf:homepage eg:SomeWebPage.")]
     (is (re-matches #"(?s).*@prefix eg: <http://rdf.example.com/>.*" prefixed-ttl))
-    (is (re-matches #"(?s).*@prefix foaf: <http://xmlns.com/foaf/0.1/>.*" prefixed-ttl))
-    )
-  ))
+    (is (re-matches #"(?s).*@prefix foaf: <http://xmlns.com/foaf/0.1/>.*" prefixed-ttl)))))
+
+;;;;;;;;;;;;
+;; ISSUE 19
+;;;;;;;;;;;;
 
 (voc/put-ns-meta! 'issue-19-urns-should-be-accommodated
                   {:vann/preferredNamespacePrefix "test-urn"
@@ -237,24 +267,63 @@
 (deftest
   issue-19-urns-should-be-accommodated
   (is (= "test-urn:19"
-         (voc/qname-for (voc/keyword-for "urn:testing:issue:19"))))
+         (voc/as-qname (voc/as-kwi "urn:testing:issue:19"))))
   (is (= :test-urn/+n+19
-         (voc/keyword-for "test-urn:19")))
+         (voc/as-kwi "test-urn:19")))
   (is (= :test-urn/+n+19
-         (voc/keyword-for "urn:testing:issue:19")))
+         (voc/as-kwi "urn:testing:issue:19")))
   (is (= "urn:blah:blah:blah"
-         (voc/uri-for (voc/keyword-for "urn:blah:blah:blah"))))
+         (voc/as-uri-string (voc/as-kwi "urn:blah:blah:blah"))))
   (is (thrown-with-msg?
        #?(:clj Exception :cljs js/Error)
-       #"Could not find IRI for :urx:blah:blah:blah"
-       (voc/uri-for (voc/keyword-for "urx:blah:blah:blah"))))
-  (is (= "urx:blah:blah:blah"
-         (binding [voc/*exceptional-iri-str-re* #"^(urn:|arn:|urx).*"]
-           (voc/uri-for (voc/keyword-for "urx:blah:blah:blah"))))))
+       #"No `as-kwi` method.*"
+       (voc/as-kwi "urx:blah:blah:blah")))
+  (let [old-config @voc/config]
+    (swap! voc/config assoc ::voc/special-uri-str-re #"^(urn:|arn:|urx).*")
+    (is (= "urx:blah:blah:blah"
+           (voc/as-uri-string (voc/as-kwi "urx:blah:blah:blah"))))
+    (reset! voc/config old-config)))
+
+;;;;;;;;;;;;
+;; ISSUE 20
+;;;;;;;;;;;;
 
 (deftest issue-20-validity-of-full-uri-keywords
   (is (= :https:%2F%2Fw3id.org%2Fschematransform%2FExampleShape#BShape
-         (voc/keyword-for "https://w3id.org/schematransform/ExampleShape#BShape"))))
+         (voc/as-kwi "https://w3id.org/schematransform/ExampleShape#BShape"))))
+
+;;;;;;;;;;;;
+;; ISSUE 25
+;;;;;;;;;;;;
+
+(voc/put-ns-meta! 'duplicate-prefixes-1
+                  {:vann/preferredNamespacePrefix "issue25"
+                   :vann/preferredNamespaceUri "http://example.com/issue-25/1/"
+                   })
+
+(voc/put-ns-meta! 'duplicate-prefixes-2
+                  {:vann/preferredNamespacePrefix "issue25"
+                   :vann/preferredNamespaceUri "http://example.com/issue-25/2/"
+                   })
+
+
+(defmethod voc/disambiguate-prefix-ns "issue25"
+  [kw namespaces]
+  (if (= (name kw) "blah")
+    (voc/cljc-find-ns 'duplicate-prefixes-2)
+    (voc/cljc-find-ns 'duplicate-prefixes-1)))
+
+
+(deftest issue-25-duplicate-prefixes
+  (voc/clear-caches!)
+  (is (= "http://example.com/issue-25/2/blah"
+         (voc/as-uri-string :issue25/blah)))
+  (is (= "http://example.com/issue-25/1/blih"
+         (voc/as-uri-string :issue25/blih))))
+
+;;;;;;;;;;;;
+;; ISSUE 26
+;;;;;;;;;;;;
 
 (defrecord Employee [name eid])
 
@@ -288,14 +357,21 @@
        (is (= :tmp/test-resource-protocol.txt (voc/as-kwi f)))
        (is (= "tmp:test-resource-protocol.txt" (voc/as-qname f))))))
 
+;;;;;;;;;;;;
+;; ISSUE 27
+;;;;;;;;;;;;
+
 (deftest issue-27-backslashes-in-qnames
   (let [uri-string "http://www.w3.org/2000/01/rdf-schema#blah/blah"
         kwi (voc/as-kwi uri-string)
-        qname (voc/as-qname uri-string)
-        ]
+        qname (voc/as-qname uri-string)]
     (is (= :rdfs/blah%2Fblah kwi))
     (is (= "rdfs:blah\\/blah" (voc/as-qname uri-string)))
     (is (= uri-string (voc/as-uri-string (voc/as-qname uri-string))))))
+
+;;;;;;;;;;;;
+;; ISSUE 29
+;;;;;;;;;;;;
 
 
 (deftest issue-29-resource=
@@ -304,6 +380,10 @@
 
   (is (not (voc/resource= "rdfs:subClassOf"
                           :rdfs/subPropertyOf))))
+
+;;;;;;;;;;;;
+;; ISSUE 31
+;;;;;;;;;;;;
 
 (deftest issue-31-invalid-keywords-when-only-prefix-is-provided
   (is (= :http:%2F%2Fwww.w3.org%2F2000%2F01%2Frdf-schema#
@@ -346,43 +426,67 @@
            (voc/tag 1 :unit/Meter)))
     (when (not *in-cider-cljs-repl*)
       (is (= (voc/untag (voc/tag 1 :unit/Meter) identity)
-             #voc/dstr "1^^unit:Meter")))
-    ))
+             #voc/dstr "1^^unit:Meter")))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Resource type contexts
+;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defmethod voc/preferred-child-resource-context ::Adam
+  [parent children]
+  ;; This method will be called on ::Adam or any of its descendants with ambiguous
+  ;; children
+  (or (->> children
+           set
+           (clojure.set/intersection #{::Abel})
+           first)
+      ;; The following will be the case with ::Enoch and ::Irad in
+      ;; test-register-resource-types below...
+      ((:default (methods voc/preferred-child-resource-context))
+       parent children
+       )))
 
 (deftest test-register-resource-types
-  (let [original-resource-types @voc/resource-types]
+  (let [original-config @voc/config
+        test-contexts #{::Adam ::Cain ::Abel ::Enoch ::Irad}
+        ]
     (try
       (do
         ;; Declare a new context to supersede the default...
-        (voc/register-resource-type-context! ::test-context-1
+        (voc/register-resource-type-context! ::Adam
                                              ::voc/resource-type-context)
         ;; This should result in a new most-specific context set (a singleton)
-        (is (= (::voc/most-specific-context #{::test-context-1})))
+
+        (is (= (voc/most-specific-resource-context ::voc/resource-type-context) ::Adam))
         ;; ... which is now the operative context...
-        (let [context-fn (-> @voc/resource-types ::voc/context-fn)]
-          (is (= (context-fn) ::test-context-1)))
+        (is (= (voc/operative-resource-context) ::Adam))
 
         ;; Registering a competing lineage...
-        (voc/register-resource-type-context! ::test-context-2
-                                             ::voc/resource-type-context)
+        (voc/register-resource-type-context! ::Cain ::Adam)
+        (is (= (voc/operative-resource-context) ::Cain))
+        ;; Given the voc/preferred-child-resource-context for ::Adam...
+        (voc/register-resource-type-context! ::Abel ::Adam)
+        (is (= ::Abel (voc/operative-resource-context)))
 
-        ;; ... introduces an ambiguity...
-        (is (= (::voc/most-specific-context #{::test-context-1 ::test-context-2})))
+        ;; ;; We can override this by operating directly on the configuration...
+        (swap! voc/config assoc ::voc/operative-resource-context ::Cain)
+        (is (= (voc/operative-resource-context) ::Cain))
 
-        ;; ... which is an error by default ...
+        ;; We wrote voc/preferred-child-resource-context ::Adam to throw default
+        ;; method on ambiguous descendants...
+        (voc/register-resource-type-context! ::Enoch ::Cain)
+        (voc/register-resource-type-context! ::Irad ::Cain)
         (is (thrown-with-msg?
              #?(:clj Exception :cljs js/Error)
              #"Ambiguous resource type context.*"
-             (voc/resource-type "blah")))
+             (voc/most-specific-resource-context ::Cain))))
 
-        ;; ... but we can fix it ...
-        (swap! voc/resource-types #(-> % (assoc ::voc/on-ambiguity-fn
-                                                (fn [_] ::test-context-1))))
-        (let [context-fn (-> @voc/resource-types ::voc/context-fn)]
-          (is (= (context-fn) ::test-context-1))))
-
-    (finally
-      (reset! voc/resource-types original-resource-types)))))
+      (finally
+        (do
+          (doseq [c test-contexts]
+                 (doseq [p (parents c)]
+                   (underive c p)))
+          (reset! voc/config voc/default-config))))))
 
 (comment
 (defn describe-api ;; todo: move this into a utilities lib
@@ -411,24 +515,3 @@
              (re-matches name-re (str (:name member))))
            (describe-api obj))))
 );; end comment
-
-;;;;;;;;;;;;;
-;; BONE-YARD
-;;;;;;;;;;;;;
-
-;; Made moot by issue 34
-;; #?(:clj
-;;    (deftest
-;;      ^{`voc/resource-type (fn [_] :issue-30)} ;; metadata is bound to the test name won't work under cljs
-;;      clj-issue-30-extend-via-metadata
-;;      (is (= (voc/resource-type #'clj-issue-30-extend-via-metadata)
-;;             :issue-30))))
-
-;; Made moot by issue 34
-;; (deftest issue-30-extend-via-metadata
-;;   ;; see also clj-issue-30-extend-via-metadata which binds to a var (clj only)
-;;   (let [my-thing ^{`voc/resource-type (fn [_] :issue-30)} {:name :issue-30-test}
-;;         ]
-;;     (is (= :issue-30
-;;            (voc/resource-type my-thing)))))
-

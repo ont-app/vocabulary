@@ -1,5 +1,5 @@
 (ns ont-app.vocabulary.dstr
-  {:doc "Defines DatatypeStr type to inform #voc/dstr custom reader tag"
+  {:doc "Defines DatatypeStr type to inform #voc/dstr custom reader tag."
    :author "Eric D. Scott"
    }
   (:require
@@ -53,7 +53,7 @@
 
 
 #?(:cljs
-   (defmethod cljs.compiler/emit-constant* ont_app.vocabulary.dstr.DatatypeStr
+   (defmethod cljs.compiler/emit-constant* ont-app.vocabulary.dstr.DatatypeStr
      ;; Emits a string of js instantiating a DatatypeStr
      [^DatatypeStr x]
      (apply cljs.compiler/emits [(str "new DatatypeStr (\""
@@ -62,8 +62,9 @@
                                       (#?(:clj .datatype :cljs .-datatype) x)
                                    "\")")])))
 
-(defn datatype 
-  "returns the datatype tag associated with `datatypeStr`"
+
+(defn datatype
+  "Returns the datatype tag associated with `datatypeStr`."
   [^DatatypeStr datatypeStr]
   (#?(:clj .datatype
       :cljs .-datatype) datatypeStr))
@@ -73,11 +74,11 @@
   - Match := [_ `value` `datatype`]"
   #?(:clj (re-pattern (str "(?s)"   ;; match all including newline
                            "("      ;; start group 1
-                           ".+"    ;;   at least one of anything
+                           ".+"     ;;   at least one of anything
                            ")"      ;; end group 1
                            "\\^\\^" ;; ^^
                            "("      ;; start group 2
-                           ".+"     ;;   at least one of anything
+                           "\\S+"   ;;   at least one of any non-whitespace
                            ")"      ;; end group 2
                            "$"
                            ))
@@ -93,38 +94,43 @@
                             ")"      ;; end group 1
                             "\\^\\^" ;; ^^
                             "("      ;; start group 2
-                            ".+"     ;;   at least one char
+                            "\\S+"     ;;   at least one non-whitespace
                             ")"      ;; end group 2
+                            "$"
                             ))
-     
+
      ))
+
+(def ^:private cljc-default-tags
+  "Platform-specific default tags, to be merged into @default-tags at compile time."
+  #?(:clj {java.lang.Class "clj:JavaClass"}
+     :cljs {}))
 
 ;; END READER MACROS
 
 (defn parse
-  "Returns [`datum` `datatype`] for `s`, or nil
+  "Returns [`datum` `datatype`] for `s`, or nil.
   - Where
     -`s` is a string :~ `datum`^^`datatype`
     - `datum` is a string
     - `datatype` is is a string
   "
   [form]
-  (when-let [[_ datum datatype] (re-matches datatypestring-re form)]
-    [datum datatype]))
+  (when-let [[_ datum datatype'] (re-matches datatypestring-re form)]
+    [datum datatype']))
 
 (defn read-DatatypeStr
-  "Returns an instance of DatatypeStr parsed from `form`
+  "Returns an instance of DatatypeStr parsed from `form`.
   - Where:
   - `form` :- `datum`^^`datatype`"
   ^DatatypeStr [form]
-  (if-let [[datum datatype] (parse form)]
-    (DatatypeStr. datum datatype)
+  (if-let [[datum datatype'] (parse form)]
+    (DatatypeStr. datum datatype')
     ;; else no parse
     (throw (ex-info "Bad DatatypeString format"
                     {:type ::BadDatatypestringFormat
                      :regex datatypestring-re
                      :form form}))))
-
 
 (defn read-DatatypeStr-cljs
   "Returns a macro expression for read-DatatypeStr suitable for insertion and interpretation in cljs source."
@@ -132,7 +138,7 @@
   `(read-DatatypeStr ~form))
 
 (def default-tags
-  "A map := {(type `obj`) `tag`, ...}
+  "A map := {(type `obj`) `tag`, ...}.
   - Where
     -`obj` is a clojure value
     -`tag` is a qname for the resource tagging the datatype of `obj`
@@ -146,4 +152,8 @@
          (type (short 0)) "xsd:short"
          (type (byte 0)) "xsd:byte"
          (type (float 0)) "xsd:float"
+         (type #'parse) "clj:Var"
+         (type 'symbol) "clj:Symbol"
          }))
+
+(swap! default-tags merge cljc-default-tags)

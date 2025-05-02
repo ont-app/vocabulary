@@ -1,9 +1,8 @@
 (ns ont-app.vocabulary.format
-  "Logic to handle all the various escapes and en/decoding required for URIs
-  and keywords"
+  "Logic to handle all the various escapes and en/decoding required for URIs and keywords."
   (:require
-   [clojure.string :as s]
-   [clojure.edn :as edn]
+   [clojure.string :as str]
+   #?(:clj [clojure.edn :as edn])
    #?(:clj [clojure.java.io :as io])
    #?(:cljs [cljs.reader :refer [read-string]])
    ))
@@ -14,7 +13,7 @@
   [c]
   #?(:clj
      (str "%"
-          (->> (str (char c)) .getBytes (map #(format "%X" %)) (s/join "%")))
+          (->> (str (char c)) .getBytes (map #(format "%X" %)) (str/join "%")))
      :cljs
      (throw (ex-info "Not supported in cljs: escape-utf-8"
                      {:type :not-supported-in-cljs
@@ -36,12 +35,13 @@
 
 #?(:clj
    (defn get-escapes
-  "Returns {`test-breaker` `escaped`, ...} for `char-test` and `escape-fn`
+  "Returns {`test-breaker` `escaped`, ...} for `char-test` and `escape-fn`.
   - Where
     - `test-breaker` is a char that breaks `char-test`
     - `escaped` is a string escaping `c`
     - `char-test` := fn [c] -> true if the char does not need escaping
     - `escape-fn` := fn [c] -> `escaped`
+  - NOTE: typically called once and stored as a static resource.
   "
   ([char-test escape-fn]
    (get-escapes char-test escape-fn identity))
@@ -67,22 +67,22 @@
     ))))
 
 (def invert-escape-map
-  "fn [{`escaped-char` `escape-str`, ...}] -> {`escape-str` `escaped-char-str`, ...}"
+  "A fn [{`escaped-char` `escape-str`, ...}] -> {`escape-str` `escaped-char-str`, ...}."
   #(reduce-kv (fn [macc c v] (assoc macc v (str c))) {} %))
 
 (defn escapes-re
-  "Returns a regex to recognize escape patterns in an encoded string per `inverted-escapes-map`
+  "Returns a regex to recognize escape patterns in an encoded string per `inverted-escapes-map`.
   Where
   - `inverted-escapes-map` := {`escape-pattern` `original`, ...}
   "
   [inverted-escapes-map]
-  (re-pattern (s/join "|"
+  (re-pattern (str/join "|"
                       (sort (fn [a b] (> (count a) (count b)))
                             ;; ... longer patterns first
                             (keys inverted-escapes-map)))))
 #?(:clj
    (defn generate-uri-escapes
-  "Side-effects: writes uri-escapes.edn and uri-escapes-inverted.edn
+  "Side-effects: writes uri-escapes.edn and uri-escapes-inverted.edn.
   These are used to cache values used in clj/s to escape URIs
   Note: typically used once to populate the resources.
 "
@@ -90,7 +90,7 @@
      (spit "uri-escapes.edn" (get-escapes uri-test escape-utf-8))))
 
 (def cljs-uri-escapes
-  "A direct copy of (io/resource 'uri-escapes.edn')"
+  "A direct copy of (io/resource 'uri-escapes.edn'), for use in cljs."
   (merge
    ;; A direct copy of (io/resource "uri-escapes.edn")"
    {
@@ -195,19 +195,20 @@
    ;; characters that break the cljs reader
    {}))
 
+
 (def uri-escapes
-  "{`c` `escape-str`, ...} for characters that break a URI string"
+  "A map {`c` `escape-str`, ...} for characters that break a URI string."
   #?(:clj (edn/read-string
            (slurp (io/resource "uri-escapes.edn")))
      :cljs cljs-uri-escapes))
 
 (def uri-escapes-inverted
-  "{`escape-str` `char-str`, ...} to decode escaped URI strings"
+  "A map {`escape-str` `char-str`, ...} to decode escaped URI strings."
   (invert-escape-map uri-escapes))
 
 #?(:clj
    (defn uri-string?
-     "True iff `s` is a valid URI string"
+     "True iff `s` is a valid URI string."
      [s]
      (try
        (not (nil? (some-> s
@@ -216,10 +217,21 @@
        (catch Throwable _
          false))))
 
-(defn encode-uri-string
-  "Renders `s` in a form that can be parsed as a URI"
+(def unescaped-slash-re
+  "Matches a string preceded by a backslash escape."
+  #?(:clj #"[^\\][\/]"
+     :cljs #"[^\\][/]"))
+
+(defn escape-slash
+  "Replaces a slash in `s` with a backslash-escaped slash."
   [s]
-  (s/escape s uri-escapes))
+  #?(:clj (str/replace s #"/" "\\\\/")
+     :cljs (str/replace s #"/" "\\/")))
+
+(defn encode-uri-string
+  "Renders `s` in a form that can be parsed as a URI."
+  [s]
+  (str/escape s uri-escapes))
 
 (def uri-escapes-re
   "A regex to replace escape strings with the original escaped char."
@@ -228,7 +240,7 @@
 (defn decode-uri-string
   "Inverts URI escapes in `s`. Inverse of encode-uri-string."
   [s]
-  (s/replace s uri-escapes-re (fn [esc] (uri-escapes-inverted esc))))
+  (str/replace s uri-escapes-re (fn [esc] (uri-escapes-inverted esc))))
 
 (defn kw-test
   "True when `c` is problem-free in keywords.
@@ -240,7 +252,7 @@
 
 #?(:clj
    (defn generate-kwi-escapes
-  "Side-effects: writes uri-escapes.edn and uri-escapes-inverted.edn
+  "Side-effects: writes uri-escapes.edn and uri-escapes-inverted.edn.
   These are used to cache values used in clj/s to escape URIs
   Note: typically used once to populate the resources.
 "
@@ -248,7 +260,7 @@
   (spit "resources/kw-escapes.edn" (get-escapes kw-test escape-utf-8))))
 
 (def cljs-kw-escapes
-  "{`kw-char` `escape-string`, ...}, for keyword-invalid chars."
+  "A map {`kw-char` `escape-string`, ...}, for keyword-invalid chars under cljs."
   (merge
    ;; copy of kw-escapes.edn
    {\  "%E2%80%80", \　 "%E3%80%80", \space "%20", \@ "%40", \` "%60", \  "%E1%9A%80", \  "%E2%80%81", \  "%E2%80%82", \" "%22", \  "%E2%80%83", \  "%E2%80%84", \  "%E2%80%85", \  "%E2%80%86", \  "%E2%80%88", \( "%28", \  "%E2%80%A8", \tab "%9", \  "%E2%80%89", \) "%29", \  "%E2%80%A9", \newline "%A", \  "%E2%80%8A", \ "%B", \formfeed "%C", \, "%2C", \return "%D", \᠎ "%E1%A0%8E", \; "%3B", \[ "%5B", \{ "%7B", \ "%1C", \\ "%5C", \ "%1D", \] "%5D", \} "%7D", \ "%1E", \^ "%5E", \~ "%7E", \ "%1F", \  "%E2%81%9F"}
@@ -257,45 +269,45 @@
     ;; (char 58) "%3A" ;; colon
     })) 
 
-(def kw-escapes "Escapes map for keywords"
+(def kw-escapes "Escapes map for keywords."
     #?(:clj (edn/read-string (slurp (io/resource "kw-escapes.edn")))
        :cljs cljs-kw-escapes))
 
 (def kw-terminal-escapes
-  "Escapes for characters forbidden a the end of a keyword"
+  "Escapes for characters forbidden a the end of a keyword."
   {(char 47) "%2F", ;; forward slash
    (char 58) "%3A" ;; colon
    }) 
 
-(def kw-escapes-inverted "Maps escaped characters to the originals"
+  (def kw-escapes-inverted "Maps escaped characters to the originals."
   (invert-escape-map (merge kw-escapes
                             kw-terminal-escapes)))
 
-(def kw-escapes-re "A regex to recognize when a string contains escapes"
+(def kw-escapes-re "A regex to recognize when a string contains escapes."
     (escapes-re kw-escapes-inverted))
 
 (defn encode-kw-ns
-  "Returns modified `kw-ns`, derived s.t. when used as the namespace component of
-   some   `kw`, `kw` will not choke the reader.
-  Inverse of `decode-kw-name`
+  "Returns `kw-ns`, modified to be reader-safe.
+  Derived s.t. when used as the namespace component of some   `kw`, `kw` will not choke
+  the reader. Inverse of `decode-kw-name`.
   Where
   - `kw-ns`` is a string
   - `kw` is a keyword := :`ns`/`s`
   "
   [kw-ns]
-  (-> (s/escape kw-ns kw-escapes)
-      (s/replace #":$" "%3A")))
+  (-> (str/escape kw-ns kw-escapes)
+      (str/replace #":$" "%3A")))
 
 
 (defn decode-kw-ns
-  "Returns `kw-ns` with any escapes translated"
+  "Returns `kw-ns` with any escapes translated."
   [kw-ns]
-  (-> kw-ns (s/replace kw-escapes-re (fn [esc] (kw-escapes-inverted esc)))))
+  (-> kw-ns (str/replace kw-escapes-re (fn [esc] (kw-escapes-inverted esc)))))
 
 (defn encode-kw-name
-  "Returns modified `kw-name`, derived s.t. when used as the name component of
-   some   `kw`, `kw` will not choke the reader.
-  Inverse of `decode-kw-name`
+  "Returns `kw-name`, modified to bet reader-safe.
+   Derived s.t. when used as the name component of some `kw`, `kw` will not choke the
+  reader. Inverse of `decode-kw-name`
   Where
   - `kw-name`` is a string
   - `kw` is a keyword := :`ns`/`s`
@@ -306,24 +318,24 @@
                           (str "+n+" s)
                           s))
         escape-double-colon (fn [s]
-                              (s/replace s  #"::" ":%3A"))
+                              (str/replace s  #"::" ":%3A"))
         maybe-escape-last (fn [s]
                             (if (contains? kw-terminal-escapes (last s))
                               (str (subs s 0 (dec (count s)))
-                                   (str (kw-terminal-escapes (last s))))
+                                   (kw-terminal-escapes (last s)))
                               s))
         ]
   (-> kw-name
-      (s/escape kw-escapes)
+      (str/escape kw-escapes)
       (escape-double-colon)
       (maybe-escape-last)
       (maybe-prepend+n+))))
 
 (defn decode-kw-name
-  "Inverse of `encode-kw-name`. Returns original value of `kw-name`
+  "Inverse of `encode-kw-name`. Returns original value of `kw-name`.
   Where
   `kw-name` is a string, typically the name string of a KWI."
   [kw-name]
   (-> kw-name
-      (s/replace #"^\+n\+" "")
-      (s/replace kw-escapes-re (fn [esc] (kw-escapes-inverted esc)))))
+      (str/replace #"^\+n\+" "")
+      (str/replace kw-escapes-re (fn [esc] (kw-escapes-inverted esc)))))
