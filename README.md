@@ -5,6 +5,8 @@ RDF-style language-tagged  and typed literals.
 
 This library should work under both clojure and clojurescript.
 
+See https://cljdoc.org/d/ont-app/vocabulary/ for the latest API docs.
+
 ## Contents
 - [Installation](#installation)
 - [A brief synopsis](#a-brief-synopsis)
