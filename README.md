@@ -765,6 +765,7 @@ where the taxonomy is ambiguous. It is dispatched on `parent`...
       (ex-info "Expected ::Abel to be included in the children" {...})))
 ```
 
+<a name=common-linked-data-namespaces></a>
 ## Common Linked Data namespaces
 
 Part of the vision of the `ont-app` project is to provide a medium for

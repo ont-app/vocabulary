@@ -103,7 +103,7 @@
 
 (def ^:private cljc-default-tags
   "Platform-specific default tags, to be merged into @default-tags at compile time."
-  #?(:clj {java.lang.Class "clj:JavaClass"}
+  #?(:clj {java.lang.Class "clj:javaClass"}
      :cljs {}))
 
 ;; END READER MACROS

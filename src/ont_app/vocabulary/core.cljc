@@ -1,4 +1,10 @@
 (ns ont-app.vocabulary.core
+  {:clj-kondo/ignore [:unresolved-symbol
+                      ;; .. suppresses 755:13: `ont_app`
+                      :deprecated-var
+                      ;; suppresses 1421:34: `uri-str-for`
+                      ]
+   }
   (:require
    [clojure.spec.alpha :as spec]
    [clojure.string :as str :refer [join]]
@@ -115,7 +121,7 @@ NOTE: call this when you may have imported new namespace metadata
      (atom {})))
 
 (defn put-ns-meta!
-  "Side-effect: ensures that subsequent calls to (cljc-get-ns-meta `ns'` return `m`.
+  "Side-effect: ensures that subsequent calls to (cljc-get-ns-meta `ns') return `m`.
   Where
   - `ns'`  is an ns (clj only) or the name of a namespace, possibly declared for the sole purpose of holding vocabulary metadata (e.g. rdf, foaf, etc)
   - `m` := {`key` `value`, ...}, metadata (clj) or 'pseudo-metadata' (cljs)
@@ -414,7 +420,6 @@ dcat:mediaType relation for some dcat:downloadURL."]])
   [this]
   (mint-kwi :voc/resource-type this))
 
-
 (defmethod resource-type [::resource-type-context ::cljc-string-type]
   [this]
   (cond
@@ -579,12 +584,15 @@ dcat:mediaType relation for some dcat:downloadURL."]])
       acc)))
 
 (defn prefix-to-ns
-  "Returns {`prefix` `ns`, ...}.
+  "Returns {`prefix` #{`ns`, ...} ...}.
   - Where
     - `prefix` is declared in metadata for some `ns` with
        :vann/preferredNamespacePrefix
     - `ns` is an instance of clojure.lang.ns available within the lexical
-       context in which the  call was made."
+       context in which the  call was made.
+  - NOTE: under normal circumstances, each value in this map is a singleton.
+    - See also `disambiguate-prefix-nx`.
+  "
   []
   (when-not @prefix-to-ns-cache
     (reset! prefix-to-ns-cache
@@ -659,7 +667,6 @@ dcat:mediaType relation for some dcat:downloadURL."]])
   {:pre [(string? prefix)]}
   (get (prefix-to-ns) prefix))
 
-
 (defn ns-to-prefix
   "Returns the prefix associated with `ns'`.
   - Where
@@ -685,7 +692,6 @@ dcat:mediaType relation for some dcat:downloadURL."]])
        (get (prefix-to-ns))
        unique
        (ns-to-namespace)))
-
 
 ;;;;;;;;;;;;;;;;
 ;; Minting KWIs
@@ -737,10 +743,9 @@ dcat:mediaType relation for some dcat:downloadURL."]])
   [head-kwi & args]
   ;; <head-kwi> + hash of sorted args.
   (assert (not (some #(nil? %) args)))
-  (let [ns' (namespace head-kwi)
-        name' (name head-kwi)
-        kwi (keyword ns' (str name' "_" (str/join "_" (map kw-string args))))]
-    kwi))
+  (let [ns' (namespace head-kwi)]
+    ;;kwi
+    (keyword ns' (str (name head-kwi) "_" (join "_" (map kw-string args))))))
 
 (defmethod mint-kwi :voc/resource-type mint-kwi-resource-type
   [_ this]
@@ -748,7 +753,7 @@ dcat:mediaType relation for some dcat:downloadURL."]])
            (str "resource_type_"
                 (kw-string (type this)))))
 
-(def dstr-kwi-name-re "Regex parsing DSTR KWI name to [_ datatype hash]."
+(def ^:no-doc dstr-kwi-name-re "Regex parsing DSTR KWI name to [_ datatype hash]."
   #"^d=(.*).hash=(.*)$")
 
 (declare as-kwi)
@@ -1188,7 +1193,6 @@ dcat:mediaType relation for some dcat:downloadURL."]])
 
 (derive :xsd/decimal :xsd/double)
 
-
 (defn- error-on-no-untag-found
   "Default response to a case where no `untag` method was found."
   [dstr]
@@ -1412,13 +1416,12 @@ dcat:mediaType relation for some dcat:downloadURL."]])
 (def ^:deprecated ^:no-doc cljc-put-ns-meta! "Deprecated. Use put-ns-meta!" put-ns-meta!)
 (def ^:deprecated ^:no-doc cljc-get-ns-meta "Deprecated. Use get-ns-meta." get-ns-meta)
 
-^:deprecated ^:no-doc
-(defmulti uri-str-for
+
+(defmulti ^:deprecated ^:no-doc uri-str-for
   "Deprecated. Use Resource protocol and `as-uri-string` instead."
   type)
 
-^:deprecated ^:no-doc
-(defmethod uri-str-for :default
+(defmethod  uri-str-for :default
   [x]
   (as-uri-string x))
 
@@ -1450,5 +1453,4 @@ dcat:mediaType relation for some dcat:downloadURL."]])
   [this]
   (as-uri-string this))
 
-#_:clj-kondo/ignore
 (def ^:deprecated ^:no-doc iri-for "Deprecated. Use `as-uri-string`." uri-for)

@@ -1,6 +1,10 @@
 # Change Log
 All notable changes to this project will be documented in this file. This change log follows the conventions of [keepachangelog.com](http://keepachangelog.com/).
 
+v 0.5.1
+  - Down-casing datatype tags to conform to xsd convention.
+  - Adding a `mint-kwi` method for `:voc/dstr`
+
 v 0.5.0
   - Adding @config atom to hold all configuration
   - BREAKING: @resource-types moved to (@config ::resource-types)
