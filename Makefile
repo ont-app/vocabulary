@@ -1,6 +1,6 @@
 
 ifneq ("$(wildcard ~/.clojure/Makefile)","")
-## Put stuff that references `~/.clojure/deps.edn aiases in ~/.clojure/Makefile...
+## Put stuff that references `~/.clojure/deps.edn aliases in ~/.clojure/Makefile...
 include ~/.clojure/Makefile
 endif
 

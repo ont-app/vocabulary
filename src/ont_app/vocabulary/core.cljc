@@ -306,7 +306,7 @@ Where
      :cljs (js/Date. date)))
 
 (defn- cljc-get-java-class-tag-name
-  "Returns a string naming a Java class for use in a (voc/tag ... :clj/JavaClass) method. Clj will accept a class instance or a string naming the class; cljs will only accept a string."
+  "Returns a string naming a Java class for use in a (voc/tag ... :clj/javaClass) method. Clj will accept a class instance or a string naming the class; cljs will only accept a string."
   [obj]
   #?(:clj (if (instance? java.lang.Class obj)
             (.getName obj)
@@ -648,7 +648,7 @@ dcat:mediaType relation for some dcat:downloadURL."]])
               (reduce collect-mapping {} (vann-annotated-objects)))))
   @namespace-to-ns-cache)
 
-(defn- prefixed-ns
+(defn prefixed-ns
   "Returns nil or #{ns, ...} whose `prefix` was declared in metadata with `:vann/preferredNamespacePrefix`.
   - Where
     - `prefix` is a string, typically parsed from a keyword.
@@ -733,7 +733,7 @@ dcat:mediaType relation for some dcat:downloadURL."]])
   "
   mint-kwi-dispatch)
 
-(defmethod mint-kwi :default
+(defmethod mint-kwi :default mint-kwi-default
   [head-kwi & args]
   ;; <head-kwi> + hash of sorted args.
   (assert (not (some #(nil? %) args)))
@@ -742,11 +742,28 @@ dcat:mediaType relation for some dcat:downloadURL."]])
         kwi (keyword ns' (str name' "_" (str/join "_" (map kw-string args))))]
     kwi))
 
-(defmethod mint-kwi :voc/resource-type
+(defmethod mint-kwi :voc/resource-type mint-kwi-resource-type
   [_ this]
   (keyword "voc"
            (str "resource_type_"
                 (kw-string (type this)))))
+
+(def dstr-kwi-name-re "Regex parsing DSTR KWI name to [_ datatype hash]."
+  #"^d=(.*).hash=(.*)$")
+
+(declare as-kwi)
+(declare as-qname)
+(declare untag)
+(defmethod mint-kwi :voc/dstr mint-kwi-dstr
+  [_ dstr]
+  {:pre [(= ont_app.vocabulary.dstr.DatatypeStr (type dstr))]}
+  (let [hash-fn (or (-> (@config ::resource-hashing-fn) untag)
+                    hash)]
+    (-> (str "http://rdf.naturallexicon.com/dstr#d="
+             (as-qname (dstr/datatype dstr))
+             ".hash="
+             (hash-fn (str dstr)))
+        as-kwi)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; RESOURCE TYPE CONTEXTS
@@ -821,7 +838,11 @@ dcat:mediaType relation for some dcat:downloadURL."]])
 (defmethod as-kwi :voc/Kwi
   [this]
   {:post [(spec/assert :voc/kwi-spec %)]}
-  this)
+  (if-let [ns' (some-> this namespace symbol find-ns)]
+    ;; .. this is a namespace-qualified keyword starting with ::
+    (keyword (ns-to-prefix ns') (name this))
+    ;; else
+    this))
 
 (defmethod as-kwi :voc/Qname
   [this]
@@ -1109,21 +1130,21 @@ dcat:mediaType relation for some dcat:downloadURL."]])
     (dstr/->DatatypeStr (-> obj' cljc-to-date str)
                         "xsd:dateTime")))
 
-(defmethod tag :clj/Var
+(defmethod tag :clj/var
   [obj & _]
   (dstr/->DatatypeStr (if (var? obj)
                         (str (.toSymbol obj))
                         ;; else not a var
                         (str obj))
-                      (as-qname :clj/Var)))
+                      (as-qname :clj/var)))
 
-(defmethod tag :clj/Symbol
+(defmethod tag :clj/symbol
   [obj & _]
-  (dstr/->DatatypeStr (str obj) (as-qname :clj/Symbol)))
+  (dstr/->DatatypeStr (str obj) (as-qname :clj/symbol)))
 
-(defmethod tag :clj/JavaClass
+(defmethod tag :clj/javaClass
   [obj & _]
-  (dstr/->DatatypeStr (cljc-get-java-class-tag-name obj) (as-qname :clj/JavaClass)))
+  (dstr/->DatatypeStr (cljc-get-java-class-tag-name obj) (as-qname :clj/javaClass)))
 
 (defmethod tag :default
   ([obj]
@@ -1150,10 +1171,10 @@ dcat:mediaType relation for some dcat:downloadURL."]])
   "
   untag-dispatch)
 
-(defmethod untag :clj/JavaClass [obj & _] (-> obj str symbol cljc-resolve))
-(defmethod untag :clj/Symbol    [obj & _] (-> obj str symbol))
-(defmethod untag :clj/Var       [obj & _] (-> obj str symbol cljc-resolve))
-(defmethod untag :xsd/Boolean   [obj & _] {:post [(boolean? %)]} (-> obj str read-string))
+(defmethod untag :clj/javaClass [obj & _] (-> obj str symbol cljc-resolve))
+(defmethod untag :clj/symbol    [obj & _] (-> obj str symbol))
+(defmethod untag :clj/var       [obj & _] (-> obj str symbol cljc-resolve))
+(defmethod untag :xsd/boolean   [obj & _] {:post [(boolean? %)]} (-> obj str read-string))
 (defmethod untag :xsd/byte      [obj & _] (-> obj str read-string byte))
 (defmethod untag :xsd/dateTime  [obj & _] (-> obj str cljc-read-date))
 (defmethod untag :xsd/double    [obj & _] (-> obj str read-string))

@@ -548,9 +548,13 @@ need to clear the caches:
 
 ### Prefix collisions
 
-There may be cases where two namespaces lay claim to the same
-prefix. In such cases the `disambiguate-prefix-ns` method will be
-called. By default, this will throw an `ExceptionInfo` of `:type`
+The `prefixed-ns` function takes the prefix string and returns the set
+of ns's associated with that prefix. Typically this is nil or a
+singleton set. A prefix collision will result if that set has more
+than one member.
+
+In such cases the `disambiguate-prefix-ns` method will be called. By
+default, this will throw an `ExceptionInfo` of `:type`
 `::voc/DuplicatePrefix`.
 
 A bit of research into prefixes claimed by existing public
@@ -936,11 +940,11 @@ registered in `dstr/default-tags` ...
 ```clj
 > dstr/default-tags
 #<Atom@793bab96:
-  {clojure.lang.Symbol "clj:Symbol",
-   clojure.lang.Var "clj:Var",
-   java.lang.Boolean "xsd:Boolean",
+  {clojure.lang.Symbol "clj:symbol",
+   clojure.lang.Var "clj:var",
+   java.lang.Boolean "xsd:boolean",
    java.lang.Byte "xsd:byte",
-   java.lang.Class "clj:JavaClass",
+   java.lang.Class "clj:javaClass",
    java.lang.Double "xsd:double",
    java.lang.Float "xsd:float",
    java.lang.Long "xsd:long",
