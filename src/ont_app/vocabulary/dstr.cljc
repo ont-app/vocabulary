@@ -146,7 +146,7 @@
   "
   (atom {(type 0) "xsd:long"
          (type 0.0) "xsd:double"
-         (type true) "xsd:Boolean"
+         (type true) "xsd:boolean"
          (type #inst "2000") "xsd:dateTime"
          (type "") "xsd:string"
          (type (short 0)) "xsd:short"
